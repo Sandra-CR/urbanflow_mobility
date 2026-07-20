@@ -8,18 +8,30 @@ dotenv.config({
 
 const { Pool } = pg
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is required to connect to Supabase.')
+export let pool
+
+function getDatabaseUrl() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is required to connect to Supabase.')
+  }
+
+  return process.env.DATABASE_URL
 }
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-})
+export function getPool() {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: getDatabaseUrl(),
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    })
+  }
 
-export const query = (text, params) => pool.query(text, params)
+  return pool
+}
+
+export const query = (text, params) => getPool().query(text, params)
 
 export async function checkDatabaseConnection() {
   const result = await query('select now() as current_time')
@@ -27,5 +39,8 @@ export async function checkDatabaseConnection() {
 }
 
 export async function closeDatabaseConnection() {
-  await pool.end()
+  if (pool) {
+    await pool.end()
+    pool = undefined
+  }
 }

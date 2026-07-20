@@ -1,15 +1,26 @@
-import { test } from 'node:test';
-import assert from 'node:assert';
-import { checkDatabaseConnection, closeDatabaseConnection } from '../db.js';
+import { test } from 'node:test'
+import assert from 'node:assert'
+import { checkDatabaseConnection, closeDatabaseConnection } from '../db.js'
 
-test('Test de connexion à la base de données', async () => {
+const shouldRunDatabaseTests =
+  process.env.RUN_DB_TESTS === 'true' && Boolean(process.env.DATABASE_URL)
+
+test(
+  'Test de connexion a la base de donnees',
+  {
+    skip: shouldRunDatabaseTests
+      ? false
+      : 'Set RUN_DB_TESTS=true and DATABASE_URL to run database integration tests',
+  },
+  async () => {
     try {
-        const result = await checkDatabaseConnection();
-        assert.ok(result, "La base de données aurait dû renvoyer un résultat");
-        assert.ok(result.current_time, "Le résultat devrait contenir une date");
+      const result = await checkDatabaseConnection()
+      assert.ok(result, 'La base de donnees aurait du renvoyer un resultat')
+      assert.ok(result.current_time, 'Le resultat devrait contenir une date')
     } catch (error) {
-        assert.fail(`La connexion à la base de données a échoué: ${error.message}`);
+      assert.fail(`La connexion a la base de donnees a echoue: ${error.message}`)
     } finally {
-        await closeDatabaseConnection();
+      await closeDatabaseConnection()
     }
-});
+  },
+)
