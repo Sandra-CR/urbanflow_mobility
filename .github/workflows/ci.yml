@@ -44,6 +44,9 @@ jobs:
     name: Server - Express
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
     defaults:
       run:
         working-directory: server
