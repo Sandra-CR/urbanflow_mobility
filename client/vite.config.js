@@ -3,10 +3,34 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  optimizeDeps: {
+    exclude: ['maplibre-gl'],
+  },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      devOptions: {
+        enabled: true,
+      },
+      workbox: {
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/basemaps\.cartocdn\.com\/.*\.(?:png|jpg|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'carto-map-tiles',
+              expiration: {
+                maxEntries: 600,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'UrbanFlow Mobility',
         short_name: 'UrbanFlow',

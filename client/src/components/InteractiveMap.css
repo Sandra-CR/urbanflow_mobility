@@ -1,0 +1,141 @@
+.interactive-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  background: #eef2f3;
+}
+
+.interactive-map__canvas {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+}
+
+.interactive-map .maplibregl-ctrl-bottom-right {
+  right: 16px;
+  bottom: 16px;
+  z-index: 4;
+}
+
+.interactive-map .maplibregl-ctrl-group {
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+}
+
+.interactive-map__status {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #172026;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+}
+
+.interactive-map__status-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.interactive-map__warning {
+  position: absolute;
+  right: 14px;
+  bottom: 76px;
+  z-index: 5;
+  max-width: min(320px, calc(100% - 28px));
+  padding: 8px 10px;
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 251, 235, 0.94);
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+}
+
+.interactive-map .maplibregl-marker,
+.interactive-map .maplibregl-popup {
+  z-index: 6;
+}
+
+.station-marker {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.28);
+  cursor: pointer;
+}
+
+.station-marker:hover,
+.station-marker:focus-visible {
+  transform: scale(1.16);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.34);
+}
+
+.station-marker:focus-visible {
+  outline: 3px solid rgba(20, 184, 166, 0.55);
+  outline-offset: 3px;
+}
+
+.station-marker--bike {
+  background: #14b8a6;
+}
+
+.station-marker--bus {
+  background: #f59e0b;
+}
+
+.station-marker--tram {
+  background: #7c3aed;
+}
+
+.station-marker--charge {
+  background: #22c55e;
+}
+
+.station-popup-frame .maplibregl-popup-content {
+  padding: 9px 11px;
+  border-radius: 8px;
+  color: #172026;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+}
+
+.station-popup {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.station-popup strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.station-popup span {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.25;
+  text-transform: capitalize;
+}
