@@ -36,6 +36,10 @@ pids/
 coverage/
 .nyc_output/
 
+# Generated documentation
+docs/
+server/docs/
+
 # Vite
 .vite/
 

@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test",
+    "docs": "jsdoc -c jsdoc.config.json",
     "dev": "node --watch index.js",
     "start": "node index.js"
   },
@@ -17,5 +18,8 @@
     "express": "^5.2.1",
     "pg": "^8.22.0"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "jsdoc": "^4.0.5"
+  }
 }

@@ -19,10 +19,30 @@ npm install --prefix client
 npm install --prefix server
 ```
 
-## Démarrage simltané
+## Démarrage simultané
 
 Depuis la racine :
 
 ```powershell
 npm run dev
 ```
+
+## Documentation technique
+
+Le backend utilise JSDoc pour documenter le code JavaScript directement dans les fichiers sources.
+
+L'objectif est de garder une documentation lisible :
+
+- expliquer le rôle d'une fonction ou d'un module
+- préciser les paramètres attendus
+- préciser la valeur retournée
+- signaler les erreurs possibles avec `@throws`
+- éviter de commenter les lignes évidentes
+
+Générer la documentation serveur :
+
+```bash
+npm run docs
+```
+
+La documentation générée est placée dans `server/docs` et n'est pas versionnée.
