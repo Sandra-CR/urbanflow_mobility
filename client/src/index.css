@@ -3,19 +3,47 @@
 @tailwind utilities;
 
 :root {
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-sans:
+    Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-  font: 16px/145% var(--sans);
-  color: #172026;
-  background: #f7f9f8;
+  --color-primary: #486c3a;
+  --color-primary-hover: #3a572e;
+  --color-background: #f8f9fa;
+  --color-card: #ffffff;
+  --color-text: #1a2516;
+  --color-text-light: #5a6556;
+  --color-on-primary: #ffffff;
+
+  --shadow-ui: 0 8px 20px rgba(26, 37, 22, 0.14);
+  --shadow-floating: 0 14px 32px rgba(26, 37, 22, 0.18);
+  --radius-ui: 8px;
+
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+[data-theme='dark'] {
+  --color-primary: #66a852;
+  --color-primary-hover: #76b862;
+  --color-background: #121212;
+  --color-card: #1e1e1e;
+  --color-text: #e3ebe0;
+  --color-text-light: #919e8e;
+  --color-on-primary: #121212;
+
+  --shadow-ui: 0 8px 20px rgba(0, 0, 0, 0.32);
+  --shadow-floating: 0 14px 32px rgba(0, 0, 0, 0.38);
+}
+
 body {
   margin: 0;
+  min-width: 320px;
+  background: var(--color-background);
 }
 
 * {
@@ -28,4 +56,62 @@ button {
 
 #root {
   min-height: 100svh;
+}
+
+@layer base {
+  h1,
+  .text-h1 {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: normal;
+  }
+
+  h2,
+  .text-h2 {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 24px;
+  }
+
+  h4,
+  .text-h4 {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: normal;
+    text-transform: uppercase;
+  }
+
+  p,
+  .text-body {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 22px;
+  }
+
+  .text-small {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 18px;
+  }
+}
+
+@layer components {
+  .app-surface {
+    background: var(--color-background);
+    color: var(--color-text);
+  }
+
+  .app-card {
+    border-radius: var(--radius-ui);
+    background: var(--color-card);
+    color: var(--color-text);
+  }
 }

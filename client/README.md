@@ -1,16 +1,108 @@
-# React + Vite
+# Client UrbanFlow Mobility
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application frontend React avec Vite, Tailwind CSS et configuration PWA.
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Depuis `client` :
 
-## React Compiler
+```bash
+npm install
+npm run dev
+npm run build
+npm run lint
+npm run format:check
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Sur Windows, si PowerShell bloque `npm.ps1`, utiliser `npm.cmd` :
 
-## Expanding the ESLint configuration
+```powershell
+npm.cmd run build
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Thème visuel
+
+Les couleurs, typographies, rayons et ombres partagés sont centralisés dans `src/index.css` sous forme de variables CSS. Les mêmes valeurs sont exposées dans `tailwind.config.js` pour être réutilisables avec Tailwind.
+
+### Couleurs
+
+Tokens disponibles :
+
+- `primary`
+- `primary-hover`
+- `background`
+- `card`
+- `text`
+- `text-light`
+- `on-primary`
+
+En CSS :
+
+```css
+.example {
+  background: var(--color-card);
+  color: var(--color-text);
+}
+```
+
+Avec Tailwind :
+
+```jsx
+<section className="bg-card text-text">...</section>
+```
+
+### Mode sombre
+
+Le thème sombre est activé avec l'attribut `data-theme="dark"` sur un conteneur parent.
+
+```jsx
+<main data-theme={isDarkMode ? 'dark' : 'light'}>...</main>
+```
+
+Les composants doivent consommer les variables CSS plutôt que définir directement des couleurs hexadécimales.
+
+## Typographies
+
+Classes CSS disponibles :
+
+- `text-h1` : Inter bold, 24 px.
+- `text-h2` : Inter semibold, 18 px, line-height 24 px.
+- `text-h4` : Inter bold uppercase, 13 px.
+- `text-body` : Inter medium, 16 px, line-height 22 px.
+- `text-small` : Inter regular, 13 px, line-height 18 px.
+
+Équivalents Tailwind disponibles :
+
+- `text-h1`
+- `text-h2`
+- `text-h4`
+- `text-body`
+- `text-small`
+
+Pour garder la PWA utilisable hors ligne, Inter est auto-hébergée dans `public/fonts`. Voir `public/fonts/README.md`.
+
+## Icônes
+
+Les icônes de l'interface doivent venir de `@phosphor-icons/react`.
+
+Exemple :
+
+```jsx
+import { DownloadSimple } from '@phosphor-icons/react';
+
+<DownloadSimple size={20} weight="bold" aria-hidden="true" />;
+```
+
+Règles d'usage :
+
+- Préférer les composants Phosphor dans la mesure du possible.
+- Garder `aria-hidden="true"` pour les icônes purement décoratives ou déjà décrites par le bouton.
+- Utiliser `aria-label` sur le bouton ou le contrôle interactif, pas sur l'icône seule.
+
+## Logos et assets de marque
+
+Les images importées sont placés dans `src/assets/brand`.
+
+Les icônes PWA installées sur mobile doivent être placées dans `public`.
+
+Voir `src/assets/brand/README.md` pour les formats recommandés.

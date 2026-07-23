@@ -1,8 +1,8 @@
 .map-test-page {
   position: relative;
   min-height: 100svh;
-  background: #f7f9f8;
-  color: #172026;
+  background: var(--color-background);
+  color: var(--color-text);
 }
 
 .map-actions {
@@ -21,23 +21,19 @@
   width: 42px;
   height: 42px;
   padding: 0;
-  border: 1px solid #b8c7c1;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #172026;
+  border: 1px solid color-mix(in srgb, var(--color-text-light) 36%, transparent);
+  border-radius: var(--radius-ui);
+  background: color-mix(in srgb, var(--color-card) 94%, transparent);
+  color: var(--color-text);
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--shadow-ui);
   backdrop-filter: blur(8px);
 }
 
 .map-icon-button svg {
   width: 20px;
   height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  flex: 0 0 auto;
 }
 
 .map-icon-button:disabled {
@@ -47,15 +43,15 @@
 
 .map-icon-button:hover,
 .map-icon-button:focus-visible {
-  border-color: #0f766e;
-  color: #0f766e;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
   outline: none;
 }
 
 .map-icon-button[aria-pressed='true'] {
-  border-color: #0f766e;
-  background: #ecfdf5;
-  color: #0f766e;
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-card));
+  color: var(--color-primary);
 }
 
 .map-shell {
@@ -72,34 +68,32 @@
   gap: 7px;
   width: min(420px, calc(100vw - 32px));
   padding: 12px 14px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid color-mix(in srgb, var(--color-text-light) 20%, transparent);
+  border-radius: var(--radius-ui);
+  background: color-mix(in srgb, var(--color-card) 96%, transparent);
   text-align: left;
   transform: translateX(-50%);
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+  box-shadow: var(--shadow-floating);
   backdrop-filter: blur(8px);
 }
 
 .offline-cache-toast p {
   margin: 0;
-  color: #475569;
-  font-size: 13px;
-  font-weight: 700;
+  color: var(--color-text-light);
 }
 
 .offline-cache-progress {
   height: 7px;
   overflow: hidden;
   border-radius: 999px;
-  background: #e2e8f0;
+  background: color-mix(in srgb, var(--color-text-light) 18%, transparent);
 }
 
 .offline-cache-progress span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #0f766e;
+  background: var(--color-primary);
   transition: width 160ms ease;
 }
 
