@@ -1,15 +1,15 @@
-import { useState } from 'react'
-import InteractiveMap from './components/InteractiveMap'
-import { preloadMapTiles } from './utils/offlineMapTiles'
-import './App.css'
+import { useState } from 'react';
+import InteractiveMap from './components/InteractiveMap';
+import { preloadMapTiles } from './utils/offlineMapTiles';
+import './App.css';
 
-const TEST_CENTER = [2.3522, 48.8566]
+const TEST_CENTER = [2.3522, 48.8566];
 const PARIS_OFFLINE_BOUNDS = {
   west: 2.24,
   south: 48.81,
   east: 2.48,
   north: 48.91,
-}
+};
 
 const TEST_STATIONS = [
   {
@@ -36,18 +36,18 @@ const TEST_STATIONS = [
     type: 'charge',
     coordinates: [2.369, 48.853],
   },
-]
+];
 
 function App() {
-  const [isDarkMode, setIsDarkMode] = useState(false)
-  const [cacheProgress, setCacheProgress] = useState(null)
-  const [isCachingTiles, setIsCachingTiles] = useState(false)
-  const [cacheMessage, setCacheMessage] = useState('')
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [cacheProgress, setCacheProgress] = useState(null);
+  const [isCachingTiles, setIsCachingTiles] = useState(false);
+  const [cacheMessage, setCacheMessage] = useState('');
 
   async function handlePreloadOfflineMap() {
-    setIsCachingTiles(true)
-    setCacheMessage('')
-    setCacheProgress({ completed: 0, total: 0, percent: 0 })
+    setIsCachingTiles(true);
+    setCacheMessage('');
+    setCacheProgress({ completed: 0, total: 0, percent: 0 });
 
     try {
       const result = await preloadMapTiles({
@@ -56,13 +56,13 @@ function App() {
         maxZoom: 15,
         includeDarkMode: true,
         onProgress: setCacheProgress,
-      })
+      });
 
-      setCacheMessage(`${result.total} tuiles prêtes pour le hors ligne.`)
+      setCacheMessage(`${result.total} tuiles prêtes pour le hors ligne.`);
     } catch (error) {
-      setCacheMessage(error.message)
+      setCacheMessage(error.message);
     } finally {
-      setIsCachingTiles(false)
+      setIsCachingTiles(false);
     }
   }
 
@@ -91,7 +91,9 @@ function App() {
         <button
           className="map-icon-button"
           type="button"
-          aria-label={isDarkMode ? 'Activer le mode clair' : 'Activer le mode sombre'}
+          aria-label={
+            isDarkMode ? 'Activer le mode clair' : 'Activer le mode sombre'
+          }
           title={isDarkMode ? 'Mode clair' : 'Mode sombre'}
           aria-pressed={isDarkMode}
           onClick={() => setIsDarkMode((currentValue) => !currentValue)}
@@ -119,7 +121,7 @@ function App() {
         />
       </section>
     </main>
-  )
+  );
 }
 
 function SunIcon() {
@@ -135,7 +137,7 @@ function SunIcon() {
       <path d="m6.34 17.66-1.41 1.41" />
       <path d="m19.07 4.93-1.41 1.41" />
     </svg>
-  )
+  );
 }
 
 function MoonIcon() {
@@ -143,7 +145,7 @@ function MoonIcon() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M20.4 14.5A8.5 8.5 0 0 1 9.5 3.6 8.5 8.5 0 1 0 20.4 14.5Z" />
     </svg>
-  )
+  );
 }
 
 function DownloadIcon() {
@@ -153,7 +155,7 @@ function DownloadIcon() {
       <path d="m7 9 5 5 5-5" />
       <path d="M5 20h14" />
     </svg>
-  )
+  );
 }
 
-export default App
+export default App;

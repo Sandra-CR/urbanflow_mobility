@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   optimizeDeps: {
@@ -16,7 +16,8 @@ export default defineConfig({
       workbox: {
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/basemaps\.cartocdn\.com\/.*\.(?:png|jpg|webp)$/,
+            urlPattern:
+              /^https:\/\/basemaps\.cartocdn\.com\/.*\.(?:png|jpg|webp)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'carto-map-tiles',
@@ -54,4 +55,4 @@ export default defineConfig({
       },
     }),
   ],
-})
+});

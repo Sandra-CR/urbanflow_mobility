@@ -6,8 +6,11 @@
   "scripts": {
     "test": "node --test",
     "docs": "jsdoc -c jsdoc.config.json",
+    "lint": "eslint .",
     "dev": "node --watch index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "format": "prettier --write . --ignore-path ../.prettierignore",
+    "format:check": "prettier --check . --ignore-path ../.prettierignore"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +23,8 @@
   },
   "type": "module",
   "devDependencies": {
-    "jsdoc": "^4.0.5"
+    "eslint-config-prettier": "^10.1.8",
+    "jsdoc": "^4.0.5",
+    "prettier": "^3.9.6"
   }
 }

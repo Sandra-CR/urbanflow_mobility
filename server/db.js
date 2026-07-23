@@ -1,12 +1,12 @@
-import dotenv from 'dotenv'
-import pg from 'pg'
-import { fileURLToPath } from 'node:url'
+import dotenv from 'dotenv';
+import pg from 'pg';
+import { fileURLToPath } from 'node:url';
 
 dotenv.config({
   path: fileURLToPath(new URL('.env', import.meta.url)),
-})
+});
 
-const { Pool } = pg
+const { Pool } = pg;
 
 /**
  * Pool de connexions PostgreSQL partagé par le serveur.
@@ -17,7 +17,7 @@ const { Pool } = pg
  *
  * @type {object | undefined}
  */
-export let pool
+export let pool;
 
 /**
  * Lit l'URL de connexion PostgreSQL Supabase depuis les variables
@@ -28,10 +28,10 @@ export let pool
  */
 function getDatabaseUrl() {
   if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is required to connect to Supabase.')
+    throw new Error('DATABASE_URL is required to connect to Supabase.');
   }
 
-  return process.env.DATABASE_URL
+  return process.env.DATABASE_URL;
 }
 
 /**
@@ -48,10 +48,10 @@ export function getPool() {
       ssl: {
         rejectUnauthorized: false,
       },
-    })
+    });
   }
 
-  return pool
+  return pool;
 }
 
 /**
@@ -64,7 +64,7 @@ export function getPool() {
  * @param {Array<unknown>} [params] Valeurs associées aux placeholders.
  * @returns {Promise<object>} Résultat renvoyé par PostgreSQL.
  */
-export const query = (text, params) => getPool().query(text, params)
+export const query = (text, params) => getPool().query(text, params);
 
 /**
  * Vérifie que la base de données accepte les requêtes.
@@ -75,8 +75,8 @@ export const query = (text, params) => getPool().query(text, params)
  * @returns {Promise<{current_time: Date}>} Date courante renvoyée par la base.
  */
 export async function checkDatabaseConnection() {
-  const result = await query('select now() as current_time')
-  return result.rows[0]
+  const result = await query('select now() as current_time');
+  return result.rows[0];
 }
 
 /**
@@ -89,7 +89,7 @@ export async function checkDatabaseConnection() {
  */
 export async function closeDatabaseConnection() {
   if (pool) {
-    await pool.end()
-    pool = undefined
+    await pool.end();
+    pool = undefined;
   }
 }
