@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { WifiSlash } from '@phosphor-icons/react';
 import * as maplibregl from 'maplibre-gl';
 import { TILE_URLS } from '../utils/offlineMapTiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -225,17 +226,12 @@ export default function InteractiveMap({
       <div ref={mapContainerRef} className="interactive-map__canvas" />
       {!isOnline ? (
         <div className="interactive-map__status" role="status">
-          <svg
+          <WifiSlash
             className="interactive-map__status-icon"
-            viewBox="0 0 24 24"
+            size={16}
+            weight="bold"
             aria-hidden="true"
-          >
-            <path d="M2 8.82C4.74 6.4 8.24 5.04 12 5.04c3.76 0 7.26 1.36 10 3.78" />
-            <path d="M5.5 12.32A9.76 9.76 0 0 1 12 9.95c2.45 0 4.69.89 6.43 2.37" />
-            <path d="M8.95 15.77A4.8 4.8 0 0 1 12 14.73c1.14 0 2.18.39 3.01 1.04" />
-            <path d="M12 19.2h.01" />
-            <path d="M3 3l18 18" />
-          </svg>
+          />
           <span>Hors ligne</span>
         </div>
       ) : null}

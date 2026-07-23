@@ -4,7 +4,11 @@
   height: 100%;
   min-height: 320px;
   overflow: hidden;
-  background: #eef2f3;
+  background: color-mix(
+    in srgb,
+    var(--color-background) 82%,
+    var(--color-text-light)
+  );
 }
 
 .interactive-map__canvas {
@@ -21,9 +25,9 @@
 
 .interactive-map .maplibregl-ctrl-group {
   overflow: hidden;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 8px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+  border: 1px solid color-mix(in srgb, var(--color-text-light) 20%, transparent);
+  border-radius: var(--radius-ui);
+  box-shadow: var(--shadow-ui);
 }
 
 .interactive-map__status {
@@ -35,23 +39,17 @@
   align-items: center;
   gap: 7px;
   padding: 7px 10px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #172026;
-  font-size: 12px;
-  font-weight: 700;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+  border: 1px solid color-mix(in srgb, var(--color-text-light) 20%, transparent);
+  border-radius: var(--radius-ui);
+  background: color-mix(in srgb, var(--color-card) 92%, transparent);
+  color: var(--color-text);
+  box-shadow: var(--shadow-ui);
 }
 
 .interactive-map__status-icon {
   width: 16px;
   height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  flex: 0 0 auto;
 }
 
 .interactive-map__warning {
@@ -62,13 +60,11 @@
   max-width: min(320px, calc(100% - 28px));
   padding: 8px 10px;
   border: 1px solid rgba(217, 119, 6, 0.28);
-  border-radius: 8px;
+  border-radius: var(--radius-ui);
   background: rgba(255, 251, 235, 0.94);
   color: #92400e;
-  font-size: 12px;
-  font-weight: 700;
   text-align: left;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+  box-shadow: var(--shadow-ui);
 }
 
 .interactive-map .maplibregl-marker,
@@ -80,9 +76,9 @@
   width: 18px;
   height: 18px;
   padding: 0;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--color-card);
   border-radius: 999px;
-  background: #2563eb;
+  background: var(--color-primary);
   box-shadow: 0 5px 14px rgba(15, 23, 42, 0.28);
   cursor: pointer;
 }
@@ -94,7 +90,7 @@
 }
 
 .station-marker:focus-visible {
-  outline: 3px solid rgba(20, 184, 166, 0.55);
+  outline: 3px solid color-mix(in srgb, var(--color-primary) 48%, transparent);
   outline-offset: 3px;
 }
 
@@ -116,8 +112,9 @@
 
 .station-popup-frame .maplibregl-popup-content {
   padding: 9px 11px;
-  border-radius: 8px;
-  color: #172026;
+  border-radius: var(--radius-ui);
+  background: var(--color-card);
+  color: var(--color-text);
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
 }
 
@@ -130,12 +127,12 @@
 
 .station-popup strong {
   font-size: 13px;
-  line-height: 1.25;
+  line-height: 18px;
 }
 
 .station-popup span {
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.25;
+  color: var(--color-text-light);
+  font-size: 13px;
+  line-height: 18px;
   text-transform: capitalize;
 }

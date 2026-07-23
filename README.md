@@ -9,6 +9,15 @@ Le projet est organisé en monorepo avec une séparation claire entre le client 
 - `client` : application frontend React avec Vite, Tailwind CSS et configuration PWA.
 - `server` : API backend Node.js avec Express.
 
+## Frontend
+
+Les conventions visuelles du client sont documentées dans `client/README.md` :
+
+- tokens de couleurs light/dark
+- classes typographiques partagées
+- usage de `@phosphor-icons/react`
+- emplacements recommandés pour les logos, fonts et icônes PWA
+
 ## Installation
 
 Depuis la racine du projet :
