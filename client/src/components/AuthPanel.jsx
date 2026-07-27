@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle, Eye, EyeClosed, XCircle } from '@phosphor-icons/react';
-import urbanflowSymbol from '../assets/brand/urbanflow-Symbol.svg';
+import urbanflowSymbol from '../assets/brand/urbanflow-symbol.svg';
 import './AuthPanel.css';
 
 const PASSWORD_RULES = [
