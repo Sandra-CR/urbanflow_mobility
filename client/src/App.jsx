@@ -1,6 +1,20 @@
-import { useState } from 'react';
-import { DownloadSimple, Moon, Sun } from '@phosphor-icons/react';
+import { useEffect, useState } from 'react';
+import {
+  DownloadSimple,
+  Moon,
+  SignOut,
+  Sun,
+  Trash,
+} from '@phosphor-icons/react';
+import AuthPanel from './components/AuthPanel';
 import InteractiveMap from './components/InteractiveMap';
+import {
+  deleteCurrentUser,
+  getCurrentUser,
+  loginUser,
+  logoutUser,
+  registerUser,
+} from './utils/authApi';
 import { preloadMapTiles } from './utils/offlineMapTiles';
 import './App.css';
 
@@ -40,10 +54,65 @@ const TEST_STATIONS = [
 ];
 
 function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [cacheProgress, setCacheProgress] = useState(null);
   const [isCachingTiles, setIsCachingTiles] = useState(false);
   const [cacheMessage, setCacheMessage] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getCurrentUser()
+      .then((data) => {
+        if (isMounted) {
+          setCurrentUser(data.user);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setCurrentUser(null);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsCheckingSession(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function handleLogin(credentials) {
+    const data = await loginUser(credentials);
+    setCurrentUser(data.user);
+  }
+
+  async function handleRegister(credentials) {
+    const data = await registerUser(credentials);
+    setCurrentUser(data.user);
+  }
+
+  async function handleLogout() {
+    await logoutUser();
+    setCurrentUser(null);
+  }
+
+  async function handleDeleteAccount() {
+    const shouldDelete = window.confirm(
+      'Supprimer definitivement votre compte UrbanFlow ?'
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    await deleteCurrentUser();
+    setCurrentUser(null);
+  }
 
   async function handlePreloadOfflineMap() {
     setIsCachingTiles(true);
@@ -65,6 +134,18 @@ function App() {
     } finally {
       setIsCachingTiles(false);
     }
+  }
+
+  if (isCheckingSession) {
+    return (
+      <main className="app-loading app-surface">
+        <div className="app-loading__indicator" aria-label="Chargement" />
+      </main>
+    );
+  }
+
+  if (!currentUser) {
+    return <AuthPanel onLogin={handleLogin} onRegister={handleRegister} />;
   }
 
   return (
@@ -92,6 +173,9 @@ function App() {
       )}
 
       <div className="map-actions" aria-label="Commandes de carte">
+        <div className="user-chip" title={currentUser.email}>
+          <span>{currentUser.email}</span>
+        </div>
         <button
           className="map-icon-button"
           type="button"
@@ -117,6 +201,24 @@ function App() {
           onClick={handlePreloadOfflineMap}
         >
           <DownloadSimple size={20} weight="bold" aria-hidden="true" />
+        </button>
+        <button
+          className="map-icon-button"
+          type="button"
+          aria-label="Se deconnecter"
+          title="Se deconnecter"
+          onClick={handleLogout}
+        >
+          <SignOut size={20} weight="bold" aria-hidden="true" />
+        </button>
+        <button
+          className="map-icon-button map-icon-button--danger"
+          type="button"
+          aria-label="Supprimer le compte"
+          title="Supprimer le compte"
+          onClick={handleDeleteAccount}
+        >
+          <Trash size={20} weight="bold" aria-hidden="true" />
         </button>
       </div>
 

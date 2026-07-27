@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
+import { fileURLToPath } from 'node:url';
+import { createAuthRouter } from './auth/routes.js';
 
 dotenv.config();
 
@@ -17,15 +20,24 @@ const app = express();
 /**
  * Port HTTP utilisé par le serveur API.
  *
- * En production, la plateforme d'hébergement fournit souvent la variable
- * PORT. En développement local, on utilise 3000 par défaut.
+ * On utilise 3000 par défaut.
  *
  * @type {string | number}
  */
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+const clientOrigins = process.env.CLIENT_ORIGIN
+  ? process.env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim())
+  : true;
+
+app.use(
+  cors({
+    origin: clientOrigins,
+    credentials: true,
+  })
+);
 app.use(express.json());
+app.use(cookieParser());
 
 /**
  * Route de vérification de l'état du serveur.
@@ -40,6 +52,26 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.use('/api/auth', createAuthRouter());
+
+app.use((err, req, res, next) => {
+  console.error(err);
+
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  return res.status(500).json({
+    error: 'Erreur serveur.',
+  });
 });
+
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
