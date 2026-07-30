@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { fileURLToPath } from 'node:url';
 import { createAuthRouter } from './auth/routes.js';
+import { createIdfmRouter } from './idfm/routes.js';
 
 dotenv.config();
 
@@ -30,9 +31,23 @@ const clientOrigins = process.env.CLIENT_ORIGIN
   ? process.env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim())
   : true;
 
+function isAllowedOrigin(origin) {
+  if (!origin || clientOrigins === true) {
+    return true;
+  }
+
+  if (clientOrigins.includes(origin)) {
+    return true;
+  }
+
+  return /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+}
+
 app.use(
   cors({
-    origin: clientOrigins,
+    origin(origin, callback) {
+      callback(null, isAllowedOrigin(origin));
+    },
     credentials: true,
   })
 );
@@ -53,6 +68,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', createAuthRouter());
+app.use('/api/idfm', createIdfmRouter());
 
 app.use((err, req, res, next) => {
   console.error(err);
