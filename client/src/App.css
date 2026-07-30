@@ -130,6 +130,27 @@
   color: var(--color-text-light);
 }
 
+.idfm-status-toast {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  z-index: 20;
+  width: min(420px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-text-light) 20%, transparent);
+  border-radius: var(--radius-ui);
+  background: color-mix(in srgb, var(--color-card) 96%, transparent);
+  text-align: left;
+  transform: translateX(-50%);
+  box-shadow: var(--shadow-floating);
+  backdrop-filter: blur(8px);
+}
+
+.idfm-status-toast p {
+  margin: 0;
+  color: var(--color-text-light);
+}
+
 .offline-cache-progress {
   height: 7px;
   overflow: hidden;

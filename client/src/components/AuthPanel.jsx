@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Eye, EyeClosed, XCircle } from '@phosphor-icons/react';
+import { CheckCircle, Eye, EyeClosed, X, XCircle } from '@phosphor-icons/react';
 import urbanflowSymbol from '../assets/brand/urbanflow-symbol.svg';
 import './AuthPanel.css';
 
@@ -36,7 +36,12 @@ const PASSWORD_RULES = [
   },
 ];
 
-export default function AuthPanel({ onLogin, onRegister }) {
+export default function AuthPanel({
+  isOverlay = false,
+  onClose,
+  onLogin,
+  onRegister,
+}) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -75,8 +80,23 @@ export default function AuthPanel({ onLogin, onRegister }) {
   }
 
   return (
-    <main className="auth-page app-surface">
+    <div
+      className={
+        isOverlay ? 'auth-page auth-page--overlay' : 'auth-page app-surface'
+      }
+    >
       <section className="auth-panel app-card" aria-labelledby="auth-title">
+        {isOverlay ? (
+          <button
+            className="auth-close"
+            type="button"
+            aria-label="Fermer"
+            title="Fermer"
+            onClick={onClose}
+          >
+            <X size={20} weight="bold" aria-hidden="true" />
+          </button>
+        ) : null}
         <div className="auth-brand">
           <img src={urbanflowSymbol} alt="UrbanFlow Mobility" />
           <h1 id="auth-title">
@@ -248,6 +268,6 @@ export default function AuthPanel({ onLogin, onRegister }) {
           </p>
         </form>
       </section>
-    </main>
+    </div>
   );
 }
