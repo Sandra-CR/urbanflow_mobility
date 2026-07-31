@@ -22,11 +22,13 @@ npm.cmd run build
 
 ## Thème visuel
 
-Les couleurs, typographies, rayons et ombres partagés sont centralisés dans `src/index.css` sous forme de variables CSS. Les mêmes valeurs sont exposées dans `tailwind.config.js` pour être réutilisables avec Tailwind.
+Les couleurs, typographies, rayons et ombres partagés sont centralisés dans `src/index.css` sous forme de variables CSS. Les tokens principaux sont exposés dans `tailwind.config.js` pour être réutilisables avec Tailwind.
 
 ### Couleurs
 
 Tokens disponibles :
+
+**Variables principales**
 
 - `primary`
 - `primary-hover`
@@ -34,7 +36,24 @@ Tokens disponibles :
 - `card`
 - `text`
 - `text-light`
+- `secondary`
+- `shadow`
 - `on-primary`
+
+**Variables d'état**
+
+- `danger`
+- `danger-text`
+- `danger-bg`
+- `danger-border`
+- `warning`
+- `warning-text`
+- `warning-bg`
+- `warning-border`
+- `success`
+- `success-text`
+- `success-bg`
+- `success-border`
 
 En CSS :
 

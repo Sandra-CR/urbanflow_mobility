@@ -1,7 +1,11 @@
 import express from 'express';
 import {
+  createFetchJourneysWithTimeout,
   createFetchNearbyStationsWithTimeout,
+  createSearchPlacesWithTimeout,
+  fetchJourneys as defaultFetchJourneys,
   fetchNearbyStations as defaultFetchNearbyStations,
+  searchPlaces as defaultSearchPlaces,
 } from './client.js';
 
 /**
@@ -14,6 +18,8 @@ export function createIdfmRouter({
   fetchNearbyStations = createFetchNearbyStationsWithTimeout(
     defaultFetchNearbyStations
   ),
+  searchPlaces = createSearchPlacesWithTimeout(defaultSearchPlaces),
+  fetchJourneys = createFetchJourneysWithTimeout(defaultFetchJourneys),
 } = {}) {
   const router = express.Router();
 
@@ -37,6 +43,46 @@ export function createIdfmRouter({
       if (error.name === 'AbortError') {
         return res.status(504).json({
           error: "Délai dépassé pour l'API IDF Mobilités.",
+        });
+      }
+
+      return next(error);
+    }
+  });
+
+  router.get('/places', async (req, res, next) => {
+    try {
+      const result = await searchPlaces({
+        query: req.query.q,
+        count: req.query.count,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      if (error.status) {
+        return res.status(error.status).json({
+          error: error.message,
+        });
+      }
+
+      return next(error);
+    }
+  });
+
+  router.get('/journeys', async (req, res, next) => {
+    try {
+      const result = await fetchJourneys({
+        from: req.query.from,
+        to: req.query.to,
+        fromCoordinates: [req.query.fromLon, req.query.fromLat],
+        toCoordinates: [req.query.toLon, req.query.toLat],
+      });
+
+      return res.json(result);
+    } catch (error) {
+      if (error.status) {
+        return res.status(error.status).json({
+          error: error.message,
         });
       }
 

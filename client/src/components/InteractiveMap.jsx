@@ -49,6 +49,13 @@ const DARK_STYLE = {
   ],
 };
 
+const ROUTE_SOURCE_ID = 'selected-route';
+const ROUTE_TRANSPORT_LAYER_ID = 'selected-route-transport-line';
+const ROUTE_WALK_LAYER_ID = 'selected-route-walk-line';
+const ROUTE_BIKE_LAYER_ID = 'selected-route-bike-line';
+const ROUTE_MARKER_SOURCE_ID = 'selected-route-markers';
+const ROUTE_MARKER_LAYER_ID = 'selected-route-marker-circles';
+
 function getOnlineStyle(isDarkMode) {
   return isDarkMode ? DARK_STYLE : LIGHT_STYLE;
 }
@@ -80,11 +87,200 @@ function createStationPopup(station) {
   return content;
 }
 
+function getRouteFeatures(route) {
+  const sectionFeatures = (route?.sections || [])
+    .filter((section) => section.geometry?.length > 1)
+    .map((section, index) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: section.geometry,
+      },
+      properties: {
+        index,
+        mode: section.mode,
+        type: section.type,
+        color: section.color || '#2563eb',
+        pattern:
+          section.mode === 'walking'
+            ? 'walking'
+            : section.mode === 'bike'
+              ? 'bike'
+              : 'transport',
+      },
+    }));
+
+  if (sectionFeatures.length > 0) {
+    return sectionFeatures;
+  }
+
+  if (!route?.geometry?.length) {
+    return [];
+  }
+
+  return [
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: route.geometry,
+      },
+      properties: {
+        index: 0,
+        mode: route.profile,
+        type: route.profile,
+        color: route.profile === 'bike' ? '#14b8a6' : '#2563eb',
+        pattern: route.profile === 'walking' ? 'walking' : route.profile,
+      },
+    },
+  ];
+}
+
+function getRouteMarkerFeatures(route) {
+  const coordinates = route?.geometry || [];
+
+  if (coordinates.length < 2) {
+    return [];
+  }
+
+  return [
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: coordinates[0],
+      },
+      properties: {
+        kind: 'start',
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: coordinates[coordinates.length - 1],
+      },
+      properties: {
+        kind: 'end',
+      },
+    },
+  ];
+}
+
+function emptyFeatureCollection(features = []) {
+  return {
+    type: 'FeatureCollection',
+    features,
+  };
+}
+
+function upsertRouteLayers(map, route) {
+  const routeData = emptyFeatureCollection(getRouteFeatures(route));
+  const markerData = emptyFeatureCollection(getRouteMarkerFeatures(route));
+
+  if (!map.getSource(ROUTE_SOURCE_ID)) {
+    map.addSource(ROUTE_SOURCE_ID, {
+      type: 'geojson',
+      data: routeData,
+    });
+    [
+      {
+        id: ROUTE_TRANSPORT_LAYER_ID,
+        filter: ['==', ['get', 'pattern'], 'transport'],
+        dasharray: null,
+        width: 6,
+      },
+      {
+        id: ROUTE_BIKE_LAYER_ID,
+        filter: ['==', ['get', 'pattern'], 'bike'],
+        dasharray: [1.4, 0.8],
+        width: 5,
+      },
+      {
+        id: ROUTE_WALK_LAYER_ID,
+        filter: ['==', ['get', 'pattern'], 'walking'],
+        dasharray: [0.3, 1.2],
+        width: 4,
+      },
+    ].forEach((layer) => {
+      map.addLayer({
+        id: layer.id,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        filter: layer.filter,
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
+        paint: {
+          'line-color': ['coalesce', ['get', 'color'], '#2563eb'],
+          'line-width': layer.width,
+          'line-opacity': 0.9,
+          ...(layer.dasharray ? { 'line-dasharray': layer.dasharray } : {}),
+        },
+      });
+    });
+  } else {
+    map.getSource(ROUTE_SOURCE_ID).setData(routeData);
+  }
+
+  if (!map.getSource(ROUTE_MARKER_SOURCE_ID)) {
+    map.addSource(ROUTE_MARKER_SOURCE_ID, {
+      type: 'geojson',
+      data: markerData,
+    });
+    map.addLayer({
+      id: ROUTE_MARKER_LAYER_ID,
+      type: 'circle',
+      source: ROUTE_MARKER_SOURCE_ID,
+      paint: {
+        'circle-radius': 7,
+        'circle-color': [
+          'match',
+          ['get', 'kind'],
+          'start',
+          '#16a34a',
+          '#dc2626',
+        ],
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#ffffff',
+      },
+    });
+  } else {
+    map.getSource(ROUTE_MARKER_SOURCE_ID).setData(markerData);
+  }
+}
+
+function fitRoute(map, route) {
+  const coordinates = route?.geometry || [];
+
+  if (coordinates.length < 2) {
+    return;
+  }
+
+  const bounds = coordinates.reduce(
+    (currentBounds, coordinate) => currentBounds.extend(coordinate),
+    new maplibregl.LngLatBounds(coordinates[0], coordinates[0])
+  );
+
+  map.fitBounds(bounds, {
+    padding: {
+      top: 80,
+      right: 80,
+      bottom: 80,
+      left: 80,
+    },
+    maxZoom: 15,
+    duration: 550,
+  });
+}
+
 export default function InteractiveMap({
   center,
   zoom = 13,
   isDarkMode = false,
   stations = [],
+  selectedRoute = null,
   className = '',
 }) {
   const [isOnline, setIsOnline] = useState(() =>
@@ -179,8 +375,7 @@ export default function InteractiveMap({
       return;
     }
 
-    // On capture la camera avant le changement de style pour ne pas perdre
-    // la position courante choisie par l'utilisateur.
+    // On capture la caméra avant le changement de style pour ne pas perdre la position choisie par l'utilisateur.
     const camera = {
       center: map.getCenter(),
       zoom: map.getZoom(),
@@ -193,8 +388,9 @@ export default function InteractiveMap({
     map.setStyle(mapStyle);
     map.once('styledata', () => {
       map.jumpTo(camera);
+      upsertRouteLayers(map, selectedRoute);
     });
-  }, [mapStyle, styleKey]);
+  }, [mapStyle, selectedRoute, styleKey]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -220,6 +416,27 @@ export default function InteractiveMap({
         .addTo(map);
     });
   }, [stations]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map) {
+      return undefined;
+    }
+
+    if (!map.isStyleLoaded()) {
+      map.once('load', () => {
+        upsertRouteLayers(map, selectedRoute);
+        fitRoute(map, selectedRoute);
+      });
+      return undefined;
+    }
+
+    upsertRouteLayers(map, selectedRoute);
+    fitRoute(map, selectedRoute);
+
+    return undefined;
+  }, [selectedRoute]);
 
   return (
     <div className={`interactive-map ${className}`}>
