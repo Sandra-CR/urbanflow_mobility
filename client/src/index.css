@@ -12,6 +12,8 @@
   --color-card: #ffffff;
   --color-text: #1a2516;
   --color-text-light: #5a6556;
+  --color-secondary: #8c9588;
+  --color-shadow: rgba(0, 0, 0, 0.15);
   --color-on-primary: #ffffff;
   --color-danger: #dc2626;
   --color-danger-text: #991b1b;
@@ -46,6 +48,7 @@
   --color-card: #1e1e1e;
   --color-text: #e3ebe0;
   --color-text-light: #919e8e;
+  --color-secondary: #7f8a7c;
   --color-on-primary: #121212;
   --color-danger: #f87171;
   --color-danger-text: #fecaca;

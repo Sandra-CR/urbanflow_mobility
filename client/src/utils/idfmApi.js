@@ -42,3 +42,31 @@ export function getNearbyStations({ lon, lat, distance = 900, count = 30 }) {
 
   return requestIdfm(`/api/idfm/nearby-stations?${params.toString()}`);
 }
+
+export function searchPlaces({ query, count = 8 }) {
+  const params = new URLSearchParams({
+    q: query,
+    count: String(count),
+  });
+
+  return requestIdfm(`/api/idfm/places?${params.toString()}`);
+}
+
+export function getJourneys({ from, to, fromCoordinates, toCoordinates }) {
+  const params = new URLSearchParams({
+    from,
+    to,
+  });
+
+  if (fromCoordinates?.length >= 2) {
+    params.set('fromLon', String(fromCoordinates[0]));
+    params.set('fromLat', String(fromCoordinates[1]));
+  }
+
+  if (toCoordinates?.length >= 2) {
+    params.set('toLon', String(toCoordinates[0]));
+    params.set('toLat', String(toCoordinates[1]));
+  }
+
+  return requestIdfm(`/api/idfm/journeys?${params.toString()}`);
+}

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ArrowsClockwise,
   DownloadSimple,
   Moon,
   SignIn,
@@ -10,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import AuthPanel from './components/AuthPanel';
 import InteractiveMap from './components/InteractiveMap';
+import RoutePlanner from './components/RoutePlanner';
 import {
   deleteCurrentUser,
   getCurrentUser,
@@ -17,11 +17,11 @@ import {
   logoutUser,
   registerUser,
 } from './utils/authApi';
-import { getNearbyStations } from './utils/idfmApi';
+import { getJourneys, searchPlaces } from './utils/idfmApi';
 import { preloadMapTiles } from './utils/offlineMapTiles';
 import './App.css';
 
-const TEST_CENTER = [2.3522, 48.8566];
+const PARIS_CENTER = [2.3522, 48.8566];
 const PARIS_OFFLINE_BOUNDS = {
   west: 2.24,
   south: 48.81,
@@ -29,88 +29,29 @@ const PARIS_OFFLINE_BOUNDS = {
   north: 48.91,
 };
 
-const TEST_STATIONS = [
-  {
-    id: 'republique-bike',
-    name: 'Station Republique',
-    type: 'bike',
-    coordinates: [2.363, 48.867],
-  },
-  {
-    id: 'hotel-ville-bus',
-    name: 'Arrêt Hôtel de Ville',
-    type: 'bus',
-    coordinates: [2.3522, 48.8566],
-  },
-  {
-    id: 'chatelet-tram',
-    name: 'Pole Chatelet',
-    type: 'tram',
-    coordinates: [2.347, 48.8586],
-  },
-  {
-    id: 'bastille-charge',
-    name: 'Recharge Bastille',
-    type: 'charge',
-    coordinates: [2.369, 48.853],
-  },
-];
-
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [stations, setStations] = useState(TEST_STATIONS);
-  const [isLoadingStations, setIsLoadingStations] = useState(true);
-  const [stationsMessage, setStationsMessage] = useState('');
+  const [journeys, setJourneys] = useState([]);
+  const [selectedJourney, setSelectedJourney] = useState(null);
+  const [isLoadingJourneys, setIsLoadingJourneys] = useState(false);
+  const [journeyMessage, setJourneyMessage] = useState('');
   const [cacheProgress, setCacheProgress] = useState(null);
   const [isCachingTiles, setIsCachingTiles] = useState(false);
   const [cacheMessage, setCacheMessage] = useState('');
 
-  const loadIdfmStations = useCallback(async () => {
-    setIsLoadingStations(true);
-    setStationsMessage('');
+  const handleSearchPlaces = useCallback(async (query) => {
+    const data = await searchPlaces({
+      query,
+      count: 8,
+    });
 
-    try {
-      const data = await getNearbyStations({
-        lon: TEST_CENTER[0],
-        lat: TEST_CENTER[1],
-        distance: 1200,
-        count: 40,
-      });
-
-      setStations(data.stations || []);
-    } catch (error) {
-      setStationsMessage(error.message);
-    } finally {
-      setIsLoadingStations(false);
-    }
+    return data.places || [];
   }, []);
 
   useEffect(() => {
     let isMounted = true;
-
-    getNearbyStations({
-      lon: TEST_CENTER[0],
-      lat: TEST_CENTER[1],
-      distance: 1200,
-      count: 40,
-    })
-      .then((data) => {
-        if (isMounted) {
-          setStations(data.stations || []);
-        }
-      })
-      .catch((error) => {
-        if (isMounted) {
-          setStationsMessage(error.message);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoadingStations(false);
-        }
-      });
 
     getCurrentUser()
       .then((data) => {
@@ -148,7 +89,7 @@ function App() {
 
   async function handleDeleteAccount() {
     const shouldDelete = window.confirm(
-      'Supprimer definitivement votre compte UrbanFlow ?'
+      'Supprimer définitivement votre compte UrbanFlow ?'
     );
 
     if (!shouldDelete) {
@@ -157,6 +98,34 @@ function App() {
 
     await deleteCurrentUser();
     setCurrentUser(null);
+  }
+
+  async function handlePlanJourney({ from, to }) {
+    setIsLoadingJourneys(true);
+    setJourneyMessage('');
+    setJourneys([]);
+    setSelectedJourney(null);
+
+    try {
+      const data = await getJourneys({
+        from: from.id,
+        to: to.id,
+        fromCoordinates: from.coordinates,
+        toCoordinates: to.coordinates,
+      });
+      const nextJourneys = data.journeys || [];
+
+      setJourneys(nextJourneys);
+      setSelectedJourney(nextJourneys[0] || null);
+
+      if (nextJourneys.length === 0) {
+        setJourneyMessage('Aucun itinéraire trouvé.');
+      }
+    } catch (error) {
+      setJourneyMessage(error.message);
+    } finally {
+      setIsLoadingJourneys(false);
+    }
   }
 
   async function handlePreloadOfflineMap() {
@@ -186,16 +155,6 @@ function App() {
       className="map-test-page app-surface"
       data-theme={isDarkMode ? 'dark' : 'light'}
     >
-      {(isLoadingStations || stationsMessage) && (
-        <section className="idfm-status-toast" aria-live="polite">
-          <p>
-            {isLoadingStations
-              ? 'Chargement des arrets IDFM...'
-              : stationsMessage}
-          </p>
-        </section>
-      )}
-
       {(cacheProgress || cacheMessage) && (
         <section className="offline-cache-toast" aria-live="polite">
           {cacheProgress && (
@@ -240,16 +199,6 @@ function App() {
         <button
           className="map-icon-button"
           type="button"
-          aria-label="Rafraichir les arrets Ile-de-France Mobilites"
-          title="Rafraichir les arrets IDFM"
-          disabled={isLoadingStations}
-          onClick={loadIdfmStations}
-        >
-          <ArrowsClockwise size={20} weight="bold" aria-hidden="true" />
-        </button>
-        <button
-          className="map-icon-button"
-          type="button"
           aria-label="Télécharger les tuiles pour le hors ligne"
           title="Télécharger les tuiles"
           disabled={isCachingTiles}
@@ -262,8 +211,8 @@ function App() {
             <button
               className="map-icon-button"
               type="button"
-              aria-label="Se deconnecter"
-              title="Se deconnecter"
+              aria-label="Se déconnecter"
+              title="Se déconnecter"
               onClick={handleLogout}
             >
               <SignOut size={20} weight="bold" aria-hidden="true" />
@@ -291,13 +240,25 @@ function App() {
         )}
       </div>
 
-      <section className="map-shell" aria-label="Carte des stations">
-        <InteractiveMap
-          center={TEST_CENTER}
-          zoom={13}
-          isDarkMode={isDarkMode}
-          stations={stations}
+      <section className="map-workspace">
+        <RoutePlanner
+          journeys={journeys}
+          selectedJourneyId={selectedJourney?.id}
+          isLoading={isLoadingJourneys}
+          message={journeyMessage}
+          onJourneySelect={setSelectedJourney}
+          onPlan={handlePlanJourney}
+          onSearchPlaces={handleSearchPlaces}
         />
+        <section className="map-shell" aria-label="Carte">
+          <InteractiveMap
+            center={PARIS_CENTER}
+            zoom={13}
+            isDarkMode={isDarkMode}
+            stations={[]}
+            selectedRoute={selectedJourney}
+          />
+        </section>
       </section>
 
       {showAuthPanel ? (

@@ -10,6 +10,7 @@ export default {
         card: 'var(--color-card)',
         text: 'var(--color-text)',
         'text-light': 'var(--color-text-light)',
+        secondary: 'var(--color-secondary)',
         'on-primary': 'var(--color-on-primary)',
       },
       fontFamily: {

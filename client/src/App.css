@@ -1,5 +1,6 @@
 .map-test-page {
   position: relative;
+  overflow: hidden;
   min-height: 100svh;
   background: var(--color-background);
   color: var(--color-text);
@@ -103,8 +104,17 @@
 }
 
 .map-shell {
-  height: 100svh;
+  min-width: 0;
+  height: 100%;
   min-height: 420px;
+}
+
+.map-workspace {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  width: 100vw;
+  height: 100svh;
+  min-height: 540px;
 }
 
 .offline-cache-toast {
@@ -126,27 +136,6 @@
 }
 
 .offline-cache-toast p {
-  margin: 0;
-  color: var(--color-text-light);
-}
-
-.idfm-status-toast {
-  position: fixed;
-  top: 70px;
-  left: 50%;
-  z-index: 20;
-  width: min(420px, calc(100vw - 32px));
-  padding: 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--color-text-light) 20%, transparent);
-  border-radius: var(--radius-ui);
-  background: color-mix(in srgb, var(--color-card) 96%, transparent);
-  text-align: left;
-  transform: translateX(-50%);
-  box-shadow: var(--shadow-floating);
-  backdrop-filter: blur(8px);
-}
-
-.idfm-status-toast p {
   margin: 0;
   color: var(--color-text-light);
 }
@@ -185,5 +174,22 @@
     width: 100%;
     max-width: none;
     height: 38px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .map-workspace {
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-columns: 1fr;
+    min-height: 100svh;
+  }
+
+  .map-workspace > .route-planner {
+    grid-row: 2;
+  }
+
+  .map-shell {
+    grid-row: 1;
+    min-height: 0;
   }
 }
