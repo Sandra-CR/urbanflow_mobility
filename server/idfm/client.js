@@ -1,11 +1,16 @@
 const DEFAULT_IDFM_BASE_URL =
   'https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia';
+const DEFAULT_ROUTING_BASE_URL = 'https://router.project-osrm.org';
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const JOURNEY_TIMEOUT_MS = 12000;
 const WALKING_SPEED_METERS_PER_SECOND = 1.25;
 const BIKE_SPEED_METERS_PER_SECOND = 4.2;
 const EARTH_RADIUS_METERS = 6371000;
+const JOURNEY_PROFILE_ORDER = {
+  walking: 0,
+  bike: 1,
+};
 
 function getConfig() {
   return {
@@ -14,6 +19,9 @@ function getConfig() {
       /\/$/,
       ''
     ),
+    routingBaseUrl: (
+      process.env.ROUTING_API_BASE_URL || DEFAULT_ROUTING_BASE_URL
+    ).replace(/\/$/, ''),
   };
 }
 
@@ -275,19 +283,36 @@ function getStraightLineDistanceMeters(fromCoordinates, toCoordinates) {
   return EARTH_RADIUS_METERS * c;
 }
 
+function getPathDistanceMeters(coordinates) {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) {
+    return null;
+  }
+
+  return coordinates
+    .slice(1)
+    .reduce(
+      (totalDistance, coordinate, index) =>
+        totalDistance +
+        getStraightLineDistanceMeters(coordinates[index], coordinate),
+      0
+    );
+}
+
 function createDirectFallbackJourney({
   profile,
   fromCoordinates,
   toCoordinates,
+  route = null,
 }) {
-  const distance = getStraightLineDistanceMeters(
-    fromCoordinates,
-    toCoordinates
-  );
   const speed =
     profile === 'bike'
       ? BIKE_SPEED_METERS_PER_SECOND
       : WALKING_SPEED_METERS_PER_SECOND;
+  const geometry = route?.geometry || [fromCoordinates, toCoordinates];
+  const distance =
+    route?.distance ||
+    getPathDistanceMeters(geometry) ||
+    getStraightLineDistanceMeters(fromCoordinates, toCoordinates);
   const duration = Math.max(60, Math.round(distance / speed));
   const mode = profile === 'bike' ? 'bike' : 'walking';
   const label = profile === 'bike' ? 'Velo' : 'Marche';
@@ -305,7 +330,7 @@ function createDirectFallbackJourney({
     color,
     textColor: '#ffffff',
     line: null,
-    geometry: [fromCoordinates, toCoordinates],
+    geometry,
   };
 
   return {
@@ -318,8 +343,60 @@ function createDirectFallbackJourney({
     departureDateTime: null,
     arrivalDateTime: null,
     sections: [section],
-    geometry: [fromCoordinates, toCoordinates],
+    geometry,
   };
+}
+
+function createRoutingUrl(
+  { profile, fromCoordinates, toCoordinates },
+  baseUrl
+) {
+  const routingProfile = profile === 'bike' ? 'bike' : 'foot';
+  const url = new URL(
+    `${baseUrl}/route/v1/${routingProfile}/${fromCoordinates.join(',')};${toCoordinates.join(',')}`
+  );
+  url.searchParams.set('overview', 'full');
+  url.searchParams.set('geometries', 'geojson');
+  url.searchParams.set('steps', 'false');
+  url.searchParams.set('alternatives', 'false');
+  return url;
+}
+
+async function fetchStreetRoute(
+  { profile, fromCoordinates, toCoordinates },
+  { fetchImpl, signal, routingBaseUrl }
+) {
+  const url = createRoutingUrl(
+    { profile, fromCoordinates, toCoordinates },
+    routingBaseUrl
+  );
+
+  try {
+    const response = await fetchImpl(url, {
+      signal,
+      headers: {
+        accept: 'application/json',
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    const route = data.routes?.[0];
+    const coordinates = (route?.geometry?.coordinates || []).filter(
+      (coordinate) => Array.isArray(coordinate) && coordinate.length >= 2
+    );
+
+    if (!response.ok || coordinates.length < 2) {
+      return null;
+    }
+
+    return {
+      distance: Number.isFinite(Number(route.distance))
+        ? Number(route.distance)
+        : null,
+      geometry: simplifyGeometry(coordinates),
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function requestIdfm(url, { apiKey, fetchImpl, signal }) {
@@ -523,6 +600,18 @@ function normalizeJourneys(data, profile) {
   );
 }
 
+function getJourneyProfileOrder(journey) {
+  return JOURNEY_PROFILE_ORDER[journey.profile] ?? 2;
+}
+
+function orderJourneys(journeys) {
+  return journeys.sort(
+    (firstJourney, secondJourney) =>
+      getJourneyProfileOrder(firstJourney) -
+      getJourneyProfileOrder(secondJourney)
+  );
+}
+
 export async function fetchNearbyStations(
   { lon, lat, distance = 900, count = 30 },
   { fetchImpl = fetch, signal } = {}
@@ -625,7 +714,7 @@ export async function fetchJourneys(
     throw error;
   }
 
-  const { apiKey, baseUrl } = getConfig();
+  const { apiKey, baseUrl, routingBaseUrl } = getConfig();
 
   if (!apiKey) {
     const error = new Error('Jeton Ile-de-France Mobilités manquant.');
@@ -701,16 +790,25 @@ export async function fetchJourneys(
     directFallbackCoordinates.fromCoordinates &&
     directFallbackCoordinates.toCoordinates
   ) {
-    ['walking', 'bike'].forEach((profile) => {
+    for (const profile of ['walking', 'bike']) {
       if (!journeys.some((journey) => journey.profile === profile)) {
+        const route = await fetchStreetRoute(
+          {
+            profile,
+            ...directFallbackCoordinates,
+          },
+          { fetchImpl, signal, routingBaseUrl }
+        );
+
         journeys.push(
           createDirectFallbackJourney({
             profile,
             ...directFallbackCoordinates,
+            route,
           })
         );
       }
-    });
+    }
   }
 
   if (journeys.length === 0) {
@@ -723,7 +821,7 @@ export async function fetchJourneys(
   }
 
   return {
-    journeys,
+    journeys: orderJourneys(journeys),
   };
 }
 
