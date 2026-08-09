@@ -330,6 +330,7 @@ function createDirectFallbackJourney({
     color,
     textColor: '#ffffff',
     line: null,
+    distanceKm: distance / 1000,
     geometry,
   };
 
@@ -522,7 +523,21 @@ function getSectionGeometry(section) {
   return coordinates.length > 1 ? simplifyGeometry(coordinates, 120) : null;
 }
 
+function getSectionDistanceKm(section, geometry) {
+  const lengthMeters = Number(section.length);
+
+  if (Number.isFinite(lengthMeters) && lengthMeters >= 0) {
+    return lengthMeters / 1000;
+  }
+
+  const geometryDistance = getPathDistanceMeters(geometry);
+
+  return geometryDistance ? geometryDistance / 1000 : 0;
+}
+
 function normalizeSection(section) {
+  const geometry = getSectionGeometry(section);
+
   return {
     id: section.id,
     type: section.type,
@@ -536,7 +551,8 @@ function normalizeSection(section) {
     color: getSectionColor(section),
     textColor: getSectionTextColor(section),
     line: getSectionLine(section),
-    geometry: getSectionGeometry(section),
+    distanceKm: getSectionDistanceKm(section, geometry),
+    geometry,
   };
 }
 

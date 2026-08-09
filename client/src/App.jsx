@@ -120,6 +120,8 @@ function App() {
 
       if (nextJourneys.length === 0) {
         setJourneyMessage('Aucun itinéraire trouvé.');
+      } else if (data.carbonFootprintMessage) {
+        setJourneyMessage(data.carbonFootprintMessage);
       }
     } catch (error) {
       setJourneyMessage(error.message);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   ArrowsDownUp,
   Bus,
+  Leaf,
   MapPin,
   PersonSimpleBike,
   PersonSimpleWalk,
@@ -215,6 +216,35 @@ function formatDuration(seconds) {
   }
 
   return `${hours} h ${remainingMinutes.toString().padStart(2, '0')}`;
+}
+
+function formatCarbonValue(carbonFootprint) {
+  const value = Number(carbonFootprint?.total_co2e);
+
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}kg`;
+  }
+
+  return `${Math.round(value)}g`;
+}
+
+function CarbonFootprintBadge({ carbonFootprint }) {
+  const label = formatCarbonValue(carbonFootprint);
+
+  if (!label) {
+    return null;
+  }
+
+  return (
+    <span className="route-result__carbon" title="Empreinte carbone">
+      <Leaf size={14} weight="regular" aria-hidden="true" />
+      <span>{label}</span>
+    </span>
+  );
 }
 
 function PlaceSearchField({
@@ -587,6 +617,9 @@ export default function RoutePlanner({
               </span>
               <span className="route-result__meta">
                 <span>{getDominantLabel(journey.profile)}</span>
+                <CarbonFootprintBadge
+                  carbonFootprint={journey.carbonFootprint}
+                />
               </span>
             </button>
           ))}

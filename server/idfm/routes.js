@@ -7,6 +7,56 @@ import {
   fetchNearbyStations as defaultFetchNearbyStations,
   searchPlaces as defaultSearchPlaces,
 } from './client.js';
+import { calculateCarbonFootprint as defaultCalculateCarbonFootprint } from '../carbon/service.js';
+
+function toCarbonLeg(section) {
+  return {
+    mode: section.mode,
+    distance_km: section.distanceKm || 0,
+  };
+}
+
+async function withCarbonFootprint(journey, calculateCarbonFootprint) {
+  const carbonFootprint = await calculateCarbonFootprint({
+    legs: journey.sections
+      .map(toCarbonLeg)
+      .filter((leg) => Number(leg.distance_km) > 0),
+  });
+
+  return {
+    ...journey,
+    carbonFootprint,
+  };
+}
+
+async function addCarbonFootprints(journeys, calculateCarbonFootprint) {
+  const settledJourneys = await Promise.allSettled(
+    journeys.map((journey) =>
+      withCarbonFootprint(journey, calculateCarbonFootprint)
+    )
+  );
+  const missingModes = new Set();
+
+  const nextJourneys = settledJourneys.map((settledJourney, index) => {
+    if (settledJourney.status === 'fulfilled') {
+      return settledJourney.value;
+    }
+
+    const error = settledJourney.reason;
+
+    if (error?.code !== 'UNKNOWN_CARBON_FACTOR') {
+      throw error;
+    }
+
+    error.modes.forEach((mode) => missingModes.add(mode));
+    return journeys[index];
+  });
+
+  return {
+    journeys: nextJourneys,
+    missingModes: [...missingModes],
+  };
+}
 
 /**
  * Crée le routeur Express dédié aux données IDF Mobilités.
@@ -20,6 +70,7 @@ export function createIdfmRouter({
   ),
   searchPlaces = createSearchPlacesWithTimeout(defaultSearchPlaces),
   fetchJourneys = createFetchJourneysWithTimeout(defaultFetchJourneys),
+  calculateCarbonFootprint = defaultCalculateCarbonFootprint,
 } = {}) {
   const router = express.Router();
 
@@ -77,8 +128,19 @@ export function createIdfmRouter({
         fromCoordinates: [req.query.fromLon, req.query.fromLat],
         toCoordinates: [req.query.toLon, req.query.toLat],
       });
+      const { journeys, missingModes } = await addCarbonFootprints(
+        result.journeys,
+        calculateCarbonFootprint
+      );
 
-      return res.json(result);
+      return res.json({
+        ...result,
+        journeys,
+        carbonFootprintMessage:
+          missingModes.length > 0
+            ? `Le calcul de carbone ne trouve pas les données nécessaires (${missingModes.join(', ')}).`
+            : null,
+      });
     } catch (error) {
       if (error.status) {
         return res.status(error.status).json({
