@@ -1,0 +1,62 @@
+import { test } from 'node:test';
+import assert from 'node:assert';
+import express from 'express';
+import { createIdfmRouter } from '../idfm/routes.js';
+
+function listen(app) {
+  return new Promise((resolve) => {
+    const server = app.listen(0, () => {
+      const { port } = server.address();
+      resolve({
+        server,
+        baseUrl: `http://127.0.0.1:${port}`,
+      });
+    });
+  });
+}
+
+test('la route journeys garde les itineraires si un facteur carbone manque', async () => {
+  const app = express();
+  const journey = {
+    id: 'journey-1',
+    duration: 600,
+    profile: 'transit',
+    sections: [{ mode: 'RER', distanceKm: 4 }],
+  };
+  const calculateCarbonFootprint = async () => {
+    const error = new Error(
+      'Mode de transport inconnu dans carbon_factors: rer.'
+    );
+    error.status = 400;
+    error.code = 'UNKNOWN_CARBON_FACTOR';
+    error.modes = ['rer'];
+    throw error;
+  };
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchJourneys: async () => ({ journeys: [journey] }),
+      calculateCarbonFootprint,
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/idfm/journeys?from=from-id&to=to-id`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.journeys.length, 1);
+    assert.equal(body.journeys[0].id, 'journey-1');
+    assert.equal(
+      body.carbonFootprintMessage,
+      'Le calcul de carbone ne trouve pas les données nécessaires (rer).'
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

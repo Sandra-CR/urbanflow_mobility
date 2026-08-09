@@ -312,11 +312,38 @@
   line-height: 17px;
 }
 
-.route-result__meta span,
+.route-result__carbon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 12px;
+  white-space: nowrap;
+}
+
+.route-result__carbon svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.route-result__meta > span:not(.route-result__carbon),
 .route-result__meta small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.route-result__meta > span:first-child {
+  min-width: 0;
 }
 
 .route-sequence {
