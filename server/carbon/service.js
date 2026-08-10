@@ -34,7 +34,11 @@ function toCarbonMode(mode) {
     return 'tramway';
   }
 
-  if (normalizedMode.includes('bus')) {
+  if (
+    normalizedMode.includes('bus') ||
+    normalizedMode.includes('on_demand_transport') ||
+    normalizedMode.includes('demand')
+  ) {
     return 'bus';
   }
 

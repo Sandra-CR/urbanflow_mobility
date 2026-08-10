@@ -69,15 +69,25 @@ test('calculateCarbonFootprint aligne les modes IDFM sur les facteurs ADEME disp
         { mode: 'Tramway', distance_km: 1 },
         { mode: 'Train', distance_km: 1 },
         { mode: 'Bus', distance_km: 1 },
+        { mode: 'on_demand_transport', distance_km: 1 },
       ],
     },
     { query }
   );
 
-  assert.equal(result.total_co2e, 118.6);
+  assert.equal(result.total_co2e, 221.6);
   assert.deepEqual(
     result.segments.map((segment) => segment.transport_mode),
-    ['marche', 'velo', 'metro', 'rer', 'tramway', 'transilien_train', 'bus']
+    [
+      'marche',
+      'velo',
+      'metro',
+      'rer',
+      'tramway',
+      'transilien_train',
+      'bus',
+      'bus',
+    ]
   );
 });
 
