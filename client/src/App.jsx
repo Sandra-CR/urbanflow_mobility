@@ -163,6 +163,14 @@ function App() {
     setIsRouteDetailsVisible(false);
   }
 
+  const handleJourneyInputsInvalid = useCallback(() => {
+    setJourneys([]);
+    setSelectedJourney(null);
+    setJourneyMessage('');
+    setIsRouteSheetCtaVisible(false);
+    setIsRouteDetailsVisible(false);
+  }, []);
+
   return (
     <main
       className="map-test-page app-surface"
@@ -262,6 +270,7 @@ function App() {
           isLoading={isLoadingJourneys}
           message={journeyMessage}
           onJourneySelect={handleJourneySelect}
+          onInputsInvalid={handleJourneyInputsInvalid}
           onPlan={handlePlanJourney}
           onSearchPlaces={handleSearchPlaces}
         />
