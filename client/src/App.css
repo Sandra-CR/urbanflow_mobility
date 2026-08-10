@@ -104,9 +104,17 @@
 }
 
 .map-shell {
+  position: relative;
   min-width: 0;
   height: 100%;
   min-height: 420px;
+}
+
+.map-route-cta {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 6;
 }
 
 .map-workspace {

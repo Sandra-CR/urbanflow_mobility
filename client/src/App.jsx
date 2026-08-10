@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ArrowRight,
   DownloadSimple,
   Moon,
   SignIn,
@@ -35,6 +36,8 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [journeys, setJourneys] = useState([]);
   const [selectedJourney, setSelectedJourney] = useState(null);
+  const [isRouteSheetCtaVisible, setIsRouteSheetCtaVisible] = useState(false);
+  const [isRouteDetailsVisible, setIsRouteDetailsVisible] = useState(false);
   const [isLoadingJourneys, setIsLoadingJourneys] = useState(false);
   const [journeyMessage, setJourneyMessage] = useState('');
   const [cacheProgress, setCacheProgress] = useState(null);
@@ -105,6 +108,8 @@ function App() {
     setJourneyMessage('');
     setJourneys([]);
     setSelectedJourney(null);
+    setIsRouteSheetCtaVisible(false);
+    setIsRouteDetailsVisible(false);
 
     try {
       const data = await getJourneys({
@@ -150,6 +155,12 @@ function App() {
     } finally {
       setIsCachingTiles(false);
     }
+  }
+
+  function handleJourneySelect(journey) {
+    setSelectedJourney(journey);
+    setIsRouteSheetCtaVisible(true);
+    setIsRouteDetailsVisible(false);
   }
 
   return (
@@ -245,10 +256,12 @@ function App() {
       <section className="map-workspace">
         <RoutePlanner
           journeys={journeys}
+          selectedJourney={selectedJourney}
           selectedJourneyId={selectedJourney?.id}
+          isRouteDetailsVisible={isRouteDetailsVisible}
           isLoading={isLoadingJourneys}
           message={journeyMessage}
-          onJourneySelect={setSelectedJourney}
+          onJourneySelect={handleJourneySelect}
           onPlan={handlePlanJourney}
           onSearchPlaces={handleSearchPlaces}
         />
@@ -260,6 +273,18 @@ function App() {
             stations={[]}
             selectedRoute={selectedJourney}
           />
+          {selectedJourney &&
+          isRouteSheetCtaVisible &&
+          !isRouteDetailsVisible ? (
+            <button
+              className="btn-primary map-route-cta"
+              type="button"
+              onClick={() => setIsRouteDetailsVisible(true)}
+            >
+              <span>Voir l'itinéraire</span>
+              <ArrowRight size={18} weight="regular" aria-hidden="true" />
+            </button>
+          ) : null}
         </section>
       </section>
 

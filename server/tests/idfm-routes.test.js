@@ -60,3 +60,48 @@ test('la route journeys garde les itineraires si un facteur carbone manque', asy
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('la route journeys ajoute la comparaison carbone avec voiture solo', async () => {
+  const app = express();
+  const journey = {
+    id: 'journey-1',
+    duration: 600,
+    profile: 'walking',
+    sections: [{ mode: 'walking', distanceKm: 2 }],
+  };
+  const calculateCarbonFootprint = async (itinerary) => {
+    const mode = itinerary.legs[0]?.mode;
+
+    return {
+      total_co2e: mode === 'voiture_solo' ? 436 : 0,
+      unit: 'g',
+      segments: [],
+    };
+  };
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchJourneys: async () => ({ journeys: [journey] }),
+      calculateCarbonFootprint,
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/idfm/journeys?from=from-id&to=to-id`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.journeys[0].carbonFootprint.car_solo_co2e, 436);
+    assert.equal(
+      body.journeys[0].carbonFootprint.savings_vs_car_solo_co2e,
+      436
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
