@@ -17,15 +17,30 @@ function toCarbonLeg(section) {
 }
 
 async function withCarbonFootprint(journey, calculateCarbonFootprint) {
-  const carbonFootprint = await calculateCarbonFootprint({
-    legs: journey.sections
-      .map(toCarbonLeg)
-      .filter((leg) => Number(leg.distance_km) > 0),
+  const legs = journey.sections
+    .map(toCarbonLeg)
+    .filter((leg) => Number(leg.distance_km) > 0);
+  const carbonFootprint = await calculateCarbonFootprint({ legs });
+  const carSoloFootprint = await calculateCarbonFootprint({
+    legs: [
+      {
+        mode: 'voiture_solo',
+        distance_km: legs.reduce(
+          (totalDistance, leg) => totalDistance + Number(leg.distance_km),
+          0
+        ),
+      },
+    ],
   });
 
   return {
     ...journey,
-    carbonFootprint,
+    carbonFootprint: {
+      ...carbonFootprint,
+      car_solo_co2e: carSoloFootprint.total_co2e,
+      savings_vs_car_solo_co2e:
+        carSoloFootprint.total_co2e - carbonFootprint.total_co2e,
+    },
   };
 }
 

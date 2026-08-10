@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   ArrowsDownUp,
+  BagSimple,
   Bus,
+  CaretDown,
+  Clock,
+  HourglassMedium,
+  House,
   Leaf,
   MapPin,
   PersonSimpleBike,
   PersonSimpleWalk,
+  Star,
+  Steps,
   Subway,
   TrainSimple,
   Tram,
@@ -22,6 +29,17 @@ function normalizeMode(mode = '') {
 
 function getPersonalModeIcon(mode = '') {
   const normalizedMode = normalizeMode(mode);
+
+  if (
+    normalizedMode.includes('platform_change') ||
+    normalizedMode.includes('transfer')
+  ) {
+    return 'steps';
+  }
+
+  if (normalizedMode.includes('waiting')) {
+    return 'wait';
+  }
 
   if (normalizedMode.includes('velo') || normalizedMode.includes('bike')) {
     return 'bike';
@@ -232,6 +250,63 @@ function formatCarbonValue(carbonFootprint) {
   return `${Math.round(value)}g`;
 }
 
+function formatCarbonAmount(value) {
+  const carbonValue = Number(value);
+
+  if (!Number.isFinite(carbonValue)) {
+    return null;
+  }
+
+  if (carbonValue >= 1000) {
+    return `${(carbonValue / 1000).toFixed(carbonValue >= 10000 ? 0 : 1)}kg`;
+  }
+
+  return `${Math.round(carbonValue)}g`;
+}
+
+function formatDistance(distanceKm) {
+  const distance = Number(distanceKm);
+
+  if (!Number.isFinite(distance) || distance <= 0) {
+    return null;
+  }
+
+  if (distance < 1) {
+    return `${Math.round(distance * 1000)} m`;
+  }
+
+  return `${distance.toFixed(distance >= 10 ? 0 : 1)} km`;
+}
+
+function parseJourneyDateTime(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (/^\d{8}T\d{6}$/.test(value)) {
+    return new Date(
+      `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}`
+    );
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatJourneyTime(value) {
+  const date = parseJourneyDateTime(value);
+
+  if (!date) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 function CarbonFootprintBadge({ carbonFootprint }) {
   const label = formatCarbonValue(carbonFootprint);
 
@@ -244,6 +319,221 @@ function CarbonFootprintBadge({ carbonFootprint }) {
       <Leaf size={14} weight="regular" aria-hidden="true" />
       <span>{label}</span>
     </span>
+  );
+}
+
+function CarbonSummary({ carbonFootprint }) {
+  const journeyCarbon = formatCarbonAmount(carbonFootprint?.total_co2e);
+  const carCarbon = formatCarbonAmount(carbonFootprint?.car_solo_co2e);
+  const savings = formatCarbonAmount(carbonFootprint?.savings_vs_car_solo_co2e);
+
+  return (
+    <section className="route-detail-carbon" aria-label="Empreinte carbone">
+      <div>
+        <span className="route-detail-carbon__label">Trajet</span>
+        <strong>{journeyCarbon || '–'}</strong>
+      </div>
+      <div>
+        <span className="route-detail-carbon__label">Voiture</span>
+        <strong>{carCarbon || '–'}</strong>
+      </div>
+      <div className="route-detail-carbon__eco">
+        <span className="route-detail-carbon__label">Economie</span>
+        <strong className="text-primary">{savings || '–'}</strong>
+      </div>
+      {/* {savings ? (
+        <p>{savings} de CO₂ économisés par rapport à la voiture solo.</p>
+      ) : null} */}
+    </section>
+  );
+}
+
+function getSectionStopText(section) {
+  if (!Number.isFinite(Number(section.stopCount)) || section.stopCount <= 0) {
+    return null;
+  }
+
+  return `${section.stopCount} arrêt${section.stopCount > 1 ? 's' : ''}`;
+}
+
+function getSectionTitle(section) {
+  if (section.type === 'public_transport') {
+    return section.label || section.line?.label || section.mode || 'Transport';
+  }
+
+  return section.label || section.mode || 'Trajet';
+}
+
+function isPlatformChangeSection(section) {
+  return normalizeMode(section.mode) === 'platform_change';
+}
+
+function isPersonalTravelSection(section) {
+  const mode = normalizeMode(section.mode);
+
+  return (
+    mode === 'walking' ||
+    mode === 'walk' ||
+    mode === 'bike' ||
+    mode.includes('velo')
+  );
+}
+
+function isSoftTimelineSection(section) {
+  const mode = normalizeMode(section.mode);
+
+  return mode === 'waiting' || mode === 'platform_change';
+}
+
+function getTimelineColor(section) {
+  const mode = normalizeMode(section.mode);
+
+  if (mode === 'waiting' || mode === 'platform_change') {
+    return 'var(--color-secondary)';
+  }
+
+  return section.color || 'var(--color-primary)';
+}
+
+function getIntermediateStops(section) {
+  if (!Array.isArray(section.stops) || section.stops.length <= 2) {
+    return [];
+  }
+
+  return section.stops.slice(1, -1);
+}
+
+function SectionStops({ section }) {
+  const intermediateStops = getIntermediateStops(section);
+  const stopText = getSectionStopText(section);
+  const mode = normalizeMode(section.mode);
+
+  if (
+    isPlatformChangeSection(section) ||
+    mode === 'walking' ||
+    mode === 'walk' ||
+    (!section.from && !section.to && !stopText)
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="route-step-card__stops">
+      {section.from ? <span>{section.from}</span> : null}
+      {stopText ? (
+        <details className="route-step-stops">
+          <summary>
+            <span>{stopText}</span>
+            <CaretDown size={14} weight="regular" aria-hidden="true" />
+          </summary>
+          {intermediateStops.length > 0 ? (
+            <ul>
+              {intermediateStops.map((stop, index) => (
+                <li key={`${stop}-${index}`}>{stop}</li>
+              ))}
+            </ul>
+          ) : null}
+        </details>
+      ) : null}
+      {section.to ? <span>{section.to}</span> : null}
+    </div>
+  );
+}
+
+function RouteTimelineItem({ section, index, previousSection, nextSection }) {
+  const startTime = formatJourneyTime(section.departureDateTime);
+  const endTime = formatJourneyTime(section.arrivalDateTime);
+  const isPlatformChange = isPlatformChangeSection(section);
+  const connectsFromPreviousSoftSection =
+    isSoftTimelineSection(section) && isSoftTimelineSection(previousSection);
+  const connectsToNextSoftSection =
+    isSoftTimelineSection(section) && isSoftTimelineSection(nextSection);
+  const lineStyle = {
+    '--route-step-color': getTimelineColor(section),
+  };
+  const meta = isPlatformChange
+    ? [formatDuration(section.duration || 0)]
+    : [
+        formatDuration(section.duration || 0),
+        isPersonalTravelSection(section)
+          ? formatDistance(section.distanceKm)
+          : null,
+      ].filter(Boolean);
+
+  return (
+    <li
+      className="route-timeline__item"
+      data-mode={normalizeMode(section.mode)}
+      data-connect-previous={connectsFromPreviousSoftSection}
+      data-connect-next={connectsToNextSoftSection}
+      style={lineStyle}
+    >
+      <div className="route-timeline__rail" aria-hidden="true">
+        <span className="route-timeline__time route-timeline__time--start">
+          {startTime || (index === 0 ? 'Départ' : '')}
+        </span>
+        <span className="route-timeline__dot route-timeline__dot--start" />
+        <span className="route-timeline__line" />
+        {connectsToNextSoftSection ? (
+          <span className="route-timeline__dot route-timeline__dot--link" />
+        ) : null}
+        {!isPlatformChange && endTime ? (
+          <>
+            <span className="route-timeline__dot route-timeline__dot--end" />
+            <span className="route-timeline__time route-timeline__time--end">
+              {endTime}
+            </span>
+          </>
+        ) : null}
+      </div>
+      <div className="route-step-card">
+        <div className="route-step-card__header">
+          <JourneySectionBadge section={section} />
+          <div>
+            <strong>{getSectionTitle(section)}</strong>
+            {meta.length > 0 ? <small>{meta.join(' · ')}</small> : null}
+          </div>
+        </div>
+        <SectionStops section={section} />
+      </div>
+    </li>
+  );
+}
+
+function RouteDetails({ journey }) {
+  if (!journey) {
+    return null;
+  }
+
+  const timelineSections = journey.sections.filter(
+    (section, index, sections) =>
+      !(
+        isPlatformChangeSection(section) &&
+        (index === 0 || index === sections.length - 1)
+      )
+  );
+
+  return (
+    <div className="route-detail" aria-label="Fiche de route">
+      <header className="route-detail__header">
+        <JourneySequence sections={journey.sections} />
+        <strong>{formatDuration(journey.duration)}</strong>
+      </header>
+
+      <CarbonSummary carbonFootprint={journey.carbonFootprint} />
+
+      <ol className="route-timeline">
+        {timelineSections.map((section, index) => (
+          <RouteTimelineItem
+            key={section.id || `${section.label}-${index}`}
+            section={section}
+            index={index}
+            previousSection={timelineSections[index - 1]}
+            nextSection={timelineSections[index + 1]}
+          />
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -442,6 +732,12 @@ function JourneySectionBadge({ section }) {
       {icon === 'walk' ? (
         <PersonSimpleWalk size={24} weight="regular" aria-hidden="true" />
       ) : null}
+      {icon === 'steps' ? (
+        <Steps size={24} weight="regular" aria-hidden="true" />
+      ) : null}
+      {icon === 'wait' ? (
+        <HourglassMedium size={24} weight="regular" aria-hidden="true" />
+      ) : null}
       {label ? <span>{label}</span> : null}
     </span>
   );
@@ -495,9 +791,34 @@ function getDominantLabel(profile) {
   return 'En transports';
 }
 
+const routePreferenceButtons = [
+  {
+    id: 'clock',
+    label: 'Récents',
+    Icon: Clock,
+  },
+  {
+    id: 'star',
+    label: 'Favoris',
+    Icon: Star,
+  },
+  {
+    id: 'house',
+    label: 'Domicile',
+    Icon: House,
+  },
+  {
+    id: 'bag',
+    label: 'Travail',
+    Icon: BagSimple,
+  },
+];
+
 export default function RoutePlanner({
   journeys = [],
+  selectedJourney,
   selectedJourneyId,
+  isRouteDetailsVisible,
   isLoading,
   message,
   onJourneySelect,
@@ -513,6 +834,9 @@ export default function RoutePlanner({
   const [toPlace, setToPlace] = useState(null);
   const [swapVersion, setSwapVersion] = useState(0);
   const [activeSuggestions, setActiveSuggestions] = useState(null);
+  const [activePreference, setActivePreference] = useState(
+    routePreferenceButtons[0].id
+  );
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -544,6 +868,14 @@ export default function RoutePlanner({
     setFromPlace(nextFromPlace);
     setToPlace(nextToPlace);
     setSwapVersion((version) => version + 1);
+  }
+
+  if (isRouteDetailsVisible && selectedJourney) {
+    return (
+      <aside className="route-planner" aria-label="Fiche de route">
+        <RouteDetails journey={selectedJourney} />
+      </aside>
+    );
   }
 
   return (
@@ -589,6 +921,22 @@ export default function RoutePlanner({
             onSearchPlaces={onSearchPlaces}
             onSuggestionsChange={setActiveSuggestions}
           />
+          <div className="route-preferences" aria-label="Options d'itineraire">
+            {routePreferenceButtons.map(({ id, label, Icon }) => (
+              <button
+                className="route-preferences__button"
+                data-active={activePreference === id}
+                key={id}
+                type="button"
+                aria-label={label}
+                aria-pressed={activePreference === id}
+                title={label}
+                onClick={() => setActivePreference(id)}
+              >
+                <Icon size={22} weight="regular" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
         </div>
         <div className="route-planner__divider" aria-hidden="true" />
         <PlaceSuggestions suggestions={activeSuggestions} />

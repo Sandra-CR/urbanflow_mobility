@@ -174,3 +174,68 @@ test('fetchJourneys utilise une geometrie de rue pour les trajets directs de sec
     }
   }
 });
+
+test('fetchJourneys transforme une marche au meme lieu en changement de quai', async () => {
+  const previousApiKey = process.env.IDFM_API_KEY;
+  process.env.IDFM_API_KEY = 'test-api-key';
+
+  const fetchImpl = async (url) => {
+    const parsedUrl = new URL(url);
+    const firstSectionModes = parsedUrl.searchParams.get(
+      'first_section_mode[]'
+    );
+
+    if (firstSectionModes === 'walking') {
+      return {
+        ok: true,
+        json: async () => ({
+          journeys: [
+            {
+              duration: 120,
+              sections: [
+                {
+                  id: 'platform-change',
+                  type: 'street_network',
+                  mode: 'walking',
+                  duration: 120,
+                  from: { name: 'Belleville (Paris)' },
+                  to: { name: 'Belleville (Paris)' },
+                },
+              ],
+            },
+          ],
+        }),
+      };
+    }
+
+    return {
+      ok: true,
+      json: async () => ({ journeys: [] }),
+    };
+  };
+
+  try {
+    const result = await fetchJourneys(
+      {
+        from: 'from-id',
+        to: 'to-id',
+        fromCoordinates: [2.3522, 48.8566],
+        toCoordinates: [2.295, 48.8738],
+      },
+      { fetchImpl }
+    );
+    const section = result.journeys.find(
+      (journey) => journey.profile === 'transit'
+    ).sections[0];
+
+    assert.equal(section.mode, 'platform_change');
+    assert.equal(section.label, 'Changement de quai');
+    assert.equal(section.duration, 120);
+  } finally {
+    if (previousApiKey) {
+      process.env.IDFM_API_KEY = previousApiKey;
+    } else {
+      delete process.env.IDFM_API_KEY;
+    }
+  }
+});

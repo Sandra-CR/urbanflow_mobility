@@ -20,6 +20,9 @@ function toCarbonMode(mode) {
   }
 
   if (
+    normalizedMode.includes('platform_change') ||
+    normalizedMode.includes('transfer') ||
+    normalizedMode.includes('waiting') ||
     normalizedMode.includes('marche') ||
     normalizedMode.includes('walk') ||
     normalizedMode.includes('walking')

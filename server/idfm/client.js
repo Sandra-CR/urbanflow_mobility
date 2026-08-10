@@ -433,7 +433,39 @@ async function requestIdfm(url, { apiKey, fetchImpl, signal }) {
   return data;
 }
 
+function normalizePlaceName(value = '') {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function isPlatformChangeSection(section) {
+  const fromName = normalizePlaceName(section.from?.name);
+  const toName = normalizePlaceName(section.to?.name);
+
+  return (
+    section.mode === 'walking' &&
+    Boolean(fromName) &&
+    Boolean(toName) &&
+    fromName === toName
+  );
+}
+
+function removeCitySuffix(value) {
+  return toOptionalText(value)?.replace(/\s+\([^)]*\)\s*$/, '') || null;
+}
+
 function getSectionMode(section) {
+  if (section.type === 'waiting') {
+    return 'waiting';
+  }
+
+  if (section.type === 'transfer' || isPlatformChangeSection(section)) {
+    return 'platform_change';
+  }
+
   if (section.type === 'public_transport') {
     return (
       section.display_informations?.commercial_mode ||
@@ -446,10 +478,18 @@ function getSectionMode(section) {
 }
 
 function getSectionLabel(section) {
+  if (section.type === 'waiting') {
+    return 'Attente';
+  }
+
+  if (section.type === 'transfer' || isPlatformChangeSection(section)) {
+    return 'Changement de quai';
+  }
+
   if (section.type === 'public_transport') {
-    const line = section.display_informations?.label;
-    const direction = section.display_informations?.direction;
-    return [line, direction].filter(Boolean).join(' vers ') || 'Transport';
+    return (
+      removeCitySuffix(section.display_informations?.direction) || 'Transport'
+    );
   }
 
   if (section.mode === 'walking') {
@@ -535,6 +575,30 @@ function getSectionDistanceKm(section, geometry) {
   return geometryDistance ? geometryDistance / 1000 : 0;
 }
 
+function getSectionStopCount(section) {
+  if (!Array.isArray(section.stop_date_times)) {
+    return null;
+  }
+
+  return Math.max(0, section.stop_date_times.length - 1);
+}
+
+function getSectionStops(section) {
+  if (!Array.isArray(section.stop_date_times)) {
+    return [];
+  }
+
+  return section.stop_date_times
+    .map((stopDateTime) =>
+      removeCitySuffix(
+        stopDateTime.stop_point?.name ||
+          stopDateTime.stop_point?.label ||
+          stopDateTime.stop_point?.id
+      )
+    )
+    .filter(Boolean);
+}
+
 function normalizeSection(section) {
   const geometry = getSectionGeometry(section);
 
@@ -544,14 +608,16 @@ function normalizeSection(section) {
     mode: getSectionMode(section),
     label: getSectionLabel(section),
     duration: section.duration || 0,
-    from: section.from?.name || null,
-    to: section.to?.name || null,
+    from: removeCitySuffix(section.from?.name),
+    to: removeCitySuffix(section.to?.name),
     departureDateTime: section.departure_date_time || null,
     arrivalDateTime: section.arrival_date_time || null,
     color: getSectionColor(section),
     textColor: getSectionTextColor(section),
     line: getSectionLine(section),
     distanceKm: getSectionDistanceKm(section, geometry),
+    stopCount: getSectionStopCount(section),
+    stops: getSectionStops(section),
     geometry,
   };
 }
