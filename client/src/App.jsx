@@ -2,15 +2,20 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ArrowRight,
   DownloadSimple,
+  MapTrifold,
   Moon,
   SignIn,
   SignOut,
   Sun,
+  Tree,
   Trash,
+  Trophy,
+  User,
 } from '@phosphor-icons/react';
 import AuthPanel from './components/AuthPanel';
 import InteractiveMap from './components/InteractiveMap';
 import RoutePlanner from './components/RoutePlanner';
+import urbanflowLogoOnPrimary from './assets/brand/light/urbanflow-logo-onprimary.svg';
 import {
   deleteCurrentUser,
   getCurrentUser,
@@ -29,6 +34,69 @@ const PARIS_OFFLINE_BOUNDS = {
   east: 2.48,
   north: 48.91,
 };
+
+function AppNavigation({ currentUser, isAuthPanelOpen, onAccountClick }) {
+  const accountLabel = currentUser ? 'Mon compte' : 'Connexion';
+  const navigationItems = [
+    {
+      id: 'routes',
+      label: 'Itinéraires',
+      Icon: MapTrifold,
+      isActive: !isAuthPanelOpen,
+    },
+    {
+      id: 'carbon',
+      label: 'Mon carbone',
+      Icon: Tree,
+      isActive: false,
+    },
+    {
+      id: 'achievements',
+      label: 'Mes succès',
+      Icon: Trophy,
+      isActive: false,
+    },
+    {
+      id: 'account',
+      label: accountLabel,
+      Icon: User,
+      isActive: isAuthPanelOpen,
+      onClick: onAccountClick,
+    },
+  ];
+
+  return (
+    <nav className="app-navigation" aria-label="Navigation principale">
+      <div className="app-navigation__primary">
+        <div className="app-navigation__brand" aria-hidden="true">
+          <img src={urbanflowLogoOnPrimary} alt="" />
+        </div>
+        {navigationItems.slice(0, 3).map(({ id, label, Icon, isActive }) => (
+          <button
+            className="app-navigation__item"
+            data-active={isActive}
+            key={id}
+            type="button"
+            aria-current={isActive ? 'page' : undefined}
+          >
+            <Icon weight="regular" aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+      <button
+        className="app-navigation__item app-navigation__item--account"
+        data-active={navigationItems[3].isActive}
+        type="button"
+        aria-current={navigationItems[3].isActive ? 'page' : undefined}
+        onClick={navigationItems[3].onClick}
+      >
+        <User weight="regular" aria-hidden="true" />
+        <span>{accountLabel}</span>
+      </button>
+    </nav>
+  );
+}
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -176,6 +244,16 @@ function App() {
       className="map-test-page app-surface"
       data-theme={isDarkMode ? 'dark' : 'light'}
     >
+      <AppNavigation
+        currentUser={currentUser}
+        isAuthPanelOpen={showAuthPanel}
+        onAccountClick={() => {
+          if (!currentUser) {
+            setShowAuthPanel(true);
+          }
+        }}
+      />
+
       {(cacheProgress || cacheMessage) && (
         <section className="offline-cache-toast" aria-live="polite">
           {cacheProgress && (
