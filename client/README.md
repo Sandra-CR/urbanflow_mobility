@@ -20,6 +20,14 @@ Sur Windows, si PowerShell bloque `npm.ps1`, utiliser `npm.cmd` :
 npm.cmd run build
 ```
 
+## Configuration
+
+Le client lit ses variables depuis `client/.env`. Copier `client/.env.example` vers `client/.env` si l'API ne tourne pas sur `http://localhost:3000`.
+
+| Variable       | Obligatoire | Valeur par défaut       | Description                           |
+| -------------- | ----------- | ----------------------- | ------------------------------------- |
+| `VITE_API_URL` | Non         | `http://localhost:3000` | URL de l'API appelée par le frontend. |
+
 ## Thème visuel
 
 Les couleurs, typographies, rayons et ombres partagés sont centralisés dans `src/index.css` sous forme de variables CSS. Les tokens principaux sont exposés dans `tailwind.config.js` pour être réutilisables avec Tailwind.
@@ -100,6 +108,16 @@ Classes CSS disponibles :
 
 Pour garder la PWA utilisable hors ligne, Inter est auto-hébergée dans `public/fonts`. Voir `public/fonts/README.md`.
 
+## PWA et stockage local
+
+Le client utilise `vite-plugin-pwa` pour générer le service worker et le manifest PWA. Le service worker est configuré en `autoUpdate` et activé aussi en développement pour tester les scénarios hors ligne.
+
+Les tuiles Carto sont mises en cache avec une stratégie `CacheFirst` dans le cache `carto-map-tiles`. Le cache runtime garde jusqu'à `600` entrées pendant `30` jours.
+
+Le bouton de téléchargement des tuiles utilise la Cache API via `src/utils/offlineMapTiles.js`. Il précharge les tuiles clair/sombre autour de Paris, du zoom `11` au zoom `15`, et affiche une progression dans l'interface.
+
+Les recherches récentes du route planner sont stockées dans IndexedDB via `src/utils/recentPlacesDb.js`. La base s'appelle `urbanflow_mobility`, le store `recent_place_searches`, et seules les `10` dernières recherches sont affichées. Si IndexedDB est indisponible, le route planner reste utilisable sans historique.
+
 ## Icônes
 
 Les icônes de l'interface doivent venir de `@phosphor-icons/react`.
@@ -120,7 +138,7 @@ Règles d'usage :
 
 ## Logos et assets de marque
 
-Les images importées sont placés dans `src/assets/brand`.
+Les images importées sont placées dans `src/assets/brand`.
 
 Les icônes PWA installées sur mobile doivent être placées dans `public`.
 

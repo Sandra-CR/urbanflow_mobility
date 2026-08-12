@@ -80,7 +80,11 @@ async function addCarbonFootprints(journeys, calculateCarbonFootprint) {
 /**
  * Crée le routeur Express dédié aux données IDF Mobilités.
  *
- * @param {{fetchNearbyStations?: Function}} [options] Dépendances injectables
+ * @param {object} [options] Dépendances injectables.
+ * @param {Function} [options.fetchNearbyStations] Recherche les stations proches.
+ * @param {Function} [options.searchPlaces] Recherche les lieux IDF Mobilités.
+ * @param {Function} [options.fetchJourneys] Calcule les itinéraires.
+ * @param {Function} [options.calculateCarbonFootprint] Calcule l'empreinte carbone.
  * @returns {object} Routeur Express configuré
  */
 export function createIdfmRouter({

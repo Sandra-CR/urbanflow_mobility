@@ -12,6 +12,71 @@ const JOURNEY_PROFILE_ORDER = {
   bike: 1,
 };
 
+/**
+ * Ligne de transport normalisée pour l'interface.
+ *
+ * @typedef {object} NormalizedLine
+ * @property {string | null} id Identifiant Navitia/IDFM de la ligne.
+ * @property {string | null} code Code court affichable.
+ * @property {string | null} label Libellé complet affichable.
+ * @property {string | null} commercialMode Mode commercial, par exemple Metro ou RER.
+ * @property {string | null} physicalMode Mode physique si disponible.
+ * @property {string | null} color Couleur hexadécimale de la ligne.
+ * @property {string | null} textColor Couleur hexadécimale du texte.
+ */
+
+/**
+ * Lieu normalisé renvoyé au client.
+ *
+ * @typedef {object} NormalizedPlace
+ * @property {string} id Identifiant du lieu.
+ * @property {string} [label] Libellé utilisé par l'autocomplétion.
+ * @property {string} name Nom du lieu.
+ * @property {string} type Type de lieu : adresse, station ou arrêt.
+ * @property {number | null} distance Distance en mètres quand l'API la fournit.
+ * @property {number[]} coordinates Coordonnées `[longitude, latitude]`.
+ * @property {string | null} city Ville ou région administrative.
+ * @property {NormalizedLine[]} lines Lignes desservant le lieu.
+ */
+
+/**
+ * Segment normalisé d'un itinéraire.
+ *
+ * @typedef {object} NormalizedJourneySection
+ * @property {string} id Identifiant de section.
+ * @property {string} type Type Navitia normalisé.
+ * @property {string} mode Mode de transport ou de déplacement.
+ * @property {string} label Libellé affichable.
+ * @property {number} duration Durée en secondes.
+ * @property {string | null} from Nom du point de départ.
+ * @property {string | null} to Nom du point d'arrivée.
+ * @property {string | null} departureDateTime Date de départ Navitia.
+ * @property {string | null} arrivalDateTime Date d'arrivée Navitia.
+ * @property {string} color Couleur de rendu.
+ * @property {string} textColor Couleur de texte.
+ * @property {NormalizedLine | null} line Ligne de transport associée.
+ * @property {number} distanceKm Distance du segment en kilomètres.
+ * @property {number | null} stopCount Nombre d'arrêts intermédiaires.
+ * @property {string[]} stops Arrêts de la section.
+ * @property {number[][] | null} geometry Géométrie `[longitude, latitude]`.
+ */
+
+/**
+ * Itinéraire normalisé renvoyé au client.
+ *
+ * @typedef {object} NormalizedJourney
+ * @property {string} id Identifiant stable côté interface.
+ * @property {string} profile Profil : walking, bike ou transit.
+ * @property {number} duration Durée totale en secondes.
+ * @property {number} walkingDuration Durée de marche en secondes.
+ * @property {number} bikeDuration Durée vélo en secondes.
+ * @property {number} nbTransfers Nombre de correspondances.
+ * @property {string | null} departureDateTime Date de départ Navitia.
+ * @property {string | null} arrivalDateTime Date d'arrivée Navitia.
+ * @property {NormalizedJourneySection[]} sections Sections détaillées.
+ * @property {number[][] | null} geometry Géométrie globale `[longitude, latitude]`.
+ */
+
 function getConfig() {
   return {
     apiKey: process.env.IDFM_API_KEY,
@@ -694,6 +759,25 @@ function orderJourneys(journeys) {
   );
 }
 
+/**
+ * Recherche les stations de transport proches d'une coordonnée.
+ *
+ * Les paramètres `distance` et `count` sont bornés pour éviter les requêtes
+ * trop larges vers IDF Mobilités.
+ *
+ * @param {object} params Paramètres de recherche.
+ * @param {number | string} params.lon Longitude du point de recherche.
+ * @param {number | string} params.lat Latitude du point de recherche.
+ * @param {number | string} [params.distance=900] Rayon en mètres, borné entre 100 et 3000.
+ * @param {number | string} [params.count=30] Nombre de stations, borné entre 1 et 80.
+ * @param {object} [dependencies] Dépendances injectables.
+ * @param {Function} [dependencies.fetchImpl] Implémentation compatible fetch.
+ * @param {AbortSignal} [dependencies.signal] Signal d'annulation.
+ * @returns {Promise<{stations: NormalizedPlace[], pagination: object | null}>}
+ * @throws {Error} 400 si les coordonnées sont invalides.
+ * @throws {Error} 503 si `IDFM_API_KEY` est absent.
+ * @throws {Error} 502/504 si l'API IDF Mobilités échoue ou expire.
+ */
 export async function fetchNearbyStations(
   { lon, lat, distance = 900, count = 30 },
   { fetchImpl = fetch, signal } = {}
@@ -743,6 +827,22 @@ export async function fetchNearbyStations(
   };
 }
 
+/**
+ * Recherche des lieux IDF Mobilités pour l'autocomplétion.
+ *
+ * Une requête de moins de deux caractères renvoie une liste vide sans appeler
+ * l'API distante.
+ *
+ * @param {object} params Paramètres de recherche.
+ * @param {string} params.query Texte saisi par l'utilisateur.
+ * @param {number | string} [params.count=8] Nombre de résultats, borné entre 1 et 12.
+ * @param {object} [dependencies] Dépendances injectables.
+ * @param {Function} [dependencies.fetchImpl] Implémentation compatible fetch.
+ * @param {AbortSignal} [dependencies.signal] Signal d'annulation.
+ * @returns {Promise<{places: NormalizedPlace[], pagination: object | null}>}
+ * @throws {Error} 503 si `IDFM_API_KEY` est absent.
+ * @throws {Error} 502/504 si l'API IDF Mobilités échoue ou expire.
+ */
 export async function searchPlaces(
   { query, count = 8 },
   { fetchImpl = fetch, signal } = {}
@@ -783,6 +883,29 @@ export async function searchPlaces(
   };
 }
 
+/**
+ * Calcule les itinéraires marche, vélo et transports entre deux lieux.
+ *
+ * Le client interroge IDF Mobilités pour trois profils : marche directe, vélo
+ * direct et transports. Si les coordonnées sont fournies et qu'IDF Mobilités ne
+ * renvoie pas de trajet direct marche ou vélo, un itinéraire de secours est
+ * construit avec OSRM. Si OSRM échoue, le fallback utilise une ligne directe
+ * entre les deux coordonnées.
+ *
+ * @param {object} params Paramètres de calcul.
+ * @param {string} params.from Identifiant IDF Mobilités du départ.
+ * @param {string} params.to Identifiant IDF Mobilités de l'arrivée.
+ * @param {number[] | string[]} [params.fromCoordinates] Coordonnées `[longitude, latitude]` du départ.
+ * @param {number[] | string[]} [params.toCoordinates] Coordonnées `[longitude, latitude]` de l'arrivée.
+ * @param {object} [dependencies] Dépendances injectables.
+ * @param {Function} [dependencies.fetchImpl] Implémentation compatible fetch.
+ * @param {AbortSignal} [dependencies.signal] Signal d'annulation.
+ * @returns {Promise<{journeys: NormalizedJourney[]}>}
+ * @throws {Error} 400 si le départ ou l'arrivée est invalide.
+ * @throws {Error} 503 si `IDFM_API_KEY` est absent.
+ * @throws {Error} 404 si aucun itinéraire n'est trouvé.
+ * @throws {Error} 502/504 si l'API IDF Mobilités échoue ou expire.
+ */
 export async function fetchJourneys(
   { from, to, fromCoordinates, toCoordinates },
   { fetchImpl = fetch, signal } = {}
@@ -907,6 +1030,12 @@ export async function fetchJourneys(
   };
 }
 
+/**
+ * Décore une fonction de recherche de stations avec un timeout court.
+ *
+ * @param {Function} fetchNearbyStationsImpl Fonction compatible avec `fetchNearbyStations`.
+ * @returns {Function} Fonction qui annule la recherche après `DEFAULT_TIMEOUT_MS`.
+ */
 export function createFetchNearbyStationsWithTimeout(fetchNearbyStationsImpl) {
   return async function fetchNearbyStationsWithTimeout(params) {
     const controller = new AbortController();
@@ -922,6 +1051,12 @@ export function createFetchNearbyStationsWithTimeout(fetchNearbyStationsImpl) {
   };
 }
 
+/**
+ * Décore une fonction de recherche de lieux avec un timeout court.
+ *
+ * @param {Function} searchPlacesImpl Fonction compatible avec `searchPlaces`.
+ * @returns {Function} Fonction qui annule la recherche après `DEFAULT_TIMEOUT_MS`.
+ */
 export function createSearchPlacesWithTimeout(searchPlacesImpl) {
   return async function searchPlacesWithTimeout(params) {
     const controller = new AbortController();
@@ -937,6 +1072,12 @@ export function createSearchPlacesWithTimeout(searchPlacesImpl) {
   };
 }
 
+/**
+ * Décore une fonction de calcul d'itinéraires avec un timeout plus long.
+ *
+ * @param {Function} fetchJourneysImpl Fonction compatible avec `fetchJourneys`.
+ * @returns {Function} Fonction qui annule le calcul après `JOURNEY_TIMEOUT_MS`.
+ */
 export function createFetchJourneysWithTimeout(fetchJourneysImpl) {
   return async function fetchJourneysWithTimeout(params) {
     const controller = new AbortController();

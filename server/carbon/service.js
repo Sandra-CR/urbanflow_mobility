@@ -121,11 +121,14 @@ async function findCarbonFactorRows(modes, query) {
 /**
  * Calcule l'empreinte carbone d'un itineraire.
  *
- * La colonne carbon_factors.co2_per_km est attendue dans l'unite affichee
- * par l'interface, aujourd'hui des grammes de CO2e par kilometre.
+ * La colonne carbon_factors.co2_per_km est attendue dans l'unité affichée
  *
- * @param {{legs?: Array<{mode: string, distance_km: number}>}} itinerary
- * @param {{query?: Function}} [dependencies]
+ * @param {object} itinerary Itinéraire à évaluer.
+ * @param {Array<object>} [itinerary.legs] Segments de l'itinéraire.
+ * @param {string} itinerary.legs[].mode Mode de transport du segment.
+ * @param {number} itinerary.legs[].distance_km Distance du segment en kilomètres.
+ * @param {object} [dependencies] Dépendances injectables.
+ * @param {Function} [dependencies.query] Fonction de requête SQL.
  * @returns {Promise<{total_co2e: number, unit: string, segments: Array<object>}>}
  */
 export async function calculateCarbonFootprint(
