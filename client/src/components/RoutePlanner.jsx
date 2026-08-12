@@ -16,6 +16,7 @@ import {
   House,
   Leaf,
   MapPin,
+  MapTrifold,
   PersonSimpleBike,
   PersonSimpleWalk,
   Star,
@@ -24,7 +25,6 @@ import {
   TrainSimple,
   Tram,
 } from '@phosphor-icons/react';
-import urbanflowLogo from '../assets/brand/urbanflow-logo.svg';
 import {
   getRecentPlaceSearches,
   saveRecentPlaceSearch,
@@ -1104,7 +1104,10 @@ export default function RoutePlanner({
     <aside className="route-planner" aria-label="Recherche d'itinéraire">
       <form className="route-planner__form" onSubmit={handleSubmit}>
         <div className="route-planner__header">
-          <img src={urbanflowLogo} alt="UrbanFlow" />
+          <h1>
+            <MapTrifold size={24} weight="regular" aria-hidden="true" />
+            <span>Itinéraire</span>
+          </h1>
         </div>
 
         <div className="route-fields">
