@@ -28,6 +28,10 @@ Le client lit ses variables depuis `client/.env`. Copier `client/.env.example` v
 | -------------- | ----------- | ----------------------- | ------------------------------------- |
 | `VITE_API_URL` | Non         | `http://localhost:3000` | URL de l'API appelée par le frontend. |
 
+## Organisation des composants
+
+Chaque composant partagé vit dans son propre dossier sous `src/components`. Le fichier JSX et son CSS restent côte à côte, par exemple `src/components/RoutePlanner/RoutePlanner.jsx` et `src/components/RoutePlanner/RoutePlanner.css`.
+
 ## Thème visuel
 
 Les couleurs, typographies, rayons et ombres partagés sont centralisés dans `src/index.css` sous forme de variables CSS. Les tokens principaux sont exposés dans `tailwind.config.js` pour être réutilisables avec Tailwind.

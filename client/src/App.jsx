@@ -1,21 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ArrowRight,
-  DownloadSimple,
-  MapTrifold,
-  Moon,
-  SignIn,
-  SignOut,
-  Sun,
-  Tree,
-  Trash,
-  Trophy,
-  User,
-} from '@phosphor-icons/react';
-import AuthPanel from './components/AuthPanel';
-import InteractiveMap from './components/InteractiveMap';
-import RoutePlanner from './components/RoutePlanner';
-import urbanflowLogoOnPrimary from './assets/brand/light/urbanflow-logo-onprimary.svg';
+import { ArrowRight } from '@phosphor-icons/react';
+import AppNavigation from './components/AppNavigation/AppNavigation';
+import AuthPanel from './components/AuthPanel/AuthPanel';
+import InteractiveMap from './components/InteractiveMap/InteractiveMap';
+import MapActions from './components/MapActions/MapActions';
+import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
+import RoutePlanner from './components/RoutePlanner/RoutePlanner';
 import {
   deleteCurrentUser,
   getCurrentUser,
@@ -34,69 +24,6 @@ const PARIS_OFFLINE_BOUNDS = {
   east: 2.48,
   north: 48.91,
 };
-
-function AppNavigation({ currentUser, isAuthPanelOpen, onAccountClick }) {
-  const accountLabel = currentUser ? 'Mon compte' : 'Connexion';
-  const navigationItems = [
-    {
-      id: 'routes',
-      label: 'Itinéraires',
-      Icon: MapTrifold,
-      isActive: !isAuthPanelOpen,
-    },
-    {
-      id: 'carbon',
-      label: 'Mon carbone',
-      Icon: Tree,
-      isActive: false,
-    },
-    {
-      id: 'achievements',
-      label: 'Mes succès',
-      Icon: Trophy,
-      isActive: false,
-    },
-    {
-      id: 'account',
-      label: accountLabel,
-      Icon: User,
-      isActive: isAuthPanelOpen,
-      onClick: onAccountClick,
-    },
-  ];
-
-  return (
-    <nav className="app-navigation" aria-label="Navigation principale">
-      <div className="app-navigation__primary">
-        <div className="app-navigation__brand" aria-hidden="true">
-          <img src={urbanflowLogoOnPrimary} alt="" />
-        </div>
-        {navigationItems.slice(0, 3).map(({ id, label, Icon, isActive }) => (
-          <button
-            className="app-navigation__item"
-            data-active={isActive}
-            key={id}
-            type="button"
-            aria-current={isActive ? 'page' : undefined}
-          >
-            <Icon weight="regular" aria-hidden="true" />
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
-      <button
-        className="app-navigation__item app-navigation__item--account"
-        data-active={navigationItems[3].isActive}
-        type="button"
-        aria-current={navigationItems[3].isActive ? 'page' : undefined}
-        onClick={navigationItems[3].onClick}
-      >
-        <User weight="regular" aria-hidden="true" />
-        <span>{accountLabel}</span>
-      </button>
-    </nav>
-  );
-}
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -254,90 +181,24 @@ function App() {
         }}
       />
 
-      {(cacheProgress || cacheMessage) && (
-        <section className="offline-cache-toast" aria-live="polite">
-          {cacheProgress && (
-            <div className="offline-cache-progress">
-              <span
-                style={{
-                  width: `${cacheProgress.percent}%`,
-                }}
-              />
-            </div>
-          )}
-          <p>
-            {isCachingTiles
-              ? `${cacheProgress?.completed || 0}/${cacheProgress?.total || 0} tuiles (${cacheProgress?.percent || 0}%)`
-              : cacheMessage}
-          </p>
-        </section>
-      )}
+      <OfflineCacheToast
+        cacheMessage={cacheMessage}
+        cacheProgress={cacheProgress}
+        isCachingTiles={isCachingTiles}
+      />
 
-      <div className="map-actions" aria-label="Commandes de carte">
-        {currentUser ? (
-          <div className="user-chip" title={currentUser.email}>
-            <span>{currentUser.email}</span>
-          </div>
-        ) : null}
-        <button
-          className="map-icon-button"
-          type="button"
-          aria-label={
-            isDarkMode ? 'Activer le mode clair' : 'Activer le mode sombre'
-          }
-          title={isDarkMode ? 'Mode clair' : 'Mode sombre'}
-          aria-pressed={isDarkMode}
-          onClick={() => setIsDarkMode((currentValue) => !currentValue)}
-        >
-          {isDarkMode ? (
-            <Sun size={20} weight="bold" aria-hidden="true" />
-          ) : (
-            <Moon size={20} weight="bold" aria-hidden="true" />
-          )}
-        </button>
-        <button
-          className="map-icon-button"
-          type="button"
-          aria-label="Télécharger les tuiles pour le hors ligne"
-          title="Télécharger les tuiles"
-          disabled={isCachingTiles}
-          onClick={handlePreloadOfflineMap}
-        >
-          <DownloadSimple size={20} weight="bold" aria-hidden="true" />
-        </button>
-        {currentUser ? (
-          <>
-            <button
-              className="map-icon-button"
-              type="button"
-              aria-label="Se déconnecter"
-              title="Se déconnecter"
-              onClick={handleLogout}
-            >
-              <SignOut size={20} weight="bold" aria-hidden="true" />
-            </button>
-            <button
-              className="map-icon-button map-icon-button--danger"
-              type="button"
-              aria-label="Supprimer le compte"
-              title="Supprimer le compte"
-              onClick={handleDeleteAccount}
-            >
-              <Trash size={20} weight="bold" aria-hidden="true" />
-            </button>
-          </>
-        ) : (
-          <button
-            className="map-icon-button"
-            type="button"
-            aria-label="Se connecter"
-            title="Se connecter"
-            onClick={() => setShowAuthPanel(true)}
-          >
-            <SignIn size={20} weight="bold" aria-hidden="true" />
-          </button>
-        )}
-      </div>
+      <MapActions
+        currentUser={currentUser}
+        isCachingTiles={isCachingTiles}
+        isDarkMode={isDarkMode}
+        onDeleteAccount={handleDeleteAccount}
+        onDownloadOfflineMap={handlePreloadOfflineMap}
+        onLoginClick={() => setShowAuthPanel(true)}
+        onLogout={handleLogout}
+        onToggleDarkMode={() =>
+          setIsDarkMode((currentValue) => !currentValue)
+        }
+      />
 
       <section className="map-workspace">
         <RoutePlanner
