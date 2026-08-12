@@ -105,3 +105,45 @@ test('la route journeys ajoute la comparaison carbone avec voiture solo', async 
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('la route journeys reste disponible si le calcul carbone échoue', async () => {
+  const app = express();
+  const journey = {
+    id: 'journey-1',
+    duration: 600,
+    profile: 'walking',
+    sections: [{ mode: 'walking', distanceKm: 2 }],
+  };
+  const calculateCarbonFootprint = async () => {
+    const error = new Error('Database unavailable');
+    error.code = 'ENOTFOUND';
+    throw error;
+  };
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchJourneys: async () => ({ journeys: [journey] }),
+      calculateCarbonFootprint,
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/idfm/journeys?from=from-id&to=to-id`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.journeys.length, 1);
+    assert.equal(body.journeys[0].id, 'journey-1');
+    assert.equal(
+      body.carbonFootprintMessage,
+      'Le calcul carbone est temporairement indisponible.'
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
