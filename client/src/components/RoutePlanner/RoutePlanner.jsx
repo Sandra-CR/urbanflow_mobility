@@ -28,7 +28,7 @@ import {
 import {
   getRecentPlaceSearches,
   saveRecentPlaceSearch,
-} from '../utils/recentPlacesDb';
+} from '../../utils/recentPlacesDb';
 import './RoutePlanner.css';
 
 function normalizeMode(mode = '') {

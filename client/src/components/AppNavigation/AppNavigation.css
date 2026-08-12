@@ -1,0 +1,127 @@
+.app-navigation {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  gap: 5px;
+  background: var(--color-card);
+  color: var(--color-text);
+  box-shadow: var(--shadow-ui);
+}
+
+.app-navigation__primary {
+  display: flex;
+  gap: 5px;
+}
+
+.app-navigation__brand {
+  display: none;
+}
+
+.app-navigation__item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 500;
+  line-height: 1.1;
+  text-align: center;
+  cursor: pointer;
+}
+
+.app-navigation__item svg {
+  flex: 0 0 auto;
+}
+
+.app-navigation__item span {
+  white-space: nowrap;
+}
+
+.app-navigation__item:hover,
+.app-navigation__item:focus-visible,
+.app-navigation__item[data-active='true'] {
+  color: var(--color-primary);
+}
+
+.app-navigation__item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+@media (max-width: 1024px) {
+  .app-navigation {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: var(--app-navigation-mobile-height);
+    border-top: 1px solid
+      color-mix(in srgb, var(--color-text-light) 18%, transparent);
+  }
+
+  .app-navigation__primary {
+    display: contents;
+  }
+
+  .app-navigation__item {
+    flex: 1 1 0;
+    font-size: 10px;
+  }
+
+  .app-navigation__item svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .app-navigation {
+    grid-column: 1;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    position: sticky;
+    width: max-content;
+    min-width: 96px;
+    height: 100svh;
+    flex-direction: column;
+    justify-content: space-between;
+    border-right: 1px solid
+      color-mix(in srgb, var(--color-text-light) 18%, transparent);
+  }
+
+  .app-navigation__primary {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .app-navigation__brand {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: 64px;
+    padding: 5px;
+    background: var(--color-primary);
+  }
+
+  .app-navigation__brand img {
+    display: block;
+    width: 80px;
+    height: 80px;
+  }
+
+  .app-navigation__item {
+    width: 100%;
+    font-size: 12px;
+  }
+
+  .app-navigation__item svg {
+    width: 28px;
+    height: 28px;
+  }
+}
