@@ -6,17 +6,13 @@ UrbanFlow Mobility est une application web de mobilité urbaine éco-conçue, pe
 
 Le projet est organisé en monorepo avec une séparation claire entre le client et le serveur.
 
-- `client` : application frontend React avec Vite, Tailwind CSS et configuration PWA.
-- `server` : API backend Node.js avec Express.
+- `client` : application frontend React avec Vite, Tailwind CSS, MapLibre et configuration PWA.
+- `server` : API backend Node.js avec Express, PostgreSQL/Supabase, auth JWT et proxy IDF Mobilités.
 
-## Frontend
+## Documentation
 
-Les conventions visuelles du client sont documentées dans `client/README.md` :
-
-- tokens de couleurs light/dark
-- classes typographiques partagées
-- usage de `@phosphor-icons/react`
-- emplacements recommandés pour les logos, fonts et icônes PWA
+- `client/README.md` : conventions visuelles, PWA, stockage local, assets et icônes.
+- `server/README.md` : configuration backend, migrations PostgreSQL, API HTTP, calcul carbone, fallback OSRM, tests et JSDoc.
 
 ## Installation
 
@@ -28,7 +24,16 @@ npm install --prefix client
 npm install --prefix server
 ```
 
-## Démarrage simultané
+Copier les fichiers d'exemple d'environnement avant le premier démarrage :
+
+```bash
+cp server/.env.example server/.env
+cp client/.env.example client/.env
+```
+
+Adapter ensuite les valeurs sensibles dans `server/.env`, notamment `DATABASE_URL`, `JWT_SECRET` et `IDFM_API_KEY`.
+
+## Démarrage
 
 Depuis la racine :
 
@@ -36,22 +41,25 @@ Depuis la racine :
 npm run dev
 ```
 
-## Documentation technique
+Le client Vite démarre sur `http://localhost:5173` et l'API sur `http://localhost:3000` par défaut.
 
-Le backend utilise JSDoc pour documenter le code JavaScript directement dans les fichiers sources.
+Sur Windows, si PowerShell bloque `npm.ps1`, utiliser `npm.cmd` :
 
-L'objectif est de garder une documentation lisible :
-
-- expliquer le rôle d'une fonction ou d'un module
-- préciser les paramètres attendus
-- préciser la valeur retournée
-- signaler les erreurs possibles avec `@throws`
-- éviter de commenter les lignes évidentes
-
-Générer la documentation serveur :
-
-```bash
-npm run docs
+```powershell
+npm.cmd run dev
 ```
 
-La documentation générée est placée dans `server/docs` et n'est pas versionnée.
+## Vérifications
+
+Depuis la racine :
+
+```bash
+npm run lint
+npm run test
+npm run build
+npm run docs
+npm run openapi:check
+npm run check
+```
+
+`npm run check` enchaîne le lint serveur/client, les tests serveur, le build client, la génération JSDoc serveur et la vérification du contrat OpenAPI.

@@ -69,7 +69,8 @@ function isUniqueEmailViolation(error) {
  * - GET /me : lecture du compte connecté.
  * - DELETE /me : suppression du compte connecté.
  *
- * @param {{query?: Function}} [options] Dépendances injectables.
+ * @param {object} [options] Dépendances injectables.
+ * @param {Function} [options.query] Fonction de requête SQL.
  * @returns {object} Routeur Express configuré.
  */
 export function createAuthRouter({ query = defaultQuery } = {}) {
