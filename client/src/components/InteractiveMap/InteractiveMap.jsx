@@ -334,6 +334,49 @@ function drawRoute(map, route, { shouldFit = false } = {}) {
   return true;
 }
 
+function drawRouteWhenReady(map, route, { shouldFit = false } = {}) {
+  let timeoutId = null;
+  let isCancelled = false;
+
+  const clearListeners = () => {
+    map.off('load', tryDrawRoute);
+    map.off('style.load', tryDrawRoute);
+    map.off('styledata', tryDrawRoute);
+    map.off('idle', tryDrawRoute);
+  };
+
+  const scheduleRetry = () => {
+    window.clearTimeout(timeoutId);
+    timeoutId = window.setTimeout(tryDrawRoute, 80);
+  };
+
+  function tryDrawRoute() {
+    if (isCancelled) {
+      return;
+    }
+
+    if (drawRoute(map, route, { shouldFit })) {
+      window.clearTimeout(timeoutId);
+      clearListeners();
+      return;
+    }
+
+    scheduleRetry();
+  }
+
+  map.on('load', tryDrawRoute);
+  map.on('style.load', tryDrawRoute);
+  map.on('styledata', tryDrawRoute);
+  map.on('idle', tryDrawRoute);
+  tryDrawRoute();
+
+  return () => {
+    isCancelled = true;
+    window.clearTimeout(timeoutId);
+    clearListeners();
+  };
+}
+
 export default function InteractiveMap({
   center,
   zoom = 13,
@@ -447,7 +490,7 @@ export default function InteractiveMap({
     map.setStyle(mapStyle);
     map.once('styledata', () => {
       map.jumpTo(camera);
-      drawRoute(map, selectedRoute);
+      drawRouteWhenReady(map, selectedRoute);
     });
   }, [mapStyle, selectedRoute, styleKey]);
 
@@ -483,21 +526,7 @@ export default function InteractiveMap({
       return undefined;
     }
 
-    if (drawRoute(map, selectedRoute, { shouldFit: true })) {
-      return undefined;
-    }
-
-    const handleStyleReady = () => {
-      drawRoute(map, selectedRoute, { shouldFit: true });
-    };
-
-    map.once('load', handleStyleReady);
-    map.once('styledata', handleStyleReady);
-
-    return () => {
-      map.off('load', handleStyleReady);
-      map.off('styledata', handleStyleReady);
-    };
+    return drawRouteWhenReady(map, selectedRoute, { shouldFit: true });
   }, [selectedRoute]);
 
   return (
