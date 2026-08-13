@@ -59,24 +59,32 @@ async function addCarbonFootprints(journeys, calculateCarbonFootprint) {
 
     const error = settledJourney.reason;
 
-    if (error?.code !== 'UNKNOWN_CARBON_FACTOR') {
-      throw error;
+    if (error?.code === 'UNKNOWN_CARBON_FACTOR') {
+      error.modes.forEach((mode) => missingModes.add(mode));
     }
 
-    error.modes.forEach((mode) => missingModes.add(mode));
     return journeys[index];
   });
 
   return {
     journeys: nextJourneys,
     missingModes: [...missingModes],
+    carbonUnavailable: settledJourneys.some(
+      (settledJourney) =>
+        settledJourney.status === 'rejected' &&
+        settledJourney.reason?.code !== 'UNKNOWN_CARBON_FACTOR'
+    ),
   };
 }
 
 /**
  * Crée le routeur Express dédié aux données IDF Mobilités.
  *
- * @param {{fetchNearbyStations?: Function}} [options] Dépendances injectables
+ * @param {object} [options] Dépendances injectables.
+ * @param {Function} [options.fetchNearbyStations] Recherche les stations proches.
+ * @param {Function} [options.searchPlaces] Recherche les lieux IDF Mobilités.
+ * @param {Function} [options.fetchJourneys] Calcule les itinéraires.
+ * @param {Function} [options.calculateCarbonFootprint] Calcule l'empreinte carbone.
  * @returns {object} Routeur Express configuré
  */
 export function createIdfmRouter({
@@ -143,16 +151,15 @@ export function createIdfmRouter({
         fromCoordinates: [req.query.fromLon, req.query.fromLat],
         toCoordinates: [req.query.toLon, req.query.toLat],
       });
-      const { journeys, missingModes } = await addCarbonFootprints(
-        result.journeys,
-        calculateCarbonFootprint
-      );
+      const { journeys, missingModes, carbonUnavailable } =
+        await addCarbonFootprints(result.journeys, calculateCarbonFootprint);
 
       return res.json({
         ...result,
         journeys,
-        carbonFootprintMessage:
-          missingModes.length > 0
+        carbonFootprintMessage: carbonUnavailable
+          ? 'Le calcul carbone est temporairement indisponible.'
+          : missingModes.length > 0
             ? `Le calcul de carbone ne trouve pas les données nécessaires (${missingModes.join(', ')}).`
             : null,
       });

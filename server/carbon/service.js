@@ -1,5 +1,21 @@
 import { query as defaultQuery } from '../db.js';
 
+const DEFAULT_CARBON_FACTORS = new Map([
+  ['marche', 0],
+  ['velo', 0],
+  ['velo_elec', 2.5],
+  ['metro', 2.8],
+  ['rer', 4.1],
+  ['tramway', 3.5],
+  ['transilien_train', 5.2],
+  ['bus', 103],
+  ['ter', 29.6],
+  ['tgv', 1.73],
+  ['intercites', 8.98],
+  ['voiture_solo', 218],
+  ['covoiturage', 109],
+]);
+
 function normalizeMode(mode = '') {
   return String(mode || '')
     .normalize('NFD')
@@ -77,14 +93,42 @@ function createUnknownModeError(modes) {
   return error;
 }
 
+function getDefaultFactorRows(modes) {
+  return modes
+    .filter((mode) => DEFAULT_CARBON_FACTORS.has(mode))
+    .map((mode) => ({
+      transport_mode: mode,
+      co2_per_km: DEFAULT_CARBON_FACTORS.get(mode),
+    }));
+}
+
+async function findCarbonFactorRows(modes, query) {
+  try {
+    const result = await query(
+      `select transport_mode, co2_per_km
+       from carbon_factors
+      where transport_mode = any($1::text[])`,
+      [modes]
+    );
+
+    return result.rows;
+  } catch {
+    console.info('Calcul carbone local');
+    return [];
+  }
+}
+
 /**
  * Calcule l'empreinte carbone d'un itineraire.
  *
- * La colonne carbon_factors.co2_per_km est attendue dans l'unite affichee
- * par l'interface, aujourd'hui des grammes de CO2e par kilometre.
+ * La colonne carbon_factors.co2_per_km est attendue dans l'unité affichée
  *
- * @param {{legs?: Array<{mode: string, distance_km: number}>}} itinerary
- * @param {{query?: Function}} [dependencies]
+ * @param {object} itinerary Itinéraire à évaluer.
+ * @param {Array<object>} [itinerary.legs] Segments de l'itinéraire.
+ * @param {string} itinerary.legs[].mode Mode de transport du segment.
+ * @param {number} itinerary.legs[].distance_km Distance du segment en kilomètres.
+ * @param {object} [dependencies] Dépendances injectables.
+ * @param {Function} [dependencies.query] Fonction de requête SQL.
  * @returns {Promise<{total_co2e: number, unit: string, segments: Array<object>}>}
  */
 export async function calculateCarbonFootprint(
@@ -112,18 +156,21 @@ export async function calculateCarbonFootprint(
     };
   }
 
-  const result = await query(
-    `select transport_mode, co2_per_km
-       from carbon_factors
-      where transport_mode = any($1::text[])`,
-    [modes]
-  );
   const factorsByMode = new Map(
-    result.rows.map((row) => [
+    getDefaultFactorRows(modes).map((row) => [
       normalizeMode(row.transport_mode),
       Number(row.co2_per_km),
     ])
   );
+  const databaseFactorRows = await findCarbonFactorRows(modes, query);
+
+  databaseFactorRows.forEach((row) => {
+    factorsByMode.set(
+      normalizeMode(row.transport_mode),
+      Number(row.co2_per_km)
+    );
+  });
+
   const unknownModes = modes.filter(
     (mode) => !Number.isFinite(factorsByMode.get(mode))
   );

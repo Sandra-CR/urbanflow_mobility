@@ -1,23 +1,35 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ArrowsDownUp,
-  BagSimple,
   Bus,
   CaretDown,
-  Clock,
   HourglassMedium,
-  House,
   Leaf,
   MapPin,
+  MapTrifold,
   PersonSimpleBike,
   PersonSimpleWalk,
-  Star,
   Steps,
   Subway,
   TrainSimple,
   Tram,
 } from '@phosphor-icons/react';
-import urbanflowLogo from '../assets/brand/urbanflow-logo.svg';
+import {
+  getRecentPlaceSearches,
+  saveRecentPlaceSearch,
+} from '../../utils/recentPlacesDb';
+import RoutePreferenceMenu from './RoutePreferenceMenu';
+import {
+  getRecentSuggestions,
+  isResolvedRecentPlace,
+} from './placeSearchUtils';
 import './RoutePlanner.css';
 
 function normalizeMode(mode = '') {
@@ -542,13 +554,21 @@ function PlaceSearchField({
   label,
   placeholder,
   selectedPlace,
+  excludedRecentPlace,
   syncKey,
   syncedQuery,
+  showInlineLabel = true,
+  showRecentSearches,
+  recentPlaces,
   inputRef,
   onPlaceChange,
   onSearchPlaces,
   onSuggestionsChange,
   onPlaceSelect,
+  onRecentPlacesChange,
+  onFieldFocus,
+  onFieldBlur,
+  onQueryChange,
 }) {
   const [query, setQuery] = useState(selectedPlace?.label || '');
   const [places, setPlaces] = useState([]);
@@ -556,14 +576,49 @@ function PlaceSearchField({
   const [isOpen, setIsOpen] = useState(false);
   const [searchMessage, setSearchMessage] = useState('');
   const latestQueryRef = useRef('');
+  const latestRecentSelectionRef = useRef(0);
+  const skippedRecentQueryRef = useRef('');
   const syncedQueryRef = useRef(syncedQuery);
+  const onQueryChangeRef = useRef(onQueryChange);
+  const recentSuggestions = useMemo(
+    () => getRecentSuggestions(recentPlaces, excludedRecentPlace),
+    [excludedRecentPlace, recentPlaces]
+  );
+
+  const clearSuggestions = useCallback(() => {
+    onSuggestionsChange((currentSuggestions) =>
+      currentSuggestions?.fieldId === id ? null : currentSuggestions
+    );
+  }, [id, onSuggestionsChange]);
+
+  const closeSuggestions = useCallback(() => {
+    setPlaces([]);
+    setIsOpen(false);
+    setSearchMessage('');
+  }, []);
+
+  const saveRecentPlace = useCallback(
+    (place) => {
+      saveRecentPlaceSearch(place)
+        .then(() => onRecentPlacesChange?.())
+        .catch(() => {});
+    },
+    [onRecentPlacesChange]
+  );
 
   useEffect(() => {
     syncedQueryRef.current = syncedQuery;
   }, [syncedQuery]);
 
   useEffect(() => {
+    onQueryChangeRef.current = onQueryChange;
+  }, [onQueryChange]);
+
+  useEffect(() => {
+    // Seules les actions externes resynchronisent le champ.
+    // La référence évite de relancer cet effet pendant la saisie.
     setQuery(syncedQueryRef.current);
+    onQueryChangeRef.current?.(syncedQueryRef.current);
     setPlaces([]);
     setIsOpen(false);
     setSearchMessage('');
@@ -572,6 +627,10 @@ function PlaceSearchField({
   useEffect(() => {
     const safeQuery = query.trim();
     latestQueryRef.current = safeQuery;
+
+    if (skippedRecentQueryRef.current === safeQuery) {
+      return undefined;
+    }
 
     if (safeQuery.length < 2 || selectedPlace?.label === safeQuery) {
       return undefined;
@@ -587,6 +646,12 @@ function PlaceSearchField({
             setPlaces(results);
             setIsOpen(true);
             setSearchMessage(results.length === 0 ? 'Aucun lieu trouvé.' : '');
+            if (results.length > 0) {
+              saveRecentPlace({
+                label: safeQuery,
+                type: 'recent',
+              });
+            }
           }
         })
         .catch((error) => {
@@ -606,21 +671,111 @@ function PlaceSearchField({
     return () => {
       clearTimeout(timeout);
     };
-  }, [onSearchPlaces, query, selectedPlace]);
+  }, [onSearchPlaces, query, saveRecentPlace, selectedPlace]);
 
   const handleSelect = useCallback(
     (place) => {
+      skippedRecentQueryRef.current = '';
       setQuery(place.label);
-      setPlaces([]);
-      setIsOpen(false);
-      setSearchMessage('');
+      onQueryChange?.(place.label);
+      closeSuggestions();
+      saveRecentPlace(place);
       onPlaceChange(place);
       onPlaceSelect?.(place);
     },
-    [onPlaceChange, onPlaceSelect]
+    [
+      closeSuggestions,
+      onPlaceChange,
+      onPlaceSelect,
+      onQueryChange,
+      saveRecentPlace,
+    ]
   );
 
+  const handleRecentSelect = useCallback(
+    (place) => {
+      if (isResolvedRecentPlace(place)) {
+        handleSelect(place);
+        return;
+      }
+
+      const recentSelectionKey = latestRecentSelectionRef.current + 1;
+      latestRecentSelectionRef.current = recentSelectionKey;
+      skippedRecentQueryRef.current = place.label.trim();
+
+      setQuery(place.label);
+      onQueryChange?.(place.label);
+      closeSuggestions();
+      setIsSearching(true);
+
+      onSearchPlaces(place.label)
+        .then((results) => {
+          if (latestRecentSelectionRef.current !== recentSelectionKey) {
+            return;
+          }
+
+          const resolvedPlace = results[0];
+
+          if (resolvedPlace) {
+            handleSelect(resolvedPlace);
+            return;
+          }
+
+          onPlaceChange(null);
+          setSearchMessage('Lieu recent introuvable.');
+        })
+        .catch((error) => {
+          if (latestRecentSelectionRef.current === recentSelectionKey) {
+            onPlaceChange(null);
+            setSearchMessage(error.message);
+          }
+        })
+        .finally(() => {
+          if (latestRecentSelectionRef.current === recentSelectionKey) {
+            setIsSearching(false);
+          }
+        });
+    },
+    [
+      closeSuggestions,
+      handleSelect,
+      onPlaceChange,
+      onQueryChange,
+      onSearchPlaces,
+    ]
+  );
+
+  const showRecentPlaces = useCallback(() => {
+    if (!showRecentSearches || query.trim()) {
+      return;
+    }
+
+    if (recentSuggestions.length === 0) {
+      clearSuggestions();
+      return;
+    }
+
+    onSuggestionsChange({
+      fieldId: id,
+      places: recentSuggestions,
+      message: '',
+      onSelect: handleRecentSelect,
+    });
+  }, [
+    clearSuggestions,
+    handleRecentSelect,
+    id,
+    onSuggestionsChange,
+    query,
+    recentSuggestions,
+    showRecentSearches,
+  ]);
+
   useEffect(() => {
+    if (isOpen && showRecentSearches && !query.trim()) {
+      return;
+    }
+
     if (isOpen && (places.length > 0 || searchMessage)) {
       onSuggestionsChange({
         fieldId: id,
@@ -631,15 +786,69 @@ function PlaceSearchField({
       return;
     }
 
-    onSuggestionsChange((currentSuggestions) =>
-      currentSuggestions?.fieldId === id ? null : currentSuggestions
-    );
-  }, [handleSelect, id, isOpen, onSuggestionsChange, places, searchMessage]);
+    clearSuggestions();
+  }, [
+    clearSuggestions,
+    handleSelect,
+    id,
+    isOpen,
+    onSuggestionsChange,
+    places,
+    query,
+    searchMessage,
+    showRecentSearches,
+  ]);
+
+  useEffect(() => {
+    if (showRecentSearches && isOpen && !query.trim()) {
+      showRecentPlaces();
+    }
+  }, [isOpen, query, showRecentPlaces, showRecentSearches]);
+
+  useEffect(() => {
+    if (!showRecentSearches && !query.trim()) {
+      clearSuggestions();
+    }
+  }, [clearSuggestions, query, showRecentSearches]);
+
+  const handleInputChange = useCallback(
+    (event) => {
+      const nextQuery = event.target.value;
+      const nextSafeQuery = nextQuery.trim();
+
+      latestRecentSelectionRef.current += 1;
+      skippedRecentQueryRef.current = '';
+      setQuery(nextQuery);
+      onQueryChange?.(nextQuery);
+      onPlaceChange(null);
+      setSearchMessage('');
+
+      if (nextSafeQuery.length < 2) {
+        setPlaces([]);
+      }
+
+      setIsOpen(true);
+    },
+    [onPlaceChange, onQueryChange]
+  );
+
+  const handleFocus = useCallback(() => {
+    onFieldFocus?.();
+
+    if (!query.trim() && showRecentSearches) {
+      setIsOpen(true);
+      return;
+    }
+
+    setIsOpen(places.length > 0 || Boolean(searchMessage));
+  }, [onFieldFocus, places.length, query, searchMessage, showRecentSearches]);
 
   return (
     <label className="route-field" htmlFor={id}>
       <div className="route-field__input">
-        <span className="route-field__tag">{label}</span>
+        {showInlineLabel ? (
+          <span className="route-field__tag">{label}</span>
+        ) : null}
         <input
           id={id}
           ref={inputRef}
@@ -648,23 +857,13 @@ function PlaceSearchField({
           placeholder={placeholder}
           autoComplete="off"
           onBlur={() => {
-            window.setTimeout(() => setIsOpen(false), 120);
+            window.setTimeout(() => {
+              setIsOpen(false);
+              onFieldBlur?.();
+            }, 120);
           }}
-          onChange={(event) => {
-            const nextQuery = event.target.value;
-
-            setQuery(nextQuery);
-            onPlaceChange(null);
-            setSearchMessage('');
-
-            if (nextQuery.trim().length < 2) {
-              setPlaces([]);
-              setSearchMessage('');
-            }
-
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(places.length > 0 || Boolean(searchMessage))}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
         />
         {isSearching ? (
           <span className="route-field__loader" aria-label="Recherche" />
@@ -703,6 +902,23 @@ function PlaceSuggestions({ suggestions }) {
         <div className="route-suggestions__message">{suggestions.message}</div>
       ) : null}
     </div>
+  );
+}
+
+function areSuggestionStatesEqual(firstSuggestions, secondSuggestions) {
+  if (firstSuggestions === secondSuggestions) {
+    return true;
+  }
+
+  if (!firstSuggestions || !secondSuggestions) {
+    return false;
+  }
+
+  return (
+    firstSuggestions.fieldId === secondSuggestions.fieldId &&
+    firstSuggestions.places === secondSuggestions.places &&
+    firstSuggestions.message === secondSuggestions.message &&
+    firstSuggestions.onSelect === secondSuggestions.onSelect
   );
 }
 
@@ -791,30 +1007,8 @@ function getDominantLabel(profile) {
   return 'En transports';
 }
 
-const routePreferenceButtons = [
-  {
-    id: 'clock',
-    label: 'Récents',
-    Icon: Clock,
-  },
-  {
-    id: 'star',
-    label: 'Favoris',
-    Icon: Star,
-  },
-  {
-    id: 'house',
-    label: 'Domicile',
-    Icon: House,
-  },
-  {
-    id: 'bag',
-    label: 'Travail',
-    Icon: BagSimple,
-  },
-];
-
 export default function RoutePlanner({
+  currentUser,
   journeys = [],
   selectedJourney,
   selectedJourneyId,
@@ -822,6 +1016,8 @@ export default function RoutePlanner({
   isLoading,
   message,
   onJourneySelect,
+  onLoginClick,
+  onInputsInvalid,
   onPlan,
   onSearchPlaces,
 }) {
@@ -830,24 +1026,113 @@ export default function RoutePlanner({
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const latestPlanKeyRef = useRef('');
+  const wasLatestInputStateInvalidRef = useRef(false);
   const [fromPlace, setFromPlace] = useState(null);
   const [toPlace, setToPlace] = useState(null);
   const [swapVersion, setSwapVersion] = useState(0);
+  const [focusedRouteField, setFocusedRouteField] = useState(null);
+  const [routeFieldQueries, setRouteFieldQueries] = useState({
+    from: '',
+    to: '',
+  });
   const [activeSuggestions, setActiveSuggestions] = useState(null);
-  const [activePreference, setActivePreference] = useState(
-    routePreferenceButtons[0].id
-  );
+  const [recentPlaces, setRecentPlaces] = useState([]);
+  const hasValidatedRoute = Boolean(fromPlace?.id && toPlace?.id);
+  const hasVisibleRouteResults =
+    hasValidatedRoute && (isLoading || journeys.length > 0);
+  const isFocusedRouteFieldEmpty = focusedRouteField
+    ? !routeFieldQueries[focusedRouteField]?.trim()
+    : true;
+  const shouldShowPreferenceContent =
+    isFocusedRouteFieldEmpty && !hasVisibleRouteResults;
 
   function handleSubmit(event) {
     event.preventDefault();
   }
 
-  useEffect(() => {
-    fromInputRef.current?.focus();
+  const refreshRecentPlaces = useCallback(() => {
+    getRecentPlaceSearches()
+      .then(setRecentPlaces)
+      .catch(() => {
+        setRecentPlaces([]);
+      });
+  }, []);
+
+  const handleSuggestionsChange = useCallback((nextSuggestions) => {
+    setActiveSuggestions((currentSuggestions) => {
+      const resolvedSuggestions =
+        typeof nextSuggestions === 'function'
+          ? nextSuggestions(currentSuggestions)
+          : nextSuggestions;
+
+      return areSuggestionStatesEqual(currentSuggestions, resolvedSuggestions)
+        ? currentSuggestions
+        : resolvedSuggestions;
+    });
+  }, []);
+
+  const handleFromPlaceSelect = useCallback(() => {
+    window.setTimeout(() => toInputRef.current?.focus(), 0);
+  }, []);
+
+  const handleRouteFieldQueryChange = useCallback((field, query) => {
+    setRouteFieldQueries((currentQueries) =>
+      currentQueries[field] === query
+        ? currentQueries
+        : {
+            ...currentQueries,
+            [field]: query,
+          }
+    );
+  }, []);
+
+  const handleFromQueryChange = useCallback(
+    (query) => handleRouteFieldQueryChange('from', query),
+    [handleRouteFieldQueryChange]
+  );
+
+  const handleToQueryChange = useCallback(
+    (query) => handleRouteFieldQueryChange('to', query),
+    [handleRouteFieldQueryChange]
+  );
+
+  const clearFocusedRouteField = useCallback((field) => {
+    window.setTimeout(() => {
+      const activeElement = document.activeElement;
+
+      if (activeElement === fromInputRef.current) {
+        setFocusedRouteField('from');
+        return;
+      }
+
+      if (activeElement === toInputRef.current) {
+        setFocusedRouteField('to');
+        return;
+      }
+
+      setFocusedRouteField((currentField) =>
+        currentField === field ? null : currentField
+      );
+    }, 0);
   }, []);
 
   useEffect(() => {
-    if (!fromPlace?.id || !toPlace?.id || isLoading) {
+    refreshRecentPlaces();
+  }, [refreshRecentPlaces]);
+
+  useEffect(() => {
+    if (!fromPlace?.id || !toPlace?.id) {
+      latestPlanKeyRef.current = '';
+      if (!wasLatestInputStateInvalidRef.current) {
+        wasLatestInputStateInvalidRef.current = true;
+        onInputsInvalid?.();
+      }
+      return;
+    }
+
+    wasLatestInputStateInvalidRef.current = false;
+
+    if (isLoading) {
       return;
     }
 
@@ -859,7 +1144,7 @@ export default function RoutePlanner({
 
     latestPlanKeyRef.current = planKey;
     onPlan({ from: fromPlace, to: toPlace });
-  }, [fromPlace, isLoading, onPlan, toPlace]);
+  }, [fromPlace, isLoading, onInputsInvalid, onPlan, toPlace]);
 
   function handleSwapPlaces() {
     const nextFromPlace = toPlace;
@@ -868,6 +1153,32 @@ export default function RoutePlanner({
     setFromPlace(nextFromPlace);
     setToPlace(nextToPlace);
     setSwapVersion((version) => version + 1);
+  }
+
+  function setRoutePlace(field, place) {
+    if (field === 'from') {
+      setFromPlace(place);
+    } else {
+      setToPlace(place);
+    }
+
+    setSwapVersion((version) => version + 1);
+  }
+
+  function handlePreferencePlaceSelect(place) {
+    // Le clic garde le focus du champ : c'est donc lui qui décide où écrire.
+    if (focusedRouteField === 'from') {
+      setRoutePlace('from', place);
+      return;
+    }
+
+    if (focusedRouteField === 'to') {
+      setRoutePlace('to', place);
+      return;
+    }
+
+    setRoutePlace('to', place);
+    window.setTimeout(() => fromInputRef.current?.focus(), 0);
   }
 
   if (isRouteDetailsVisible && selectedJourney) {
@@ -882,7 +1193,10 @@ export default function RoutePlanner({
     <aside className="route-planner" aria-label="Recherche d'itinéraire">
       <form className="route-planner__form" onSubmit={handleSubmit}>
         <div className="route-planner__header">
-          <img src={urbanflowLogo} alt="UrbanFlow" />
+          <h1>
+            <MapTrifold size={24} weight="regular" aria-hidden="true" />
+            <span>Itinéraires</span>
+          </h1>
         </div>
 
         <div className="route-fields">
@@ -891,15 +1205,20 @@ export default function RoutePlanner({
             label="Départ"
             placeholder="Partir de..."
             selectedPlace={fromPlace}
+            excludedRecentPlace={toPlace}
             syncKey={swapVersion}
             syncedQuery={fromPlace?.label || ''}
+            showRecentSearches={false}
+            recentPlaces={recentPlaces}
             inputRef={fromInputRef}
             onPlaceChange={setFromPlace}
-            onPlaceSelect={() => {
-              window.setTimeout(() => toInputRef.current?.focus(), 0);
-            }}
+            onPlaceSelect={handleFromPlaceSelect}
             onSearchPlaces={onSearchPlaces}
-            onSuggestionsChange={setActiveSuggestions}
+            onSuggestionsChange={handleSuggestionsChange}
+            onRecentPlacesChange={refreshRecentPlaces}
+            onFieldFocus={() => setFocusedRouteField('from')}
+            onFieldBlur={() => clearFocusedRouteField('from')}
+            onQueryChange={handleFromQueryChange}
           />
           <button
             className="route-fields__swap"
@@ -914,32 +1233,34 @@ export default function RoutePlanner({
             label="Arrivée"
             placeholder="Aller à..."
             selectedPlace={toPlace}
+            excludedRecentPlace={fromPlace}
             syncKey={swapVersion}
             syncedQuery={toPlace?.label || ''}
+            showRecentSearches={false}
+            recentPlaces={recentPlaces}
             inputRef={toInputRef}
             onPlaceChange={setToPlace}
             onSearchPlaces={onSearchPlaces}
-            onSuggestionsChange={setActiveSuggestions}
+            onSuggestionsChange={handleSuggestionsChange}
+            onRecentPlacesChange={refreshRecentPlaces}
+            onFieldFocus={() => setFocusedRouteField('to')}
+            onFieldBlur={() => clearFocusedRouteField('to')}
+            onQueryChange={handleToQueryChange}
           />
-          <div className="route-preferences" aria-label="Options d'itineraire">
-            {routePreferenceButtons.map(({ id, label, Icon }) => (
-              <button
-                className="route-preferences__button"
-                data-active={activePreference === id}
-                key={id}
-                type="button"
-                aria-label={label}
-                aria-pressed={activePreference === id}
-                title={label}
-                onClick={() => setActivePreference(id)}
-              >
-                <Icon size={22} weight="regular" aria-hidden="true" />
-              </button>
-            ))}
-          </div>
         </div>
-        <div className="route-planner__divider" aria-hidden="true" />
-        <PlaceSuggestions suggestions={activeSuggestions} />
+        <RoutePreferenceMenu
+          activeSuggestions={activeSuggestions}
+          currentUser={currentUser}
+          isContentVisible={shouldShowPreferenceContent}
+          recentPlaces={recentPlaces}
+          PlaceSearchField={PlaceSearchField}
+          PlaceSuggestions={PlaceSuggestions}
+          onLoginClick={onLoginClick}
+          onPlaceSelect={handlePreferencePlaceSelect}
+          onPreferenceChange={() => setActiveSuggestions(null)}
+          onSearchPlaces={onSearchPlaces}
+          areSuggestionStatesEqual={areSuggestionStatesEqual}
+        />
 
         {message ? (
           <div className="route-planner__message" role="status">

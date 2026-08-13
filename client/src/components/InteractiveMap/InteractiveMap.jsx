@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { WifiSlash } from '@phosphor-icons/react';
 import * as maplibregl from 'maplibre-gl';
-import { TILE_URLS } from '../utils/offlineMapTiles';
+import { TILE_URLS } from '../../utils/offlineMapTiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './InteractiveMap.css';
 

@@ -1,16 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ArrowRight,
-  DownloadSimple,
-  Moon,
-  SignIn,
-  SignOut,
-  Sun,
-  Trash,
-} from '@phosphor-icons/react';
-import AuthPanel from './components/AuthPanel';
-import InteractiveMap from './components/InteractiveMap';
-import RoutePlanner from './components/RoutePlanner';
+import { ArrowRight } from '@phosphor-icons/react';
+import AppNavigation from './components/AppNavigation/AppNavigation';
+import AuthPanel from './components/AuthPanel/AuthPanel';
+import InteractiveMap from './components/InteractiveMap/InteractiveMap';
+import MapActions from './components/MapActions/MapActions';
+import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
+import RoutePlanner from './components/RoutePlanner/RoutePlanner';
 import {
   deleteCurrentUser,
   getCurrentUser,
@@ -163,98 +158,56 @@ function App() {
     setIsRouteDetailsVisible(false);
   }
 
+  const handleJourneyInputsInvalid = useCallback(() => {
+    setJourneys((currentJourneys) =>
+      currentJourneys.length > 0 ? [] : currentJourneys
+    );
+    setSelectedJourney((currentJourney) =>
+      currentJourney ? null : currentJourney
+    );
+    setJourneyMessage((currentMessage) =>
+      currentMessage ? '' : currentMessage
+    );
+    setIsRouteSheetCtaVisible((isVisible) => (isVisible ? false : isVisible));
+    setIsRouteDetailsVisible((isVisible) => (isVisible ? false : isVisible));
+  }, []);
+
   return (
     <main
       className="map-test-page app-surface"
       data-theme={isDarkMode ? 'dark' : 'light'}
     >
-      {(cacheProgress || cacheMessage) && (
-        <section className="offline-cache-toast" aria-live="polite">
-          {cacheProgress && (
-            <div className="offline-cache-progress">
-              <span
-                style={{
-                  width: `${cacheProgress.percent}%`,
-                }}
-              />
-            </div>
-          )}
-          <p>
-            {isCachingTiles
-              ? `${cacheProgress?.completed || 0}/${cacheProgress?.total || 0} tuiles (${cacheProgress?.percent || 0}%)`
-              : cacheMessage}
-          </p>
-        </section>
-      )}
-
-      <div className="map-actions" aria-label="Commandes de carte">
-        {currentUser ? (
-          <div className="user-chip" title={currentUser.email}>
-            <span>{currentUser.email}</span>
-          </div>
-        ) : null}
-        <button
-          className="map-icon-button"
-          type="button"
-          aria-label={
-            isDarkMode ? 'Activer le mode clair' : 'Activer le mode sombre'
+      <AppNavigation
+        currentUser={currentUser}
+        isDarkMode={isDarkMode}
+        isAuthPanelOpen={showAuthPanel}
+        onAccountClick={() => {
+          if (!currentUser) {
+            setShowAuthPanel(true);
           }
-          title={isDarkMode ? 'Mode clair' : 'Mode sombre'}
-          aria-pressed={isDarkMode}
-          onClick={() => setIsDarkMode((currentValue) => !currentValue)}
-        >
-          {isDarkMode ? (
-            <Sun size={20} weight="bold" aria-hidden="true" />
-          ) : (
-            <Moon size={20} weight="bold" aria-hidden="true" />
-          )}
-        </button>
-        <button
-          className="map-icon-button"
-          type="button"
-          aria-label="Télécharger les tuiles pour le hors ligne"
-          title="Télécharger les tuiles"
-          disabled={isCachingTiles}
-          onClick={handlePreloadOfflineMap}
-        >
-          <DownloadSimple size={20} weight="bold" aria-hidden="true" />
-        </button>
-        {currentUser ? (
-          <>
-            <button
-              className="map-icon-button"
-              type="button"
-              aria-label="Se déconnecter"
-              title="Se déconnecter"
-              onClick={handleLogout}
-            >
-              <SignOut size={20} weight="bold" aria-hidden="true" />
-            </button>
-            <button
-              className="map-icon-button map-icon-button--danger"
-              type="button"
-              aria-label="Supprimer le compte"
-              title="Supprimer le compte"
-              onClick={handleDeleteAccount}
-            >
-              <Trash size={20} weight="bold" aria-hidden="true" />
-            </button>
-          </>
-        ) : (
-          <button
-            className="map-icon-button"
-            type="button"
-            aria-label="Se connecter"
-            title="Se connecter"
-            onClick={() => setShowAuthPanel(true)}
-          >
-            <SignIn size={20} weight="bold" aria-hidden="true" />
-          </button>
-        )}
-      </div>
+        }}
+      />
+
+      <OfflineCacheToast
+        cacheMessage={cacheMessage}
+        cacheProgress={cacheProgress}
+        isCachingTiles={isCachingTiles}
+      />
+
+      <MapActions
+        currentUser={currentUser}
+        isCachingTiles={isCachingTiles}
+        isDarkMode={isDarkMode}
+        onDeleteAccount={handleDeleteAccount}
+        onDownloadOfflineMap={handlePreloadOfflineMap}
+        onLoginClick={() => setShowAuthPanel(true)}
+        onLogout={handleLogout}
+        onToggleDarkMode={() => setIsDarkMode((currentValue) => !currentValue)}
+      />
 
       <section className="map-workspace">
         <RoutePlanner
+          currentUser={currentUser}
           journeys={journeys}
           selectedJourney={selectedJourney}
           selectedJourneyId={selectedJourney?.id}
@@ -262,6 +215,8 @@ function App() {
           isLoading={isLoadingJourneys}
           message={journeyMessage}
           onJourneySelect={handleJourneySelect}
+          onLoginClick={() => setShowAuthPanel(true)}
+          onInputsInvalid={handleJourneyInputsInvalid}
           onPlan={handlePlanJourney}
           onSearchPlaces={handleSearchPlaces}
         />
@@ -291,6 +246,7 @@ function App() {
       {showAuthPanel ? (
         <AuthPanel
           isOverlay
+          isDarkMode={isDarkMode}
           onClose={() => setShowAuthPanel(false)}
           onLogin={handleLogin}
           onRegister={handleRegister}

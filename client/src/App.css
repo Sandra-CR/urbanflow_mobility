@@ -1,85 +1,10 @@
 .map-test-page {
+  --app-navigation-mobile-height: 74px;
   position: relative;
   overflow: hidden;
   min-height: 100svh;
   background: var(--color-background);
   color: var(--color-text);
-}
-
-.map-actions {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.user-chip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 260px;
-  height: 42px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--color-text-light) 24%, transparent);
-  border-radius: var(--radius-ui);
-  background: color-mix(in srgb, var(--color-card) 94%, transparent);
-  color: var(--color-text);
-  box-shadow: var(--shadow-ui);
-  backdrop-filter: blur(8px);
-}
-
-.user-chip span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 700;
-}
-
-.map-icon-button {
-  display: inline-grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--color-text-light) 36%, transparent);
-  border-radius: var(--radius-ui);
-  background: color-mix(in srgb, var(--color-card) 94%, transparent);
-  color: var(--color-text);
-  cursor: pointer;
-  box-shadow: var(--shadow-ui);
-  backdrop-filter: blur(8px);
-}
-
-.map-icon-button svg {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
-}
-
-.map-icon-button:disabled {
-  cursor: wait;
-  opacity: 0.7;
-}
-
-.map-icon-button:hover,
-.map-icon-button:focus-visible {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  outline: none;
-}
-
-.map-icon-button[aria-pressed='true'] {
-  border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-card));
-  color: var(--color-primary);
-}
-
-.map-icon-button--danger:hover,
-.map-icon-button--danger:focus-visible {
-  border-color: #dc2626;
-  color: #dc2626;
 }
 
 .app-loading {
@@ -125,71 +50,12 @@
   min-height: 540px;
 }
 
-.offline-cache-toast {
-  position: fixed;
-  top: 16px;
-  left: 50%;
-  z-index: 20;
-  display: grid;
-  gap: 7px;
-  width: min(420px, calc(100vw - 32px));
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--color-text-light) 20%, transparent);
-  border-radius: var(--radius-ui);
-  background: color-mix(in srgb, var(--color-card) 96%, transparent);
-  text-align: left;
-  transform: translateX(-50%);
-  box-shadow: var(--shadow-floating);
-  backdrop-filter: blur(8px);
-}
-
-.offline-cache-toast p {
-  margin: 0;
-  color: var(--color-text-light);
-}
-
-.offline-cache-progress {
-  height: 7px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-text-light) 18%, transparent);
-}
-
-.offline-cache-progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-primary);
-  transition: width 160ms ease;
-}
-
-@media (max-width: 760px) {
-  .map-actions {
-    top: 12px;
-    right: 12px;
-    left: 12px;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-  }
-
-  .map-icon-button {
-    width: 40px;
-    height: 40px;
-  }
-
-  .user-chip {
-    order: 5;
-    width: 100%;
-    max-width: none;
-    height: 38px;
-  }
-}
-
 @media (max-width: 1024px) {
   .map-workspace {
     grid-template-rows: minmax(0, 1fr) auto;
     grid-template-columns: 1fr;
-    min-height: 100svh;
+    height: calc(100svh - var(--app-navigation-mobile-height));
+    min-height: calc(100svh - var(--app-navigation-mobile-height));
   }
 
   .map-workspace > .route-planner {
@@ -199,5 +65,18 @@
   .map-shell {
     grid-row: 1;
     min-height: 0;
+  }
+}
+
+@media (min-width: 1025px) {
+  .map-workspace {
+    grid-column: 2;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .map-test-page {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
   }
 }

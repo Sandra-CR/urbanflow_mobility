@@ -113,3 +113,40 @@ test('calculateCarbonFootprint signale les modes absents de carbon_factors', asy
     }
   );
 });
+
+test('calculateCarbonFootprint utilise les facteurs locaux si la base est indisponible', async () => {
+  const originalConsoleInfo = console.info;
+  const logs = [];
+  const query = async () => {
+    const error = new Error('Database unavailable');
+    error.code = 'ENOTFOUND';
+    throw error;
+  };
+
+  console.info = (message) => {
+    logs.push(message);
+  };
+
+  try {
+    const result = await calculateCarbonFootprint(
+      {
+        legs: [
+          { mode: 'Metro', distance_km: 2 },
+          { mode: 'Bus', distance_km: 1.5 },
+          { mode: 'walking', distance_km: 0.6 },
+        ],
+      },
+      { query }
+    );
+
+    assert.equal(result.unit, 'g');
+    assert.equal(result.total_co2e, 160.1);
+    assert.deepEqual(
+      result.segments.map((segment) => segment.co2_per_km),
+      [2.8, 103, 0]
+    );
+    assert.deepEqual(logs, ['Calcul carbone local']);
+  } finally {
+    console.info = originalConsoleInfo;
+  }
+});

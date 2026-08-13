@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test",
+    "openapi:check": "node scripts/check-openapi.js",
     "docs": "jsdoc -c jsdoc.config.json",
     "lint": "eslint .",
     "dev": "node --watch index.js",

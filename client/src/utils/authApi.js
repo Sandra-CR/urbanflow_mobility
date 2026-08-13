@@ -19,7 +19,10 @@ async function requestAuth(path, options = {}) {
 
   if (!response.ok) {
     const error = new Error(data.error || 'Erreur authentification.');
-    error.details = data.details || [];
+    error.details = data.errorId
+      ? [...(data.details || []), `Diagnostic serveur : ${data.errorId}`]
+      : data.details || [];
+    error.errorId = data.errorId;
     error.status = response.status;
     throw error;
   }
