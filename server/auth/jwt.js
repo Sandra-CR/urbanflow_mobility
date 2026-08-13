@@ -74,17 +74,23 @@ export function verifyAuthToken(token) {
 /**
  * Construit les options du cookie d'authentification.
  *
- * En production, le cookie est marqué secure afin d'être transmis uniquement en
- * HTTPS. Le mode sameSite strict limite les risques CSRF pour les usages
- * standards de la PWA.
+ * En production, Vercel et Render sont sur deux domaines différents.
+ * `SameSite=None` permet donc aux appels `credentials: include` d'envoyer le
+ * cookie vers l'API.
  *
  * @returns {object} Options compatibles avec res.cookie().
  */
 export function getAuthCookieOptions() {
+  const usesHttpsClient = String(process.env.CLIENT_ORIGIN || '')
+    .split(',')
+    .some((origin) => origin.trim().startsWith('https://'));
+  const isSecureContext =
+    process.env.NODE_ENV === 'production' || usesHttpsClient;
+
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isSecureContext,
+    sameSite: isSecureContext ? 'none' : 'strict',
     maxAge: DEFAULT_TOKEN_MAX_AGE_MS,
     path: '/',
   };

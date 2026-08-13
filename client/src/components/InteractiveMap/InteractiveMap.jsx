@@ -137,7 +137,7 @@ function getRouteFeatures(route) {
 }
 
 function getRouteMarkerFeatures(route) {
-  const coordinates = route?.geometry || [];
+  const coordinates = getRouteCoordinates(route);
 
   if (coordinates.length < 2) {
     return [];
@@ -165,6 +165,16 @@ function getRouteMarkerFeatures(route) {
       },
     },
   ];
+}
+
+function getRouteCoordinates(route) {
+  if (route?.geometry?.length > 1) {
+    return route.geometry;
+  }
+
+  return (route?.sections || [])
+    .filter((section) => section.geometry?.length > 1)
+    .flatMap((section) => section.geometry);
 }
 
 function emptyFeatureCollection(features = []) {
@@ -252,7 +262,7 @@ function upsertRouteLayers(map, route) {
 }
 
 function fitRoute(map, route) {
-  const coordinates = route?.geometry || [];
+  const coordinates = getRouteCoordinates(route);
 
   if (coordinates.length < 2) {
     return;

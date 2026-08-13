@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { createAuthRouter } from '../auth/routes.js';
+import { getAuthCookieOptions } from '../auth/jwt.js';
 import { validateStrongPassword } from '../auth/passwordPolicy.js';
 
 process.env.JWT_SECRET = 'test-secret-with-enough-length-for-auth-tests';
@@ -39,6 +40,33 @@ test('accepte un mot de passe fort', () => {
 
   assert.strictEqual(result.isValid, true);
   assert.deepStrictEqual(result.errors, []);
+});
+
+test('configure le cookie pour un frontend HTTPS distant', () => {
+  const previousClientOrigin = process.env.CLIENT_ORIGIN;
+  const previousNodeEnv = process.env.NODE_ENV;
+
+  process.env.CLIENT_ORIGIN = 'https://urbanflow-mobility.vercel.app';
+  delete process.env.NODE_ENV;
+
+  try {
+    const options = getAuthCookieOptions();
+
+    assert.strictEqual(options.secure, true);
+    assert.strictEqual(options.sameSite, 'none');
+  } finally {
+    if (previousClientOrigin === undefined) {
+      delete process.env.CLIENT_ORIGIN;
+    } else {
+      process.env.CLIENT_ORIGIN = previousClientOrigin;
+    }
+
+    if (previousNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  }
 });
 
 test('inscrit un utilisateur et pose un cookie httpOnly', async () => {
