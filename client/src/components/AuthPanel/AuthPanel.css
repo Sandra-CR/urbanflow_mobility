@@ -69,7 +69,7 @@
 .auth-field {
   position: relative;
   display: grid;
-  gap: 7px;
+  gap: 8px;
   color: var(--color-text);
   font-weight: 700;
 }
@@ -77,16 +77,14 @@
 .auth-input {
   display: flex;
   align-items: center;
-  min-height: 46px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--color-text-light) 28%, transparent);
-  border-radius: var(--radius-ui);
-  background: color-mix(
-    in srgb,
-    var(--color-background) 70%,
-    var(--color-card)
-  );
-  color: var(--color-text-light);
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 2.5px solid transparent;
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-text);
+  box-shadow: 0 2px 6px 0 var(--color-shadow);
 }
 
 .auth-field input {
@@ -96,12 +94,14 @@
   outline: 0;
   background: transparent;
   color: var(--color-text);
-  font: inherit;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: normal;
 }
 
 .auth-field:focus-within .auth-input {
   border-color: var(--color-primary);
-  color: var(--color-primary);
 }
 
 .auth-password-row {
@@ -112,17 +112,17 @@
 }
 
 .auth-password-input {
-  padding-right: 10px;
+  padding-right: 12px;
 }
 
 .auth-password-toggle {
   display: inline-grid;
   width: 30px;
-  height: 36px;
+  height: 30px;
   flex: 0 0 auto;
   place-items: center;
   border: 0;
-  border-radius: calc(var(--radius-ui) - 2px);
+  border-radius: var(--radius-ui);
   background: transparent;
   color: var(--color-text-light);
   cursor: pointer;

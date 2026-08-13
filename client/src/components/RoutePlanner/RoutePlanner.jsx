@@ -8,18 +8,14 @@ import {
 } from 'react';
 import {
   ArrowsDownUp,
-  BagSimple,
   Bus,
   CaretDown,
-  Clock,
   HourglassMedium,
-  House,
   Leaf,
   MapPin,
   MapTrifold,
   PersonSimpleBike,
   PersonSimpleWalk,
-  Star,
   Steps,
   Subway,
   TrainSimple,
@@ -29,6 +25,11 @@ import {
   getRecentPlaceSearches,
   saveRecentPlaceSearch,
 } from '../../utils/recentPlacesDb';
+import RoutePreferenceMenu from './RoutePreferenceMenu';
+import {
+  getRecentSuggestions,
+  isResolvedRecentPlace,
+} from './placeSearchUtils';
 import './RoutePlanner.css';
 
 function normalizeMode(mode = '') {
@@ -548,48 +549,6 @@ function RouteDetails({ journey }) {
   );
 }
 
-function normalizePlaceLabel(label) {
-  return String(label || '')
-    .trim()
-    .toLowerCase();
-}
-
-function isSamePlace(firstPlace, secondPlace) {
-  if (!firstPlace || !secondPlace) {
-    return false;
-  }
-
-  if (firstPlace.id && secondPlace.id) {
-    return firstPlace.id === secondPlace.id;
-  }
-
-  return (
-    normalizePlaceLabel(firstPlace.label) ===
-    normalizePlaceLabel(secondPlace.label)
-  );
-}
-
-function isResolvedRecentPlace(place) {
-  return Boolean(
-    place?.id && place.type !== 'recent' && !place.isRecentPlaceholder
-  );
-}
-
-function toRecentSuggestion(place) {
-  return {
-    ...place,
-    id: place.id || `recent-${place.label}`,
-    isRecent: true,
-    isRecentPlaceholder: !place.id || place.type === 'recent',
-  };
-}
-
-function getRecentSuggestions(recentPlaces, excludedPlace) {
-  return recentPlaces
-    .filter((place) => !isSamePlace(place, excludedPlace))
-    .map(toRecentSuggestion);
-}
-
 function PlaceSearchField({
   id,
   label,
@@ -598,6 +557,7 @@ function PlaceSearchField({
   excludedRecentPlace,
   syncKey,
   syncedQuery,
+  showInlineLabel = true,
   showRecentSearches,
   recentPlaces,
   inputRef,
@@ -606,6 +566,9 @@ function PlaceSearchField({
   onSuggestionsChange,
   onPlaceSelect,
   onRecentPlacesChange,
+  onFieldFocus,
+  onFieldBlur,
+  onQueryChange,
 }) {
   const [query, setQuery] = useState(selectedPlace?.label || '');
   const [places, setPlaces] = useState([]);
@@ -616,6 +579,7 @@ function PlaceSearchField({
   const latestRecentSelectionRef = useRef(0);
   const skippedRecentQueryRef = useRef('');
   const syncedQueryRef = useRef(syncedQuery);
+  const onQueryChangeRef = useRef(onQueryChange);
   const recentSuggestions = useMemo(
     () => getRecentSuggestions(recentPlaces, excludedRecentPlace),
     [excludedRecentPlace, recentPlaces]
@@ -647,7 +611,14 @@ function PlaceSearchField({
   }, [syncedQuery]);
 
   useEffect(() => {
+    onQueryChangeRef.current = onQueryChange;
+  }, [onQueryChange]);
+
+  useEffect(() => {
+    // Seules les actions externes resynchronisent le champ.
+    // La référence évite de relancer cet effet pendant la saisie.
     setQuery(syncedQueryRef.current);
+    onQueryChangeRef.current?.(syncedQueryRef.current);
     setPlaces([]);
     setIsOpen(false);
     setSearchMessage('');
@@ -706,12 +677,19 @@ function PlaceSearchField({
     (place) => {
       skippedRecentQueryRef.current = '';
       setQuery(place.label);
+      onQueryChange?.(place.label);
       closeSuggestions();
       saveRecentPlace(place);
       onPlaceChange(place);
       onPlaceSelect?.(place);
     },
-    [closeSuggestions, onPlaceChange, onPlaceSelect, saveRecentPlace]
+    [
+      closeSuggestions,
+      onPlaceChange,
+      onPlaceSelect,
+      onQueryChange,
+      saveRecentPlace,
+    ]
   );
 
   const handleRecentSelect = useCallback(
@@ -726,6 +704,7 @@ function PlaceSearchField({
       skippedRecentQueryRef.current = place.label.trim();
 
       setQuery(place.label);
+      onQueryChange?.(place.label);
       closeSuggestions();
       setIsSearching(true);
 
@@ -757,7 +736,13 @@ function PlaceSearchField({
           }
         });
     },
-    [closeSuggestions, handleSelect, onPlaceChange, onSearchPlaces]
+    [
+      closeSuggestions,
+      handleSelect,
+      onPlaceChange,
+      onQueryChange,
+      onSearchPlaces,
+    ]
   );
 
   const showRecentPlaces = useCallback(() => {
@@ -834,6 +819,7 @@ function PlaceSearchField({
       latestRecentSelectionRef.current += 1;
       skippedRecentQueryRef.current = '';
       setQuery(nextQuery);
+      onQueryChange?.(nextQuery);
       onPlaceChange(null);
       setSearchMessage('');
 
@@ -843,22 +829,26 @@ function PlaceSearchField({
 
       setIsOpen(true);
     },
-    [onPlaceChange]
+    [onPlaceChange, onQueryChange]
   );
 
   const handleFocus = useCallback(() => {
+    onFieldFocus?.();
+
     if (!query.trim() && showRecentSearches) {
       setIsOpen(true);
       return;
     }
 
     setIsOpen(places.length > 0 || Boolean(searchMessage));
-  }, [places.length, query, searchMessage, showRecentSearches]);
+  }, [onFieldFocus, places.length, query, searchMessage, showRecentSearches]);
 
   return (
     <label className="route-field" htmlFor={id}>
       <div className="route-field__input">
-        <span className="route-field__tag">{label}</span>
+        {showInlineLabel ? (
+          <span className="route-field__tag">{label}</span>
+        ) : null}
         <input
           id={id}
           ref={inputRef}
@@ -867,7 +857,10 @@ function PlaceSearchField({
           placeholder={placeholder}
           autoComplete="off"
           onBlur={() => {
-            window.setTimeout(() => setIsOpen(false), 120);
+            window.setTimeout(() => {
+              setIsOpen(false);
+              onFieldBlur?.();
+            }, 120);
           }}
           onChange={handleInputChange}
           onFocus={handleFocus}
@@ -909,6 +902,23 @@ function PlaceSuggestions({ suggestions }) {
         <div className="route-suggestions__message">{suggestions.message}</div>
       ) : null}
     </div>
+  );
+}
+
+function areSuggestionStatesEqual(firstSuggestions, secondSuggestions) {
+  if (firstSuggestions === secondSuggestions) {
+    return true;
+  }
+
+  if (!firstSuggestions || !secondSuggestions) {
+    return false;
+  }
+
+  return (
+    firstSuggestions.fieldId === secondSuggestions.fieldId &&
+    firstSuggestions.places === secondSuggestions.places &&
+    firstSuggestions.message === secondSuggestions.message &&
+    firstSuggestions.onSelect === secondSuggestions.onSelect
   );
 }
 
@@ -997,30 +1007,8 @@ function getDominantLabel(profile) {
   return 'En transports';
 }
 
-const routePreferenceButtons = [
-  {
-    id: 'clock',
-    label: 'Récents',
-    Icon: Clock,
-  },
-  {
-    id: 'star',
-    label: 'Favoris',
-    Icon: Star,
-  },
-  {
-    id: 'house',
-    label: 'Domicile',
-    Icon: House,
-  },
-  {
-    id: 'bag',
-    label: 'Travail',
-    Icon: BagSimple,
-  },
-];
-
 export default function RoutePlanner({
+  currentUser,
   journeys = [],
   selectedJourney,
   selectedJourneyId,
@@ -1028,6 +1016,7 @@ export default function RoutePlanner({
   isLoading,
   message,
   onJourneySelect,
+  onLoginClick,
   onInputsInvalid,
   onPlan,
   onSearchPlaces,
@@ -1037,14 +1026,25 @@ export default function RoutePlanner({
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const latestPlanKeyRef = useRef('');
+  const wasLatestInputStateInvalidRef = useRef(false);
   const [fromPlace, setFromPlace] = useState(null);
   const [toPlace, setToPlace] = useState(null);
   const [swapVersion, setSwapVersion] = useState(0);
+  const [focusedRouteField, setFocusedRouteField] = useState(null);
+  const [routeFieldQueries, setRouteFieldQueries] = useState({
+    from: '',
+    to: '',
+  });
   const [activeSuggestions, setActiveSuggestions] = useState(null);
   const [recentPlaces, setRecentPlaces] = useState([]);
-  const [activePreference, setActivePreference] = useState(
-    routePreferenceButtons[0].id
-  );
+  const hasValidatedRoute = Boolean(fromPlace?.id && toPlace?.id);
+  const hasVisibleRouteResults =
+    hasValidatedRoute && (isLoading || journeys.length > 0);
+  const isFocusedRouteFieldEmpty = focusedRouteField
+    ? !routeFieldQueries[focusedRouteField]?.trim()
+    : true;
+  const shouldShowPreferenceContent =
+    isFocusedRouteFieldEmpty && !hasVisibleRouteResults;
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -1058,6 +1058,64 @@ export default function RoutePlanner({
       });
   }, []);
 
+  const handleSuggestionsChange = useCallback((nextSuggestions) => {
+    setActiveSuggestions((currentSuggestions) => {
+      const resolvedSuggestions =
+        typeof nextSuggestions === 'function'
+          ? nextSuggestions(currentSuggestions)
+          : nextSuggestions;
+
+      return areSuggestionStatesEqual(currentSuggestions, resolvedSuggestions)
+        ? currentSuggestions
+        : resolvedSuggestions;
+    });
+  }, []);
+
+  const handleFromPlaceSelect = useCallback(() => {
+    window.setTimeout(() => toInputRef.current?.focus(), 0);
+  }, []);
+
+  const handleRouteFieldQueryChange = useCallback((field, query) => {
+    setRouteFieldQueries((currentQueries) =>
+      currentQueries[field] === query
+        ? currentQueries
+        : {
+            ...currentQueries,
+            [field]: query,
+          }
+    );
+  }, []);
+
+  const handleFromQueryChange = useCallback(
+    (query) => handleRouteFieldQueryChange('from', query),
+    [handleRouteFieldQueryChange]
+  );
+
+  const handleToQueryChange = useCallback(
+    (query) => handleRouteFieldQueryChange('to', query),
+    [handleRouteFieldQueryChange]
+  );
+
+  const clearFocusedRouteField = useCallback((field) => {
+    window.setTimeout(() => {
+      const activeElement = document.activeElement;
+
+      if (activeElement === fromInputRef.current) {
+        setFocusedRouteField('from');
+        return;
+      }
+
+      if (activeElement === toInputRef.current) {
+        setFocusedRouteField('to');
+        return;
+      }
+
+      setFocusedRouteField((currentField) =>
+        currentField === field ? null : currentField
+      );
+    }, 0);
+  }, []);
+
   useEffect(() => {
     refreshRecentPlaces();
   }, [refreshRecentPlaces]);
@@ -1065,9 +1123,14 @@ export default function RoutePlanner({
   useEffect(() => {
     if (!fromPlace?.id || !toPlace?.id) {
       latestPlanKeyRef.current = '';
-      onInputsInvalid?.();
+      if (!wasLatestInputStateInvalidRef.current) {
+        wasLatestInputStateInvalidRef.current = true;
+        onInputsInvalid?.();
+      }
       return;
     }
+
+    wasLatestInputStateInvalidRef.current = false;
 
     if (isLoading) {
       return;
@@ -1092,6 +1155,32 @@ export default function RoutePlanner({
     setSwapVersion((version) => version + 1);
   }
 
+  function setRoutePlace(field, place) {
+    if (field === 'from') {
+      setFromPlace(place);
+    } else {
+      setToPlace(place);
+    }
+
+    setSwapVersion((version) => version + 1);
+  }
+
+  function handlePreferencePlaceSelect(place) {
+    // Le clic garde le focus du champ : c'est donc lui qui décide où écrire.
+    if (focusedRouteField === 'from') {
+      setRoutePlace('from', place);
+      return;
+    }
+
+    if (focusedRouteField === 'to') {
+      setRoutePlace('to', place);
+      return;
+    }
+
+    setRoutePlace('to', place);
+    window.setTimeout(() => fromInputRef.current?.focus(), 0);
+  }
+
   if (isRouteDetailsVisible && selectedJourney) {
     return (
       <aside className="route-planner" aria-label="Fiche de route">
@@ -1106,7 +1195,7 @@ export default function RoutePlanner({
         <div className="route-planner__header">
           <h1>
             <MapTrifold size={24} weight="regular" aria-hidden="true" />
-            <span>Itinéraire</span>
+            <span>Itinéraires</span>
           </h1>
         </div>
 
@@ -1119,16 +1208,17 @@ export default function RoutePlanner({
             excludedRecentPlace={toPlace}
             syncKey={swapVersion}
             syncedQuery={fromPlace?.label || ''}
-            showRecentSearches={activePreference === 'clock'}
+            showRecentSearches={false}
             recentPlaces={recentPlaces}
             inputRef={fromInputRef}
             onPlaceChange={setFromPlace}
-            onPlaceSelect={() => {
-              window.setTimeout(() => toInputRef.current?.focus(), 0);
-            }}
+            onPlaceSelect={handleFromPlaceSelect}
             onSearchPlaces={onSearchPlaces}
-            onSuggestionsChange={setActiveSuggestions}
+            onSuggestionsChange={handleSuggestionsChange}
             onRecentPlacesChange={refreshRecentPlaces}
+            onFieldFocus={() => setFocusedRouteField('from')}
+            onFieldBlur={() => clearFocusedRouteField('from')}
+            onQueryChange={handleFromQueryChange}
           />
           <button
             className="route-fields__swap"
@@ -1146,33 +1236,31 @@ export default function RoutePlanner({
             excludedRecentPlace={fromPlace}
             syncKey={swapVersion}
             syncedQuery={toPlace?.label || ''}
-            showRecentSearches={activePreference === 'clock'}
+            showRecentSearches={false}
             recentPlaces={recentPlaces}
             inputRef={toInputRef}
             onPlaceChange={setToPlace}
             onSearchPlaces={onSearchPlaces}
-            onSuggestionsChange={setActiveSuggestions}
+            onSuggestionsChange={handleSuggestionsChange}
             onRecentPlacesChange={refreshRecentPlaces}
+            onFieldFocus={() => setFocusedRouteField('to')}
+            onFieldBlur={() => clearFocusedRouteField('to')}
+            onQueryChange={handleToQueryChange}
           />
-          <div className="route-preferences" aria-label="Options d'itineraire">
-            {routePreferenceButtons.map(({ id, label, Icon }) => (
-              <button
-                className="route-preferences__button"
-                data-active={activePreference === id}
-                key={id}
-                type="button"
-                aria-label={label}
-                aria-pressed={activePreference === id}
-                title={label}
-                onClick={() => setActivePreference(id)}
-              >
-                <Icon size={22} weight="regular" aria-hidden="true" />
-              </button>
-            ))}
-          </div>
         </div>
-        <div className="route-planner__divider" aria-hidden="true" />
-        <PlaceSuggestions suggestions={activeSuggestions} />
+        <RoutePreferenceMenu
+          activeSuggestions={activeSuggestions}
+          currentUser={currentUser}
+          isContentVisible={shouldShowPreferenceContent}
+          recentPlaces={recentPlaces}
+          PlaceSearchField={PlaceSearchField}
+          PlaceSuggestions={PlaceSuggestions}
+          onLoginClick={onLoginClick}
+          onPlaceSelect={handlePreferencePlaceSelect}
+          onPreferenceChange={() => setActiveSuggestions(null)}
+          onSearchPlaces={onSearchPlaces}
+          areSuggestionStatesEqual={areSuggestionStatesEqual}
+        />
 
         {message ? (
           <div className="route-planner__message" role="status">

@@ -133,7 +133,7 @@
 
 .route-planner__divider {
   display: grid;
-  padding: 10px 16px;
+  padding: 10px 16px 5px;
   margin: 0 -18px;
 }
 
@@ -231,11 +231,38 @@
   flex: 0 0 auto;
 }
 
+.route-suggestion__icon--favorite {
+  color: var(--color-primary);
+}
+
 .route-suggestion__content {
   display: grid;
   gap: 4px;
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.route-suggestion__remove {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  color: var(--color-text-light);
+}
+
+.route-suggestion__remove:hover,
+.route-suggestion__remove:focus-visible {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+  outline: none;
+}
+
+.route-suggestion__remove svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }
 
 .route-suggestion__label {
@@ -280,6 +307,132 @@
   font-size: 13px;
   font-weight: 700;
   line-height: 18px;
+}
+
+.route-preference-panel {
+  display: grid;
+  gap: 12px;
+  min-height: 150px;
+  padding: 0 0 18px;
+}
+
+.route-preference-panel--center {
+  place-items: center;
+  align-content: center;
+  padding: 18px 12px;
+  text-align: center;
+}
+
+.route-preference-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.route-preference-panel__header h2 {
+  margin: 0;
+  margin-right: auto;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.route-preference-panel__add {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--color-primary);
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  cursor: pointer;
+}
+
+.route-preference-panel__add:hover,
+.route-preference-panel__add:focus-visible {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  outline: none;
+}
+
+.route-preference-panel__add svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.route-preference-panel__center {
+  display: grid;
+  min-height: 114px;
+  place-items: center;
+  align-content: center;
+  padding: 0 12px;
+  text-align: center;
+}
+
+.route-preference-panel p,
+.route-preference-panel__center p {
+  max-width: 260px;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.route-favorite-add {
+  display: grid;
+  gap: 12px;
+}
+
+.route-favorite-add__field {
+  display: grid;
+  gap: 8px;
+}
+
+.route-favorite-add__input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 2.5px solid transparent;
+  border-radius: 12px;
+  background: var(--color-card);
+  color: var(--color-text);
+  box-shadow: 0 2px 6px 0 var(--color-shadow);
+}
+
+.route-favorite-add__input:focus-within {
+  border-color: var(--color-primary);
+}
+
+.route-favorite-add__input input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: normal;
+}
+
+.route-favorite-add__submit {
+  width: 100%;
+  min-height: 48px;
+}
+
+.route-favorite-add__submit:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .route-planner__message {

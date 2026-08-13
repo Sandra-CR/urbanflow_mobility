@@ -927,11 +927,14 @@ export async function fetchJourneys(
     throw error;
   }
 
+  const fromCoordinateParam = toCoordinateParam(fromCoordinates);
+  const toCoordinateParamValue = toCoordinateParam(toCoordinates);
+
   const requests = [
     {
       profile: 'walking',
-      from: toCoordinateParam(fromCoordinates) || safeFrom,
-      to: toCoordinateParam(toCoordinates) || safeTo,
+      from: fromCoordinateParam || safeFrom,
+      to: toCoordinateParamValue || safeTo,
       directPathModes: ['walking'],
       firstSectionModes: ['walking'],
       lastSectionModes: ['walking'],
@@ -939,8 +942,8 @@ export async function fetchJourneys(
     },
     {
       profile: 'bike',
-      from: toCoordinateParam(fromCoordinates) || safeFrom,
-      to: toCoordinateParam(toCoordinates) || safeTo,
+      from: fromCoordinateParam || safeFrom,
+      to: toCoordinateParamValue || safeTo,
       directPathModes: ['bike'],
       firstSectionModes: ['bike'],
       lastSectionModes: ['bike'],
@@ -948,8 +951,10 @@ export async function fetchJourneys(
     },
     {
       profile: 'transit',
-      from: safeFrom,
-      to: safeTo,
+      // Les favoris d'adresse ont des ids internes.
+      // Les coordonnées gardent la requête transports valide.
+      from: fromCoordinateParam || safeFrom,
+      to: toCoordinateParamValue || safeTo,
       directPath: 'none',
       firstSectionModes: ['walking'],
       lastSectionModes: ['walking'],

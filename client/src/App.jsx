@@ -159,11 +159,17 @@ function App() {
   }
 
   const handleJourneyInputsInvalid = useCallback(() => {
-    setJourneys([]);
-    setSelectedJourney(null);
-    setJourneyMessage('');
-    setIsRouteSheetCtaVisible(false);
-    setIsRouteDetailsVisible(false);
+    setJourneys((currentJourneys) =>
+      currentJourneys.length > 0 ? [] : currentJourneys
+    );
+    setSelectedJourney((currentJourney) =>
+      currentJourney ? null : currentJourney
+    );
+    setJourneyMessage((currentMessage) =>
+      currentMessage ? '' : currentMessage
+    );
+    setIsRouteSheetCtaVisible((isVisible) => (isVisible ? false : isVisible));
+    setIsRouteDetailsVisible((isVisible) => (isVisible ? false : isVisible));
   }, []);
 
   return (
@@ -173,6 +179,7 @@ function App() {
     >
       <AppNavigation
         currentUser={currentUser}
+        isDarkMode={isDarkMode}
         isAuthPanelOpen={showAuthPanel}
         onAccountClick={() => {
           if (!currentUser) {
@@ -195,13 +202,12 @@ function App() {
         onDownloadOfflineMap={handlePreloadOfflineMap}
         onLoginClick={() => setShowAuthPanel(true)}
         onLogout={handleLogout}
-        onToggleDarkMode={() =>
-          setIsDarkMode((currentValue) => !currentValue)
-        }
+        onToggleDarkMode={() => setIsDarkMode((currentValue) => !currentValue)}
       />
 
       <section className="map-workspace">
         <RoutePlanner
+          currentUser={currentUser}
           journeys={journeys}
           selectedJourney={selectedJourney}
           selectedJourneyId={selectedJourney?.id}
@@ -209,6 +215,7 @@ function App() {
           isLoading={isLoadingJourneys}
           message={journeyMessage}
           onJourneySelect={handleJourneySelect}
+          onLoginClick={() => setShowAuthPanel(true)}
           onInputsInvalid={handleJourneyInputsInvalid}
           onPlan={handlePlanJourney}
           onSearchPlaces={handleSearchPlaces}
@@ -239,6 +246,7 @@ function App() {
       {showAuthPanel ? (
         <AuthPanel
           isOverlay
+          isDarkMode={isDarkMode}
           onClose={() => setShowAuthPanel(false)}
           onLogin={handleLogin}
           onRegister={handleRegister}

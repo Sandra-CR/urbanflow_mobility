@@ -1,30 +1,19 @@
-import {
-  DownloadSimple,
-  Moon,
-  SignIn,
-  SignOut,
-  Sun,
-  Trash,
-} from '@phosphor-icons/react';
+import { DownloadSimple, Moon, Sun } from '@phosphor-icons/react';
 import './MapActions.css';
 
 function MapActions({
-  currentUser,
   isCachingTiles,
   isDarkMode,
-  onDeleteAccount,
   onDownloadOfflineMap,
-  onLoginClick,
-  onLogout,
   onToggleDarkMode,
 }) {
   return (
     <div className="map-actions" aria-label="Commandes de carte">
-      {currentUser ? (
+      {/* {currentUser ? (
         <div className="user-chip" title={currentUser.email}>
           <span>{currentUser.email}</span>
         </div>
-      ) : null}
+      ) : null} */}
       <button
         className="map-icon-button"
         type="button"
@@ -51,38 +40,6 @@ function MapActions({
       >
         <DownloadSimple size={20} weight="bold" aria-hidden="true" />
       </button>
-      {currentUser ? (
-        <>
-          <button
-            className="map-icon-button"
-            type="button"
-            aria-label="Se déconnecter"
-            title="Se déconnecter"
-            onClick={onLogout}
-          >
-            <SignOut size={20} weight="bold" aria-hidden="true" />
-          </button>
-          <button
-            className="map-icon-button map-icon-button--danger"
-            type="button"
-            aria-label="Supprimer le compte"
-            title="Supprimer le compte"
-            onClick={onDeleteAccount}
-          >
-            <Trash size={20} weight="bold" aria-hidden="true" />
-          </button>
-        </>
-      ) : (
-        <button
-          className="map-icon-button"
-          type="button"
-          aria-label="Se connecter"
-          title="Se connecter"
-          onClick={onLoginClick}
-        >
-          <SignIn size={20} weight="bold" aria-hidden="true" />
-        </button>
-      )}
     </div>
   );
 }

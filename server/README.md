@@ -48,7 +48,10 @@ Avec `psql`, depuis la racine du projet :
 ```bash
 psql "$DATABASE_URL" -f server/migrations/001_create_users.sql
 psql "$DATABASE_URL" -f server/migrations/002_create_carbon_factors.sql
+psql "$DATABASE_URL" -f server/migrations/003_create_user_favorite_places.sql
 ```
+
+La migration `003_create_user_favorite_places.sql` crée `user_favorite_places`, active PostGIS et stocke les catégories `favorite`, `home` et `work` par utilisateur.
 
 Sur Supabase, les mêmes fichiers peuvent être exécutés dans le SQL Editor, dans le même ordre. `DATABASE_URL` doit pointer vers la base PostgreSQL utilisée par le serveur.
 
@@ -62,6 +65,8 @@ Le contrat strict de l'API est décrit dans `server/openapi.yaml` au format Open
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 - `DELETE /api/auth/me`
+- `GET /api/favorites`
+- `POST /api/favorites`
 - `GET /api/idfm/nearby-stations`
 - `GET /api/idfm/places`
 - `GET /api/idfm/journeys`
@@ -79,6 +84,14 @@ Toutes les réponses d'erreur utilisent le format :
 Certaines validations peuvent ajouter un champ `details`.
 
 ## Fonctionnalités clés
+
+### Favoris utilisateur
+
+Les utilisateurs connectés peuvent enregistrer des lieux favoris dans trois catégories : `favorite`, `home` et `work`.
+
+Les routes `/api/favorites` sont protégées par JWT et renvoient les favoris au même format que les lieux normalisés IDF Mobilités. Le client peut ainsi réutiliser les suggestions du planificateur d'itinéraire sans adaptation spécifique.
+
+Les favoris sont stockés dans `user_favorite_places`, créée par la migration `003_create_user_favorite_places.sql`. Un favori peut référencer une station via `station_id` ou une adresse libre via `geom`.
 
 ### Calcul carbone local
 
