@@ -87,26 +87,57 @@ function createStationPopup(station) {
   return content;
 }
 
+function toRouteCoordinate(coordinate) {
+  if (!Array.isArray(coordinate) || coordinate.length < 2) {
+    return null;
+  }
+
+  const lon = Number(coordinate[0]);
+  const lat = Number(coordinate[1]);
+
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return null;
+  }
+
+  return [lon, lat];
+}
+
+function toRouteGeometry(geometry) {
+  if (!Array.isArray(geometry)) {
+    return [];
+  }
+
+  return geometry.map(toRouteCoordinate).filter(Boolean);
+}
+
+function getRoutePattern(mode) {
+  if (mode === 'walking' || mode === 'bike') {
+    return mode;
+  }
+
+  return 'transport';
+}
+
 function getRouteFeatures(route) {
   const sectionFeatures = (route?.sections || [])
-    .filter((section) => section.geometry?.length > 1)
     .map((section, index) => ({
+      coordinates: toRouteGeometry(section.geometry),
+      index,
+      section,
+    }))
+    .filter(({ coordinates }) => coordinates.length > 1)
+    .map(({ coordinates, index, section }) => ({
       type: 'Feature',
       geometry: {
         type: 'LineString',
-        coordinates: section.geometry,
+        coordinates,
       },
       properties: {
         index,
         mode: section.mode,
         type: section.type,
         color: section.color || '#2563eb',
-        pattern:
-          section.mode === 'walking'
-            ? 'walking'
-            : section.mode === 'bike'
-              ? 'bike'
-              : 'transport',
+        pattern: getRoutePattern(section.mode),
       },
     }));
 
@@ -114,7 +145,9 @@ function getRouteFeatures(route) {
     return sectionFeatures;
   }
 
-  if (!route?.geometry?.length) {
+  const coordinates = toRouteGeometry(route?.geometry);
+
+  if (coordinates.length < 2) {
     return [];
   }
 
@@ -123,14 +156,14 @@ function getRouteFeatures(route) {
       type: 'Feature',
       geometry: {
         type: 'LineString',
-        coordinates: route.geometry,
+        coordinates,
       },
       properties: {
         index: 0,
         mode: route.profile,
         type: route.profile,
         color: route.profile === 'bike' ? '#14b8a6' : '#2563eb',
-        pattern: route.profile === 'walking' ? 'walking' : route.profile,
+        pattern: getRoutePattern(route.profile),
       },
     },
   ];
@@ -168,13 +201,15 @@ function getRouteMarkerFeatures(route) {
 }
 
 function getRouteCoordinates(route) {
-  if (route?.geometry?.length > 1) {
-    return route.geometry;
+  const routeGeometry = toRouteGeometry(route?.geometry);
+
+  if (routeGeometry.length > 1) {
+    return routeGeometry;
   }
 
   return (route?.sections || [])
-    .filter((section) => section.geometry?.length > 1)
-    .flatMap((section) => section.geometry);
+    .flatMap((section) => toRouteGeometry(section.geometry))
+    .filter(Boolean);
 }
 
 function emptyFeatureCollection(features = []) {
@@ -283,6 +318,20 @@ function fitRoute(map, route) {
     maxZoom: 15,
     duration: 550,
   });
+}
+
+function drawRoute(map, route, { shouldFit = false } = {}) {
+  if (!map.isStyleLoaded()) {
+    return false;
+  }
+
+  upsertRouteLayers(map, route);
+
+  if (shouldFit) {
+    fitRoute(map, route);
+  }
+
+  return true;
 }
 
 export default function InteractiveMap({
@@ -398,7 +447,7 @@ export default function InteractiveMap({
     map.setStyle(mapStyle);
     map.once('styledata', () => {
       map.jumpTo(camera);
-      upsertRouteLayers(map, selectedRoute);
+      drawRoute(map, selectedRoute);
     });
   }, [mapStyle, selectedRoute, styleKey]);
 
@@ -434,18 +483,21 @@ export default function InteractiveMap({
       return undefined;
     }
 
-    if (!map.isStyleLoaded()) {
-      map.once('load', () => {
-        upsertRouteLayers(map, selectedRoute);
-        fitRoute(map, selectedRoute);
-      });
+    if (drawRoute(map, selectedRoute, { shouldFit: true })) {
       return undefined;
     }
 
-    upsertRouteLayers(map, selectedRoute);
-    fitRoute(map, selectedRoute);
+    const handleStyleReady = () => {
+      drawRoute(map, selectedRoute, { shouldFit: true });
+    };
 
-    return undefined;
+    map.once('load', handleStyleReady);
+    map.once('styledata', handleStyleReady);
+
+    return () => {
+      map.off('load', handleStyleReady);
+      map.off('styledata', handleStyleReady);
+    };
   }, [selectedRoute]);
 
   return (
