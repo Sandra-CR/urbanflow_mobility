@@ -142,8 +142,26 @@ button {
     color: var(--color-text);
   }
 
+  .app-card-bg {
+    background: var(--color-background);
+    border-radius: var(--radius-ui);
+  }
+
   .text-primary {
     color: var(--color-primary) !important;
+  }
+
+  .form-field-label {
+    color: var(--color-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .form-field-label.sm {
+    font-size: 13px;
   }
 
   .btn-primary {

@@ -37,6 +37,50 @@ test('fetchJourneys ajoute marche et vélo quand IDF Mobilités ne renvoie pas d
   }
 });
 
+test('fetchJourneys utilise les coordonnees pour les transports quand elles existent', async () => {
+  const previousApiKey = process.env.IDFM_API_KEY;
+  process.env.IDFM_API_KEY = 'test-api-key';
+  const journeyUrls = [];
+
+  const fetchImpl = async (url) => {
+    const parsedUrl = new URL(url);
+
+    if (parsedUrl.pathname.endsWith('/journeys')) {
+      journeyUrls.push(parsedUrl);
+    }
+
+    return {
+      ok: true,
+      json: async () => ({ journeys: [] }),
+    };
+  };
+
+  try {
+    await fetchJourneys(
+      {
+        from: 'favorite:from',
+        to: 'favorite:to',
+        fromCoordinates: [2.3522, 48.8566],
+        toCoordinates: [2.295, 48.8738],
+      },
+      { fetchImpl }
+    );
+
+    const transitUrl = journeyUrls.find(
+      (url) => url.searchParams.get('direct_path') === 'none'
+    );
+
+    assert.equal(transitUrl.searchParams.get('from'), '2.3522;48.8566');
+    assert.equal(transitUrl.searchParams.get('to'), '2.295;48.8738');
+  } finally {
+    if (previousApiKey) {
+      process.env.IDFM_API_KEY = previousApiKey;
+    } else {
+      delete process.env.IDFM_API_KEY;
+    }
+  }
+});
+
 test('fetchJourneys affiche toujours marche puis velo avant les transports', async () => {
   const previousApiKey = process.env.IDFM_API_KEY;
   process.env.IDFM_API_KEY = 'test-api-key';

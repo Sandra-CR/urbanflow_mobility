@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle, Eye, EyeClosed, X, XCircle } from '@phosphor-icons/react';
-import urbanflowSymbol from '../../assets/brand/urbanflow-symbol.svg';
+import UrbanflowBrand from '../UrbanflowBrand/UrbanflowBrand';
 import './AuthPanel.css';
 
 const PASSWORD_RULES = [
@@ -36,8 +36,20 @@ const PASSWORD_RULES = [
   },
 ];
 
+/**
+ * Panneau de connexion/inscription partagé entre la page dédiée et l'overlay.
+ *
+ * @param {object} props Propriétés du panneau.
+ * @param {boolean} [props.isOverlay=false] Affichage en modal.
+ * @param {boolean} [props.isDarkMode=false] Sélection des assets de marque.
+ * @param {Function} props.onClose Fermeture de l'overlay.
+ * @param {Function} props.onLogin Soumission de connexion.
+ * @param {Function} props.onRegister Soumission d'inscription.
+ * @returns {JSX.Element} Formulaire d'authentification.
+ */
 export default function AuthPanel({
   isOverlay = false,
+  isDarkMode = false,
   onClose,
   onLogin,
   onRegister,
@@ -85,7 +97,7 @@ export default function AuthPanel({
         isOverlay ? 'auth-page auth-page--overlay' : 'auth-page app-surface'
       }
     >
-      <section className="auth-panel app-card" aria-labelledby="auth-title">
+      <section className="auth-panel app-card-bg" aria-labelledby="auth-title">
         {isOverlay ? (
           <button
             className="auth-close"
@@ -98,7 +110,11 @@ export default function AuthPanel({
           </button>
         ) : null}
         <div className="auth-brand">
-          <img src={urbanflowSymbol} alt="UrbanFlow Mobility" />
+          <UrbanflowBrand
+            kind="symbol"
+            variant="primary"
+            isDarkMode={isDarkMode}
+          />
           <h1 id="auth-title">
             {isRegisterMode ? 'Inscription' : 'Connexion'}
           </h1>
@@ -106,7 +122,7 @@ export default function AuthPanel({
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label className="auth-field">
-            <span>Email</span>
+            <span className="form-field-label">Adresse mail</span>
             <div className="auth-input">
               <input
                 type="email"
@@ -120,7 +136,7 @@ export default function AuthPanel({
           </label>
 
           <label className="auth-field auth-field--password">
-            <span>Mot de passe</span>
+            <span className="form-field-label">Mot de passe</span>
             <div className="auth-input auth-password-input">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -183,7 +199,9 @@ export default function AuthPanel({
 
           {isRegisterMode ? (
             <label className="auth-field">
-              <span>Confirmer le mot de passe</span>
+              <span className="form-field-label">
+                Confirmer le mot de passe
+              </span>
               <div className="auth-input auth-password-input">
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}

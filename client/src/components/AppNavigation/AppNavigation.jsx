@@ -1,9 +1,23 @@
 import { MapTrifold, Tree, Trophy, User } from '@phosphor-icons/react';
-import urbanflowLogoOnPrimary from '../../assets/brand/light/urbanflow-logo-onprimary.svg';
+import UrbanflowBrand from '../UrbanflowBrand/UrbanflowBrand';
 import './AppNavigation.css';
 
+/**
+ * Navigation principale de l'application.
+ *
+ * Le logo utilise la variante `onPrimary`, conçue pour le fond primaire de la
+ * barre latérale et sélectionnée automatiquement selon le thème.
+ *
+ * @param {object} props Propriétés de navigation.
+ * @param {object | null} props.currentUser Utilisateur connecté.
+ * @param {boolean} props.isDarkMode Thème courant.
+ * @param {boolean} props.isAuthPanelOpen État du panneau auth.
+ * @param {Function} props.onAccountClick Ouverture compte/connexion.
+ * @returns {JSX.Element} Navigation principale.
+ */
 export default function AppNavigation({
   currentUser,
+  isDarkMode,
   isAuthPanelOpen,
   onAccountClick,
 }) {
@@ -40,7 +54,12 @@ export default function AppNavigation({
     <nav className="app-navigation" aria-label="Navigation principale">
       <div className="app-navigation__primary">
         <div className="app-navigation__brand" aria-hidden="true">
-          <img src={urbanflowLogoOnPrimary} alt="" />
+          <UrbanflowBrand
+            kind="logo"
+            variant="onPrimary"
+            isDarkMode={isDarkMode}
+            alt=""
+          />
         </div>
         {navigationItems.slice(0, 3).map(({ id, label, Icon, isActive }) => (
           <button
