@@ -87,26 +87,57 @@ function createStationPopup(station) {
   return content;
 }
 
+function toRouteCoordinate(coordinate) {
+  if (!Array.isArray(coordinate) || coordinate.length < 2) {
+    return null;
+  }
+
+  const lon = Number(coordinate[0]);
+  const lat = Number(coordinate[1]);
+
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return null;
+  }
+
+  return [lon, lat];
+}
+
+function toRouteGeometry(geometry) {
+  if (!Array.isArray(geometry)) {
+    return [];
+  }
+
+  return geometry.map(toRouteCoordinate).filter(Boolean);
+}
+
+function getRoutePattern(mode) {
+  if (mode === 'walking' || mode === 'bike') {
+    return mode;
+  }
+
+  return 'transport';
+}
+
 function getRouteFeatures(route) {
   const sectionFeatures = (route?.sections || [])
-    .filter((section) => section.geometry?.length > 1)
     .map((section, index) => ({
+      coordinates: toRouteGeometry(section.geometry),
+      index,
+      section,
+    }))
+    .filter(({ coordinates }) => coordinates.length > 1)
+    .map(({ coordinates, index, section }) => ({
       type: 'Feature',
       geometry: {
         type: 'LineString',
-        coordinates: section.geometry,
+        coordinates,
       },
       properties: {
         index,
         mode: section.mode,
         type: section.type,
         color: section.color || '#2563eb',
-        pattern:
-          section.mode === 'walking'
-            ? 'walking'
-            : section.mode === 'bike'
-              ? 'bike'
-              : 'transport',
+        pattern: getRoutePattern(section.mode),
       },
     }));
 
@@ -114,7 +145,9 @@ function getRouteFeatures(route) {
     return sectionFeatures;
   }
 
-  if (!route?.geometry?.length) {
+  const coordinates = toRouteGeometry(route?.geometry);
+
+  if (coordinates.length < 2) {
     return [];
   }
 
@@ -123,21 +156,21 @@ function getRouteFeatures(route) {
       type: 'Feature',
       geometry: {
         type: 'LineString',
-        coordinates: route.geometry,
+        coordinates,
       },
       properties: {
         index: 0,
         mode: route.profile,
         type: route.profile,
         color: route.profile === 'bike' ? '#14b8a6' : '#2563eb',
-        pattern: route.profile === 'walking' ? 'walking' : route.profile,
+        pattern: getRoutePattern(route.profile),
       },
     },
   ];
 }
 
 function getRouteMarkerFeatures(route) {
-  const coordinates = route?.geometry || [];
+  const coordinates = getRouteCoordinates(route);
 
   if (coordinates.length < 2) {
     return [];
@@ -165,6 +198,18 @@ function getRouteMarkerFeatures(route) {
       },
     },
   ];
+}
+
+function getRouteCoordinates(route) {
+  const routeGeometry = toRouteGeometry(route?.geometry);
+
+  if (routeGeometry.length > 1) {
+    return routeGeometry;
+  }
+
+  return (route?.sections || [])
+    .flatMap((section) => toRouteGeometry(section.geometry))
+    .filter(Boolean);
 }
 
 function emptyFeatureCollection(features = []) {
@@ -252,7 +297,7 @@ function upsertRouteLayers(map, route) {
 }
 
 function fitRoute(map, route) {
-  const coordinates = route?.geometry || [];
+  const coordinates = getRouteCoordinates(route);
 
   if (coordinates.length < 2) {
     return;
@@ -273,6 +318,63 @@ function fitRoute(map, route) {
     maxZoom: 15,
     duration: 550,
   });
+}
+
+function drawRoute(map, route, { shouldFit = false } = {}) {
+  if (!map.isStyleLoaded()) {
+    return false;
+  }
+
+  upsertRouteLayers(map, route);
+
+  if (shouldFit) {
+    fitRoute(map, route);
+  }
+
+  return true;
+}
+
+function drawRouteWhenReady(map, route, { shouldFit = false } = {}) {
+  let timeoutId = null;
+  let isCancelled = false;
+
+  const clearListeners = () => {
+    map.off('load', tryDrawRoute);
+    map.off('style.load', tryDrawRoute);
+    map.off('styledata', tryDrawRoute);
+    map.off('idle', tryDrawRoute);
+  };
+
+  const scheduleRetry = () => {
+    window.clearTimeout(timeoutId);
+    timeoutId = window.setTimeout(tryDrawRoute, 80);
+  };
+
+  function tryDrawRoute() {
+    if (isCancelled) {
+      return;
+    }
+
+    if (drawRoute(map, route, { shouldFit })) {
+      window.clearTimeout(timeoutId);
+      clearListeners();
+      return;
+    }
+
+    scheduleRetry();
+  }
+
+  map.on('load', tryDrawRoute);
+  map.on('style.load', tryDrawRoute);
+  map.on('styledata', tryDrawRoute);
+  map.on('idle', tryDrawRoute);
+  tryDrawRoute();
+
+  return () => {
+    isCancelled = true;
+    window.clearTimeout(timeoutId);
+    clearListeners();
+  };
 }
 
 export default function InteractiveMap({
@@ -388,7 +490,7 @@ export default function InteractiveMap({
     map.setStyle(mapStyle);
     map.once('styledata', () => {
       map.jumpTo(camera);
-      upsertRouteLayers(map, selectedRoute);
+      drawRouteWhenReady(map, selectedRoute);
     });
   }, [mapStyle, selectedRoute, styleKey]);
 
@@ -424,18 +526,7 @@ export default function InteractiveMap({
       return undefined;
     }
 
-    if (!map.isStyleLoaded()) {
-      map.once('load', () => {
-        upsertRouteLayers(map, selectedRoute);
-        fitRoute(map, selectedRoute);
-      });
-      return undefined;
-    }
-
-    upsertRouteLayers(map, selectedRoute);
-    fitRoute(map, selectedRoute);
-
-    return undefined;
+    return drawRouteWhenReady(map, selectedRoute, { shouldFit: true });
   }, [selectedRoute]);
 
   return (
