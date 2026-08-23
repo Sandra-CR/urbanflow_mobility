@@ -1,4 +1,4 @@
-import { X } from '@phosphor-icons/react';
+import { PencilSimple, X } from '@phosphor-icons/react';
 
 /**
  * Rend une ligne de préférence sélectionnable.
@@ -18,11 +18,18 @@ export default function RoutePreferencePlaceButton({
   Icon,
   icon,
   place,
+  actionLabel,
+  actionType = 'delete',
+  onAction,
   secondaryLabel,
   onDelete,
   onSelect,
 }) {
   const canDelete = Boolean(onDelete) && !place?.isUserLocation;
+  const canRunAction = Boolean(onAction) && !place?.isUserLocation;
+  const ActionIcon = actionType === 'edit' ? PencilSimple : X;
+  const resolvedActionLabel =
+    actionLabel || (actionType === 'edit' ? `Modifier ${place.label}` : null);
 
   return (
     <button
@@ -40,7 +47,32 @@ export default function RoutePreferencePlaceButton({
         <span className="route-suggestion__label">{place.label}</span>
         {secondaryLabel ? <small>{secondaryLabel}</small> : null}
       </span>
-      {canDelete ? (
+      {canRunAction ? (
+        <span
+          className="route-suggestion__remove"
+          role="button"
+          tabIndex={0}
+          aria-label={resolvedActionLabel}
+          title={actionType === 'edit' ? 'Modifier' : resolvedActionLabel}
+          onClick={(event) => {
+            event.stopPropagation();
+            onAction(place);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              event.stopPropagation();
+              onAction(place);
+            }
+          }}
+        >
+          <ActionIcon
+            size={16}
+            weight={actionType === 'edit' ? 'regular' : 'bold'}
+            aria-hidden="true"
+          />
+        </span>
+      ) : canDelete ? (
         <span
           className="route-suggestion__remove"
           role="button"

@@ -1,19 +1,9 @@
 import { DownloadSimple, Moon, Sun } from '@phosphor-icons/react';
 import './MapActions.css';
 
-function MapActions({
-  isCachingTiles,
-  isDarkMode,
-  onDownloadOfflineMap,
-  onToggleDarkMode,
-}) {
+function MapActions({ isDarkMode, onInstallPwa, onToggleDarkMode }) {
   return (
     <div className="map-actions" aria-label="Commandes de carte">
-      {/* {currentUser ? (
-        <div className="user-chip" title={currentUser.email}>
-          <span>{currentUser.email}</span>
-        </div>
-      ) : null} */}
       <button
         className="map-icon-button"
         type="button"
@@ -30,13 +20,13 @@ function MapActions({
           <Moon size={20} weight="bold" aria-hidden="true" />
         )}
       </button>
+
       <button
         className="map-icon-button"
         type="button"
-        aria-label="Télécharger les tuiles pour le hors ligne"
-        title="Télécharger les tuiles"
-        disabled={isCachingTiles}
-        onClick={onDownloadOfflineMap}
+        aria-label="Installer l'application"
+        title="Installer l'application"
+        onClick={onInstallPwa}
       >
         <DownloadSimple size={20} weight="bold" aria-hidden="true" />
       </button>

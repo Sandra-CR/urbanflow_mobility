@@ -32,21 +32,26 @@
 .map-icon-button {
   display: inline-grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 50px;
+  height: 50px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--color-text-light) 36%, transparent);
-  border-radius: var(--radius-ui);
-  background: color-mix(in srgb, var(--color-card) 94%, transparent);
-  color: var(--color-text);
+  border: 1px solid var(--color-primary);
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-primary);
   cursor: pointer;
   box-shadow: var(--shadow-ui);
   backdrop-filter: blur(8px);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
 }
 
 .map-icon-button svg {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   flex: 0 0 auto;
 }
 
@@ -58,14 +63,15 @@
 .map-icon-button:hover,
 .map-icon-button:focus-visible {
   border-color: var(--color-primary);
-  color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   outline: none;
 }
 
 .map-icon-button[aria-pressed='true'] {
   border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-card));
-  color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
 }
 
 .map-icon-button--danger:hover,
@@ -84,8 +90,8 @@
   }
 
   .map-icon-button {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
   }
 
   .user-chip {

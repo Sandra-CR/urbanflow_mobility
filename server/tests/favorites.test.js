@@ -101,7 +101,7 @@ test('liste les favoris de la categorie demandee', async () => {
   }
 });
 
-test('supprime un favori de l utilisateur connecte', async () => {
+test('supprime un favori de l\'utilisateur connecte', async () => {
   const queries = [];
   const userId = 'user-1';
   const token = signAuthToken({
@@ -132,6 +132,90 @@ test('supprime un favori de l utilisateur connecte', async () => {
 
     assert.strictEqual(response.status, 204);
     assert.deepStrictEqual(queries[0].params, ['fav-1', userId]);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('remplace le domicile existant lors d\'un nouvel enregistrement', async () => {
+  const queries = [];
+  const userId = 'user-1';
+  const token = signAuthToken({
+    id: userId,
+    email: 'user@example.com',
+  });
+  const app = createTestApp(async (text, params) => {
+    queries.push({ text, params });
+
+    if (text.startsWith('delete from user_favorite_places')) {
+      return {
+        rowCount: 1,
+        rows: [],
+      };
+    }
+
+    if (text.startsWith('insert into user_favorite_places')) {
+      return {
+        rows: [
+          {
+            id: 'fav-home-2',
+            category: 'home',
+            label: 'Domicile',
+            place_label: 'Nation',
+            station_id: null,
+            lon: 2.395,
+            lat: 48.848,
+          },
+        ],
+      };
+    }
+
+    throw new Error(`Unexpected query: ${text}`);
+  });
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/favorites`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${AUTH_COOKIE_NAME}=${token}`,
+      },
+      body: JSON.stringify({
+        category: 'home',
+        label: 'Domicile',
+        placeLabel: 'Nation',
+        stationId: null,
+        coordinates: [2.395, 48.848],
+      }),
+    });
+    const body = await response.json();
+
+    assert.strictEqual(response.status, 201);
+    assert.strictEqual(queries.length, 2);
+    assert.ok(
+      queries[0].text.startsWith('delete from user_favorite_places'),
+      'delete query should run before insert'
+    );
+    assert.deepStrictEqual(queries[0].params, [userId, 'home']);
+    assert.ok(
+      queries[1].text.startsWith('insert into user_favorite_places'),
+      'insert query should run after delete'
+    );
+    assert.deepStrictEqual(body.place, {
+      id: 'favorite:fav-home-2',
+      stationId: null,
+      favoriteId: 'fav-home-2',
+      category: 'home',
+      label: 'Domicile',
+      name: 'Domicile',
+      placeLabel: 'Nation',
+      type: 'address',
+      distance: null,
+      coordinates: [2.395, 48.848],
+      city: null,
+      lines: [],
+    });
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
