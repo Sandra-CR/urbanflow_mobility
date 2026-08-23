@@ -221,6 +221,31 @@ function normalizePlacesNearby(data) {
   return (data.places_nearby || []).map(normalizePlace).filter(Boolean);
 }
 
+function normalizeCoordinatesPlace(data) {
+  const places = normalizePlacesNearby(data);
+  const bestAddressPlace = places.find((place) => place.type === 'address');
+
+  if (bestAddressPlace) {
+    return {
+      place: {
+        ...bestAddressPlace,
+        label: bestAddressPlace.name,
+      },
+    };
+  }
+
+  const firstPlace = places[0];
+
+  return {
+    place: firstPlace
+      ? {
+          ...firstPlace,
+          label: firstPlace.name,
+        }
+      : null,
+  };
+}
+
 function normalizeSearchPlaces(data) {
   return (data.places || [])
     .map((place) => {
@@ -242,6 +267,18 @@ function createIdfmUrl({ lon, lat, distance, count }, baseUrl) {
   const url = new URL(`${baseUrl}/coords/${lon};${lat}/places_nearby`);
   url.searchParams.set('distance', String(distance));
   url.searchParams.set('count', String(count));
+  url.searchParams.append('type[]', 'stop_area');
+  url.searchParams.set('disable_geojson', 'true');
+  url.searchParams.set('disable_disruption', 'true');
+  return url;
+}
+
+function createCoordinatesPlaceUrl({ lon, lat }, baseUrl) {
+  const url = new URL(`${baseUrl}/coords/${lon};${lat}/places_nearby`);
+  url.searchParams.set('distance', '150');
+  url.searchParams.set('count', '6');
+  url.searchParams.append('type[]', 'address');
+  url.searchParams.append('type[]', 'poi');
   url.searchParams.append('type[]', 'stop_area');
   url.searchParams.set('disable_geojson', 'true');
   url.searchParams.set('disable_disruption', 'true');
@@ -884,6 +921,56 @@ export async function searchPlaces(
 }
 
 /**
+ * Résout des coordonnées en un lieu affichable.
+ *
+ * La priorité est donnée aux adresses pour pouvoir proposer "Ma position"
+ * avec une adresse lisible dans l'autocomplétion.
+ *
+ * @param {object} params Paramètres de résolution.
+ * @param {number | string} params.lon Longitude.
+ * @param {number | string} params.lat Latitude.
+ * @param {object} [dependencies] Dépendances injectables.
+ * @param {Function} [dependencies.fetchImpl] Implémentation compatible fetch.
+ * @param {AbortSignal} [dependencies.signal] Signal d'annulation.
+ * @returns {Promise<{place: NormalizedPlace | null}>}
+ * @throws {Error} 400 si les coordonnées sont invalides.
+ * @throws {Error} 503 si `IDFM_API_KEY` est absent.
+ * @throws {Error} 502/504 si l'API IDF Mobilités échoue ou expire.
+ */
+export async function fetchPlaceFromCoordinates(
+  { lon, lat },
+  { fetchImpl = fetch, signal } = {}
+) {
+  const safeLon = Number(lon);
+  const safeLat = Number(lat);
+
+  if (!Number.isFinite(safeLon) || !Number.isFinite(safeLat)) {
+    const error = new Error('Coordonnees invalides.');
+    error.status = 400;
+    throw error;
+  }
+
+  const { apiKey, baseUrl } = getConfig();
+
+  if (!apiKey) {
+    const error = new Error('Jeton Ile-de-France Mobilités manquant.');
+    error.status = 503;
+    throw error;
+  }
+
+  const url = createCoordinatesPlaceUrl(
+    {
+      lon: safeLon,
+      lat: safeLat,
+    },
+    baseUrl
+  );
+  const data = await requestIdfm(url, { apiKey, fetchImpl, signal });
+
+  return normalizeCoordinatesPlace(data);
+}
+
+/**
  * Calcule les itinéraires marche, vélo et transports entre deux lieux.
  *
  * Le client interroge IDF Mobilités pour trois profils : marche directe, vélo
@@ -1069,6 +1156,29 @@ export function createSearchPlacesWithTimeout(searchPlacesImpl) {
 
     try {
       return await searchPlacesImpl(params, {
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+}
+
+/**
+ * Décore une résolution de coordonnées avec un timeout court.
+ *
+ * @param {Function} fetchPlaceFromCoordinatesImpl Fonction compatible avec `fetchPlaceFromCoordinates`.
+ * @returns {Function} Fonction qui annule la recherche après `DEFAULT_TIMEOUT_MS`.
+ */
+export function createFetchPlaceFromCoordinatesWithTimeout(
+  fetchPlaceFromCoordinatesImpl
+) {
+  return async function fetchPlaceFromCoordinatesWithTimeout(params) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+    try {
+      return await fetchPlaceFromCoordinatesImpl(params, {
         signal: controller.signal,
       });
     } finally {

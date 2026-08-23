@@ -1,8 +1,10 @@
 import express from 'express';
 import {
+  createFetchPlaceFromCoordinatesWithTimeout,
   createFetchJourneysWithTimeout,
   createFetchNearbyStationsWithTimeout,
   createSearchPlacesWithTimeout,
+  fetchPlaceFromCoordinates as defaultFetchPlaceFromCoordinates,
   fetchJourneys as defaultFetchJourneys,
   fetchNearbyStations as defaultFetchNearbyStations,
   searchPlaces as defaultSearchPlaces,
@@ -88,6 +90,9 @@ async function addCarbonFootprints(journeys, calculateCarbonFootprint) {
  * @returns {object} Routeur Express configuré
  */
 export function createIdfmRouter({
+  fetchPlaceFromCoordinates = createFetchPlaceFromCoordinatesWithTimeout(
+    defaultFetchPlaceFromCoordinates
+  ),
   fetchNearbyStations = createFetchNearbyStationsWithTimeout(
     defaultFetchNearbyStations
   ),
@@ -136,6 +141,31 @@ export function createIdfmRouter({
       if (error.status) {
         return res.status(error.status).json({
           error: error.message,
+        });
+      }
+
+      return next(error);
+    }
+  });
+
+  router.get('/place-from-coordinates', async (req, res, next) => {
+    try {
+      const result = await fetchPlaceFromCoordinates({
+        lon: req.query.lon,
+        lat: req.query.lat,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      if (error.status) {
+        return res.status(error.status).json({
+          error: error.message,
+        });
+      }
+
+      if (error.name === 'AbortError') {
+        return res.status(504).json({
+          error: "Délai dépassé pour l'API IDF Mobilités.",
         });
       }
 

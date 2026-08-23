@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight } from '@phosphor-icons/react';
 import AppNavigation from './components/AppNavigation/AppNavigation';
 import AuthPanel from './components/AuthPanel/AuthPanel';
@@ -13,7 +13,11 @@ import {
   logoutUser,
   registerUser,
 } from './utils/authApi';
-import { getJourneys, searchPlaces } from './utils/idfmApi';
+import {
+  getJourneys,
+  getPlaceFromCoordinates,
+  searchPlaces,
+} from './utils/idfmApi';
 import { preloadMapTiles } from './utils/offlineMapTiles';
 import './App.css';
 
@@ -25,6 +29,16 @@ const PARIS_OFFLINE_BOUNDS = {
   north: 48.91,
 };
 
+/**
+ * Orchestre l'écran principal de la PWA: carte, calcul d'itinéraires,
+ * compte utilisateur et services locaux du navigateur.
+ *
+ * La géolocalisation est demandée au chargement de la page. Si l'utilisateur
+ * accepte après le rendu initial, la position est injectée dans la carte et
+ * transformée en lieu "Ma position" réutilisable dans le planificateur.
+ *
+ * @returns {import('react').JSX.Element} Interface principale de l'application.
+ */
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
@@ -38,6 +52,8 @@ function App() {
   const [cacheProgress, setCacheProgress] = useState(null);
   const [isCachingTiles, setIsCachingTiles] = useState(false);
   const [cacheMessage, setCacheMessage] = useState('');
+  const [userLocation, setUserLocation] = useState(null);
+  const [userLocationAddress, setUserLocationAddress] = useState(null);
 
   const handleSearchPlaces = useCallback(async (query) => {
     const data = await searchPlaces({
@@ -67,6 +83,105 @@ function App() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      typeof navigator === 'undefined' ||
+      !navigator.geolocation ||
+      typeof window === 'undefined'
+    ) {
+      return undefined;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setUserLocation([
+          position.coords.longitude,
+          position.coords.latitude,
+        ]);
+      },
+      (error) => {
+        if (error.code !== error.PERMISSION_DENIED) {
+          console.warn('Geolocation unavailable:', error);
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 15000,
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!Array.isArray(userLocation) || userLocation.length < 2) {
+      return;
+    }
+
+    let isMounted = true;
+    const [lon, lat] = userLocation;
+
+    // On résout la position courante en libellé lisible pour proposer un
+    // départ "Ma position" compréhensible dans les champs d'itinéraire.
+    getPlaceFromCoordinates({ lon, lat })
+      .then((data) => {
+        if (!isMounted) {
+          return;
+        }
+
+        const resolvedPlace = data.place;
+
+        setUserLocationAddress({
+          coordinates: [lon, lat],
+          city: resolvedPlace?.city || null,
+          secondaryLabel:
+            resolvedPlace?.label || resolvedPlace?.name || 'Position actuelle',
+        });
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        setUserLocationAddress({
+          coordinates: [lon, lat],
+          city: null,
+          secondaryLabel: 'Position actuelle',
+        });
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userLocation]);
+
+  const userLocationPlace = useMemo(() => {
+    if (!Array.isArray(userLocation) || userLocation.length < 2) {
+      return null;
+    }
+
+    const [lon, lat] = userLocation;
+    const hasResolvedCurrentCoordinates =
+      userLocationAddress?.coordinates?.[0] === lon &&
+      userLocationAddress?.coordinates?.[1] === lat;
+
+    return {
+      id: `current-location-${lon},${lat}`,
+      label: 'Ma position',
+      name: 'Ma position',
+      type: 'address',
+      coordinates: [lon, lat],
+      city: hasResolvedCurrentCoordinates ? userLocationAddress?.city : null,
+      secondaryLabel: hasResolvedCurrentCoordinates
+        ? userLocationAddress?.secondaryLabel || 'Position actuelle'
+        : 'Position actuelle',
+      isUserLocation: true,
+    };
+  }, [userLocation, userLocationAddress]);
 
   async function handleLogin(credentials) {
     const data = await loginUser(credentials);
@@ -219,6 +334,7 @@ function App() {
           onInputsInvalid={handleJourneyInputsInvalid}
           onPlan={handlePlanJourney}
           onSearchPlaces={handleSearchPlaces}
+          userLocationPlace={userLocationPlace}
         />
         <section className="map-shell" aria-label="Carte">
           <InteractiveMap
@@ -227,6 +343,7 @@ function App() {
             isDarkMode={isDarkMode}
             stations={[]}
             selectedRoute={selectedJourney}
+            userLocation={userLocation}
           />
           {selectedJourney &&
           isRouteSheetCtaVisible &&

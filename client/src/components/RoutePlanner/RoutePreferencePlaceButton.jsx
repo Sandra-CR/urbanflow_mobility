@@ -16,6 +16,7 @@ import { X } from '@phosphor-icons/react';
  */
 export default function RoutePreferencePlaceButton({
   Icon,
+  icon,
   place,
   secondaryLabel,
   onDelete,
@@ -31,7 +32,7 @@ export default function RoutePreferencePlaceButton({
       onClick={() => onSelect(place)}
     >
       <span className="route-suggestion__icon route-suggestion__icon--favorite">
-        <Icon size={20} weight="regular" aria-hidden="true" />
+        {icon || <Icon size={20} weight="regular" aria-hidden="true" />}
       </span>
       <span className="route-suggestion__content">
         <span className="route-suggestion__label">{place.label}</span>

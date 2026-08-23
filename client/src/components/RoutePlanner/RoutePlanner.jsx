@@ -126,7 +126,54 @@ function isAddressPlace(place) {
   return place.type === 'address' && getPlaceLines(place).length === 0;
 }
 
+function isUserLocationPlace(place) {
+  return Boolean(place?.isUserLocation);
+}
+
+function areCoordinatesEqual(firstCoordinates, secondCoordinates) {
+  if (
+    !Array.isArray(firstCoordinates) ||
+    !Array.isArray(secondCoordinates) ||
+    firstCoordinates.length < 2 ||
+    secondCoordinates.length < 2
+  ) {
+    return false;
+  }
+
+  return (
+    Number(firstCoordinates[0]) === Number(secondCoordinates[0]) &&
+    Number(firstCoordinates[1]) === Number(secondCoordinates[1])
+  );
+}
+
+function prependUniquePlace(places, preferredPlace, excludedPlace = null) {
+  if (!preferredPlace) {
+    return places;
+  }
+
+  if (
+    (excludedPlace?.id && preferredPlace.id === excludedPlace.id) ||
+    areCoordinatesEqual(preferredPlace.coordinates, excludedPlace?.coordinates)
+  ) {
+    return places;
+  }
+
+  const filteredPlaces = places.filter((place) => {
+    if (place.id && preferredPlace.id) {
+      return place.id !== preferredPlace.id;
+    }
+
+    return !areCoordinatesEqual(place.coordinates, preferredPlace.coordinates);
+  });
+
+  return [preferredPlace, ...filteredPlaces];
+}
+
 function getPlaceIconType(place) {
+  if (isUserLocationPlace(place)) {
+    return 'current-location';
+  }
+
   if (isAddressPlace(place)) {
     return 'address';
   }
@@ -167,6 +214,15 @@ function getPlaceIconType(place) {
 
 function PlaceTypeIcon({ place }) {
   const iconType = getPlaceIconType(place);
+
+  if (iconType === 'current-location') {
+    return (
+      <span
+        className="route-suggestion__current-location-marker"
+        aria-hidden="true"
+      />
+    );
+  }
 
   if (iconType === 'train') {
     return <TrainSimple size={20} weight="regular" aria-hidden="true" />;
@@ -209,6 +265,10 @@ function TransportLineBadge({ line }) {
 }
 
 function PlaceSuggestionDetails({ place }) {
+  if (isUserLocationPlace(place)) {
+    return place.secondaryLabel ? <small>{place.secondaryLabel}</small> : null;
+  }
+
   if (isAddressPlace(place)) {
     return place.city ? <small>{place.city}</small> : null;
   }
@@ -569,6 +629,7 @@ function PlaceSearchField({
   onFieldFocus,
   onFieldBlur,
   onQueryChange,
+  preferredPlace,
 }) {
   const [query, setQuery] = useState(selectedPlace?.label || '');
   const [places, setPlaces] = useState([]);
@@ -779,7 +840,7 @@ function PlaceSearchField({
     if (isOpen && (places.length > 0 || searchMessage)) {
       onSuggestionsChange({
         fieldId: id,
-        places,
+        places: prependUniquePlace(places, preferredPlace),
         message: searchMessage,
         onSelect: handleSelect,
       });
@@ -794,6 +855,7 @@ function PlaceSearchField({
     isOpen,
     onSuggestionsChange,
     places,
+    preferredPlace,
     query,
     searchMessage,
     showRecentSearches,
@@ -1015,6 +1077,7 @@ export default function RoutePlanner({
   isRouteDetailsVisible,
   isLoading,
   message,
+  userLocationPlace,
   onJourneySelect,
   onLoginClick,
   onInputsInvalid,
@@ -1038,6 +1101,17 @@ export default function RoutePlanner({
   const [activeSuggestions, setActiveSuggestions] = useState(null);
   const [recentPlaces, setRecentPlaces] = useState([]);
   const hasValidatedRoute = Boolean(fromPlace?.id && toPlace?.id);
+  const isUserLocationAlreadySelected =
+    (userLocationPlace?.id &&
+      (userLocationPlace.id === fromPlace?.id ||
+        userLocationPlace.id === toPlace?.id)) ||
+    areCoordinatesEqual(userLocationPlace?.coordinates, fromPlace?.coordinates) ||
+    areCoordinatesEqual(userLocationPlace?.coordinates, toPlace?.coordinates);
+  const destinationSuggestion =
+    (focusedRouteField === 'to' || !focusedRouteField) &&
+    !isUserLocationAlreadySelected
+      ? userLocationPlace
+      : null;
   const hasVisibleRouteResults =
     hasValidatedRoute && (isLoading || journeys.length > 0);
   const isFocusedRouteFieldEmpty = focusedRouteField
@@ -1045,6 +1119,7 @@ export default function RoutePlanner({
     : true;
   const shouldShowPreferenceContent =
     isFocusedRouteFieldEmpty && !hasVisibleRouteResults;
+  const shouldShowPreferences = !hasValidatedRoute;
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -1177,9 +1252,26 @@ export default function RoutePlanner({
       return;
     }
 
+    if (!fromPlace?.id) {
+      setRoutePlace('from', place);
+      window.setTimeout(() => toInputRef.current?.focus(), 0);
+      return;
+    }
+
     setRoutePlace('to', place);
     window.setTimeout(() => fromInputRef.current?.focus(), 0);
   }
+
+  const destinationActiveSuggestions = useMemo(() => {
+    if (!activeSuggestions || !destinationSuggestion) {
+      return activeSuggestions;
+    }
+
+    return {
+      ...activeSuggestions,
+      places: prependUniquePlace(activeSuggestions.places, destinationSuggestion),
+    };
+  }, [activeSuggestions, destinationSuggestion]);
 
   if (isRouteDetailsVisible && selectedJourney) {
     return (
@@ -1219,6 +1311,7 @@ export default function RoutePlanner({
             onFieldFocus={() => setFocusedRouteField('from')}
             onFieldBlur={() => clearFocusedRouteField('from')}
             onQueryChange={handleFromQueryChange}
+            preferredPlace={null}
           />
           <button
             className="route-fields__swap"
@@ -1246,21 +1339,25 @@ export default function RoutePlanner({
             onFieldFocus={() => setFocusedRouteField('to')}
             onFieldBlur={() => clearFocusedRouteField('to')}
             onQueryChange={handleToQueryChange}
+            preferredPlace={destinationSuggestion}
           />
         </div>
-        <RoutePreferenceMenu
-          activeSuggestions={activeSuggestions}
-          currentUser={currentUser}
-          isContentVisible={shouldShowPreferenceContent}
-          recentPlaces={recentPlaces}
-          PlaceSearchField={PlaceSearchField}
-          PlaceSuggestions={PlaceSuggestions}
-          onLoginClick={onLoginClick}
-          onPlaceSelect={handlePreferencePlaceSelect}
-          onPreferenceChange={() => setActiveSuggestions(null)}
-          onSearchPlaces={onSearchPlaces}
-          areSuggestionStatesEqual={areSuggestionStatesEqual}
-        />
+        {shouldShowPreferences ? (
+          <RoutePreferenceMenu
+            activeSuggestions={destinationActiveSuggestions}
+            currentUser={currentUser}
+            isContentVisible={shouldShowPreferenceContent}
+            recentPlaces={recentPlaces}
+            PlaceSearchField={PlaceSearchField}
+            PlaceSuggestions={PlaceSuggestions}
+            preferredPlace={destinationSuggestion}
+            onLoginClick={onLoginClick}
+            onPlaceSelect={handlePreferencePlaceSelect}
+            onPreferenceChange={() => setActiveSuggestions(null)}
+            onSearchPlaces={onSearchPlaces}
+            areSuggestionStatesEqual={areSuggestionStatesEqual}
+          />
+        ) : null}
 
         {message ? (
           <div className="route-planner__message" role="status">
