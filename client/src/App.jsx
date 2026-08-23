@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRight } from '@phosphor-icons/react';
+import { ArrowRight, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import AppNavigation from './components/AppNavigation/AppNavigation';
 import AuthPanel from './components/AuthPanel/AuthPanel';
 import InteractiveMap from './components/InteractiveMap/InteractiveMap';
@@ -7,10 +7,8 @@ import MapActions from './components/MapActions/MapActions';
 import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
 import RoutePlanner from './components/RoutePlanner/RoutePlanner';
 import {
-  deleteCurrentUser,
   getCurrentUser,
   loginUser,
-  logoutUser,
   registerUser,
 } from './utils/authApi';
 import {
@@ -18,16 +16,14 @@ import {
   getPlaceFromCoordinates,
   searchPlaces,
 } from './utils/idfmApi';
-import { preloadMapTiles } from './utils/offlineMapTiles';
+import {
+  clearPwaInstallPrompt,
+  getPwaInstallPrompt,
+  subscribeToPwaInstallPrompt,
+} from './utils/pwaInstall';
 import './App.css';
 
 const PARIS_CENTER = [2.3522, 48.8566];
-const PARIS_OFFLINE_BOUNDS = {
-  west: 2.24,
-  south: 48.81,
-  east: 2.48,
-  north: 48.91,
-};
 
 /**
  * Orchestre l'écran principal de la PWA: carte, calcul d'itinéraires,
@@ -43,14 +39,15 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
+  const [isRoutePlannerCollapsed, setIsRoutePlannerCollapsed] = useState(false);
+  const [routePlannerResetKey, setRoutePlannerResetKey] = useState(0);
   const [journeys, setJourneys] = useState([]);
   const [selectedJourney, setSelectedJourney] = useState(null);
   const [isRouteSheetCtaVisible, setIsRouteSheetCtaVisible] = useState(false);
   const [isRouteDetailsVisible, setIsRouteDetailsVisible] = useState(false);
   const [isLoadingJourneys, setIsLoadingJourneys] = useState(false);
   const [journeyMessage, setJourneyMessage] = useState('');
-  const [cacheProgress, setCacheProgress] = useState(null);
-  const [isCachingTiles, setIsCachingTiles] = useState(false);
   const [cacheMessage, setCacheMessage] = useState('');
   const [userLocation, setUserLocation] = useState(null);
   const [userLocationAddress, setUserLocationAddress] = useState(null);
@@ -81,6 +78,31 @@ function App() {
 
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  useEffect(
+    () =>
+      subscribeToPwaInstallPrompt((promptEvent) => {
+        setInstallPromptEvent(promptEvent);
+      }),
+    []
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    function handleAppInstalled() {
+      clearPwaInstallPrompt();
+      setCacheMessage('UrbanFlow est installée sur votre appareil.');
+    }
+
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
@@ -195,24 +217,6 @@ function App() {
     setShowAuthPanel(false);
   }
 
-  async function handleLogout() {
-    await logoutUser();
-    setCurrentUser(null);
-  }
-
-  async function handleDeleteAccount() {
-    const shouldDelete = window.confirm(
-      'Supprimer définitivement votre compte UrbanFlow ?'
-    );
-
-    if (!shouldDelete) {
-      return;
-    }
-
-    await deleteCurrentUser();
-    setCurrentUser(null);
-  }
-
   async function handlePlanJourney({ from, to }) {
     setIsLoadingJourneys(true);
     setJourneyMessage('');
@@ -245,26 +249,27 @@ function App() {
     }
   }
 
-  async function handlePreloadOfflineMap() {
-    setIsCachingTiles(true);
-    setCacheMessage('');
-    setCacheProgress({ completed: 0, total: 0, percent: 0 });
+  async function handleInstallPwa() {
+    const promptEvent = installPromptEvent || getPwaInstallPrompt();
 
-    try {
-      const result = await preloadMapTiles({
-        bounds: PARIS_OFFLINE_BOUNDS,
-        minZoom: 11,
-        maxZoom: 15,
-        includeDarkMode: true,
-        onProgress: setCacheProgress,
-      });
-
-      setCacheMessage(`${result.total} tuiles prêtes pour le hors ligne.`);
-    } catch (error) {
-      setCacheMessage(error.message);
-    } finally {
-      setIsCachingTiles(false);
+    if (!promptEvent) {
+      setCacheMessage(
+        "L'installation directe n'est pas disponible pour l'instant. Utilisez le bouton Installé dans la barre d'adresse si disponible."
+      );
+      return;
     }
+
+    setCacheMessage('');
+    await promptEvent.prompt();
+    const choiceResult = await promptEvent.userChoice;
+
+    if (choiceResult.outcome === 'accepted') {
+      setCacheMessage("Installation de l'app lancée.");
+      clearPwaInstallPrompt();
+      return;
+    }
+
+    setCacheMessage("Installation de l'app annulée.");
   }
 
   function handleJourneySelect(journey) {
@@ -287,6 +292,17 @@ function App() {
     setIsRouteDetailsVisible((isVisible) => (isVisible ? false : isVisible));
   }, []);
 
+  const handleRoutesHome = useCallback(() => {
+    setShowAuthPanel(false);
+    setIsRoutePlannerCollapsed(false);
+    setJourneys([]);
+    setSelectedJourney(null);
+    setJourneyMessage('');
+    setIsRouteSheetCtaVisible(false);
+    setIsRouteDetailsVisible(false);
+    setRoutePlannerResetKey((currentValue) => currentValue + 1);
+  }, []);
+
   return (
     <main
       className="map-test-page app-surface"
@@ -301,41 +317,69 @@ function App() {
             setShowAuthPanel(true);
           }
         }}
+        onBrandClick={handleRoutesHome}
+        onRoutesClick={handleRoutesHome}
       />
 
       <OfflineCacheToast
         cacheMessage={cacheMessage}
-        cacheProgress={cacheProgress}
-        isCachingTiles={isCachingTiles}
+        cacheProgress={null}
+        isCachingTiles={false}
+        onDismiss={() => setCacheMessage('')}
       />
 
       <MapActions
-        currentUser={currentUser}
-        isCachingTiles={isCachingTiles}
         isDarkMode={isDarkMode}
-        onDeleteAccount={handleDeleteAccount}
-        onDownloadOfflineMap={handlePreloadOfflineMap}
-        onLoginClick={() => setShowAuthPanel(true)}
-        onLogout={handleLogout}
+        onInstallPwa={handleInstallPwa}
         onToggleDarkMode={() => setIsDarkMode((currentValue) => !currentValue)}
       />
 
-      <section className="map-workspace">
-        <RoutePlanner
-          currentUser={currentUser}
-          journeys={journeys}
-          selectedJourney={selectedJourney}
-          selectedJourneyId={selectedJourney?.id}
-          isRouteDetailsVisible={isRouteDetailsVisible}
-          isLoading={isLoadingJourneys}
-          message={journeyMessage}
-          onJourneySelect={handleJourneySelect}
-          onLoginClick={() => setShowAuthPanel(true)}
-          onInputsInvalid={handleJourneyInputsInvalid}
-          onPlan={handlePlanJourney}
-          onSearchPlaces={handleSearchPlaces}
-          userLocationPlace={userLocationPlace}
-        />
+      <section
+        className="map-workspace"
+        style={{
+          '--route-planner-width': isRoutePlannerCollapsed ? '0px' : '360px',
+        }}
+      >
+        <div
+          className="route-planner-shell"
+          data-collapsed={isRoutePlannerCollapsed}
+        >
+          <button
+            className="route-planner-shell__collapse-toggle"
+            type="button"
+            aria-label={
+              isRoutePlannerCollapsed
+                ? "Ouvrir le panneau d'itinéraire"
+                : "Replier le panneau d'itinéraire"
+            }
+            aria-expanded={!isRoutePlannerCollapsed}
+            onClick={() =>
+              setIsRoutePlannerCollapsed((currentValue) => !currentValue)
+            }
+          >
+            {isRoutePlannerCollapsed ? (
+              <CaretRight size={18} weight="bold" aria-hidden="true" />
+            ) : (
+              <CaretLeft size={18} weight="bold" aria-hidden="true" />
+            )}
+          </button>
+          <RoutePlanner
+            key={routePlannerResetKey}
+            currentUser={currentUser}
+            journeys={journeys}
+            selectedJourney={selectedJourney}
+            isRouteDetailsVisible={isRouteDetailsVisible}
+            isLoading={isLoadingJourneys}
+            message={journeyMessage}
+            onBackToResults={() => setIsRouteDetailsVisible(false)}
+            onJourneySelect={handleJourneySelect}
+            onLoginClick={() => setShowAuthPanel(true)}
+            onInputsInvalid={handleJourneyInputsInvalid}
+            onPlan={handlePlanJourney}
+            onSearchPlaces={handleSearchPlaces}
+            userLocationPlace={userLocationPlace}
+          />
+        </div>
         <section className="map-shell" aria-label="Carte">
           <InteractiveMap
             center={PARIS_CENTER}

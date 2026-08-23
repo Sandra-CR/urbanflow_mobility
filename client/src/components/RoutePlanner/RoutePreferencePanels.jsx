@@ -81,6 +81,7 @@ export function FavoritePlacesPanel({
   favoriteMessage,
   isLoadingFavorites,
   onAddClick,
+  onEditPlace,
   onDeletePlace,
   onLoginClick,
   onPlaceSelect,
@@ -90,6 +91,8 @@ export function FavoritePlacesPanel({
   }
 
   const CategoryIcon = config.Icon;
+  const isSinglePlaceCategory = Boolean(config.isSinglePlaceCategory);
+  const canAddMultiplePlaces = !isSinglePlaceCategory;
 
   if (!currentUser) {
     return (
@@ -104,24 +107,21 @@ export function FavoritePlacesPanel({
     );
   }
 
-  const addButton = (
-    <button
-      className="route-preference-panel__add"
-      type="button"
-      aria-label="Ajouter"
-      title="Ajouter"
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={onAddClick}
-    >
-      <Plus size={18} weight="regular" aria-hidden="true" />
-    </button>
-  );
-  const panelHeader = (
+  const panelHeader = canAddMultiplePlaces ? (
     <div className="route-preference-panel__header">
       <h2>{config.titleLabel}</h2>
-      {addButton}
+      <button
+        className="route-preference-panel__add"
+        type="button"
+        aria-label="Ajouter"
+        title="Ajouter"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onAddClick}
+      >
+        <Plus size={18} weight="regular" aria-hidden="true" />
+      </button>
     </div>
-  );
+  ) : null;
 
   if (isLoadingFavorites) {
     return (
@@ -151,19 +151,38 @@ export function FavoritePlacesPanel({
         {panelHeader}
         <div className="route-preference-panel__center">
           <p>{config.emptyLabel}</p>
+          {isSinglePlaceCategory ? (
+            <button
+              className="btn-primary"
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => onAddClick?.()}
+            >
+              Définir
+            </button>
+          ) : null}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="route-preference-panel">
+    <div
+      className={`route-preference-panel${
+        isSinglePlaceCategory ? ' route-preference-panel--compact' : ''
+      }`}
+    >
       {panelHeader}
       <div className="route-suggestions" role="listbox">
         {favoritePlaces.map((place) => (
           <RoutePreferencePlaceButton
             key={place.favoriteId || place.id}
             Icon={CategoryIcon}
+            actionLabel={
+              isSinglePlaceCategory ? `Modifier ${config.titleLabel}` : null
+            }
+            actionType={isSinglePlaceCategory ? 'edit' : 'delete'}
+            onAction={isSinglePlaceCategory ? onEditPlace : null}
             place={place}
             secondaryLabel={place.placeLabel || place.name || place.label}
             onDelete={onDeletePlace}

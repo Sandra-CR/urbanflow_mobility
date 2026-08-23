@@ -11,8 +11,10 @@ import './AppNavigation.css';
  * @param {object} props Propriétés de navigation.
  * @param {object | null} props.currentUser Utilisateur connecté.
  * @param {boolean} props.isDarkMode Thème courant.
- * @param {boolean} props.isAuthPanelOpen État du panneau auth.
+ * @param {boolean} props.isAuthPanelOpen Etat du panneau auth.
  * @param {Function} props.onAccountClick Ouverture compte/connexion.
+ * @param {Function} props.onBrandClick Retour à l'accueil itinéraires vide.
+ * @param {Function} props.onRoutesClick Ouverture du panneau itinéraire.
  * @returns {JSX.Element} Navigation principale.
  */
 export default function AppNavigation({
@@ -20,6 +22,8 @@ export default function AppNavigation({
   isDarkMode,
   isAuthPanelOpen,
   onAccountClick,
+  onBrandClick,
+  onRoutesClick,
 }) {
   const accountLabel = currentUser ? 'Mon compte' : 'Connexion';
   const navigationItems = [
@@ -28,6 +32,7 @@ export default function AppNavigation({
       label: 'Itinéraires',
       Icon: MapTrifold,
       isActive: !isAuthPanelOpen,
+      onClick: onRoutesClick,
     },
     {
       id: 'carbon',
@@ -53,26 +58,34 @@ export default function AppNavigation({
   return (
     <nav className="app-navigation" aria-label="Navigation principale">
       <div className="app-navigation__primary">
-        <div className="app-navigation__brand" aria-hidden="true">
+        <button
+          className="app-navigation__brand"
+          type="button"
+          aria-label="Retour aux itinéraires"
+          onClick={onBrandClick}
+        >
           <UrbanflowBrand
             kind="logo"
             variant="onPrimary"
             isDarkMode={isDarkMode}
             alt=""
           />
-        </div>
-        {navigationItems.slice(0, 3).map(({ id, label, Icon, isActive }) => (
-          <button
-            className="app-navigation__item"
-            data-active={isActive}
-            key={id}
-            type="button"
-            aria-current={isActive ? 'page' : undefined}
-          >
-            <Icon weight="regular" aria-hidden="true" />
-            <span>{label}</span>
-          </button>
-        ))}
+        </button>
+        {navigationItems
+          .slice(0, 3)
+          .map(({ id, label, Icon, isActive, onClick }) => (
+            <button
+              className="app-navigation__item"
+              data-active={isActive}
+              key={id}
+              type="button"
+              aria-current={isActive ? 'page' : undefined}
+              onClick={onClick}
+            >
+              <Icon weight="regular" aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
       </div>
       <button
         className="app-navigation__item app-navigation__item--account"

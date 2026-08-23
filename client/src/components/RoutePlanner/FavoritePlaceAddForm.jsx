@@ -37,26 +37,29 @@ export default function FavoritePlaceAddForm({
   onSuggestionsChange,
   onSubmit,
 }) {
+  const usesCustomName = config?.usesCustomName !== false;
   const canDisplaySubmit =
     Boolean(config) &&
-    favoriteName.trim().length > 0 &&
+    (!usesCustomName || favoriteName.trim().length > 0) &&
     Boolean(favoritePlace?.id);
 
   return (
     <div className="route-favorite-add">
-      <label className="route-favorite-add__field" htmlFor={nameId}>
-        <span className="form-field-label sm">Nom</span>
-        <div className="route-favorite-add__input">
-          <input
-            id={nameId}
-            type="text"
-            value={favoriteName}
-            maxLength={100}
-            autoComplete="off"
-            onChange={(event) => onFavoriteNameChange(event.target.value)}
-          />
-        </div>
-      </label>
+      {usesCustomName ? (
+        <label className="route-favorite-add__field" htmlFor={nameId}>
+          <span className="form-field-label sm">Nom</span>
+          <div className="route-favorite-add__input">
+            <input
+              id={nameId}
+              type="text"
+              value={favoriteName}
+              maxLength={100}
+              autoComplete="off"
+              onChange={(event) => onFavoriteNameChange(event.target.value)}
+            />
+          </div>
+        </label>
+      ) : null}
 
       <PlaceSearchField
         id={favoriteSearchId}
@@ -91,7 +94,9 @@ export default function FavoritePlaceAddForm({
           disabled={isSavingFavorite}
           onClick={onSubmit}
         >
-          {isSavingFavorite ? 'Ajout...' : 'Ajouter'}
+          {isSavingFavorite
+            ? 'Enregistrement...'
+            : config?.submitLabel || 'Ajouter'}
         </button>
       ) : null}
     </div>

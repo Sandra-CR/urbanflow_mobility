@@ -8,6 +8,7 @@ import {
 } from 'react';
 import {
   ArrowsDownUp,
+  ArrowLeft,
   Bus,
   CaretDown,
   HourglassMedium,
@@ -572,7 +573,7 @@ function RouteTimelineItem({ section, index, previousSection, nextSection }) {
   );
 }
 
-function RouteDetails({ journey }) {
+function RouteDetails({ journey, onBack }) {
   if (!journey) {
     return null;
   }
@@ -588,7 +589,15 @@ function RouteDetails({ journey }) {
   return (
     <div className="route-detail" aria-label="Fiche de route">
       <header className="route-detail__header">
-        <JourneySequence sections={journey.sections} />
+        <button
+          className="route-detail__back"
+          type="button"
+          onClick={onBack}
+        >
+          <ArrowLeft size={16} weight="bold" aria-hidden="true" />
+          <span>Retour</span>
+        </button>
+        {/* <JourneySequence sections={journey.sections} /> */}
         <strong>{formatDuration(journey.duration)}</strong>
       </header>
 
@@ -1067,17 +1076,18 @@ export default function RoutePlanner({
   currentUser,
   journeys = [],
   selectedJourney,
-  selectedJourneyId,
   isRouteDetailsVisible,
   isLoading,
   message,
   userLocationPlace,
+  onBackToResults,
   onJourneySelect,
   onLoginClick,
   onInputsInvalid,
   onPlan,
   onSearchPlaces,
 }) {
+  const plannerRef = useRef(null);
   const fromId = useId();
   const toId = useId();
   const fromInputRef = useRef(null);
@@ -1101,6 +1111,9 @@ export default function RoutePlanner({
         userLocationPlace.id === toPlace?.id)) ||
     areCoordinatesEqual(userLocationPlace?.coordinates, fromPlace?.coordinates) ||
     areCoordinatesEqual(userLocationPlace?.coordinates, toPlace?.coordinates);
+  const preferencePreferredPlace = !isUserLocationAlreadySelected
+    ? userLocationPlace
+    : null;
   const destinationSuggestion =
     (focusedRouteField === 'to' || !focusedRouteField) &&
     !isUserLocationAlreadySelected
@@ -1190,6 +1203,14 @@ export default function RoutePlanner({
   }, [refreshRecentPlaces]);
 
   useEffect(() => {
+    if (!isRouteDetailsVisible || !selectedJourney) {
+      return;
+    }
+
+    plannerRef.current?.scrollTo(0, 0);
+  }, [isRouteDetailsVisible, selectedJourney]);
+
+  useEffect(() => {
     if (!fromPlace?.id || !toPlace?.id) {
       latestPlanKeyRef.current = '';
       if (!wasLatestInputStateInvalidRef.current) {
@@ -1269,14 +1290,22 @@ export default function RoutePlanner({
 
   if (isRouteDetailsVisible && selectedJourney) {
     return (
-      <aside className="route-planner" aria-label="Fiche de route">
-        <RouteDetails journey={selectedJourney} />
+      <aside
+        ref={plannerRef}
+        className="route-planner"
+        aria-label="Fiche de route"
+      >
+        <RouteDetails journey={selectedJourney} onBack={onBackToResults} />
       </aside>
     );
   }
 
   return (
-    <aside className="route-planner" aria-label="Recherche d'itinéraire">
+    <aside
+      ref={plannerRef}
+      className="route-planner"
+      aria-label="Recherche d'itinéraire"
+    >
       <form className="route-planner__form" onSubmit={handleSubmit}>
         <div className="route-planner__header">
           <h1>
@@ -1340,12 +1369,13 @@ export default function RoutePlanner({
           <RoutePreferenceMenu
             activeSuggestions={destinationActiveSuggestions}
             currentUser={currentUser}
+            excludedPlaces={[fromPlace, toPlace]}
             isContentVisible={shouldShowPreferenceContent}
             recentPlaces={recentPlaces}
             onRecentPlacesChange={refreshRecentPlaces}
             PlaceSearchField={PlaceSearchField}
             PlaceSuggestions={PlaceSuggestions}
-            preferredPlace={destinationSuggestion}
+            preferredPlace={preferencePreferredPlace}
             onLoginClick={onLoginClick}
             onPlaceSelect={handlePreferencePlaceSelect}
             onPreferenceChange={() => setActiveSuggestions(null)}
@@ -1366,7 +1396,7 @@ export default function RoutePlanner({
           {journeys.map((journey, index) => (
             <button
               className="route-result"
-              data-active={journey.id === selectedJourneyId}
+              data-active={journey === selectedJourney}
               data-profile={journey.profile}
               key={`${journey.id}-${index}`}
               type="button"
