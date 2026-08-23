@@ -16,7 +16,7 @@ function listen(app) {
 }
 
 test(
-  'la route journeys garde les itineraires si un facteur carbone manque',
+  'la route journeys garde les itinéraires si un facteur carbone manque',
   async () => {
     const app = express();
     const journey = {
@@ -56,7 +56,7 @@ test(
       assert.equal(body.journeys[0].id, 'journey-1');
       assert.equal(
         body.carbonFootprintMessage,
-        'Le calcul de carbone ne trouve pas les donnees necessaires (rer).'
+        'Le calcul de carbone ne trouve pas les données nécessaires (rer).'
       );
     } finally {
       await new Promise((resolve) => server.close(resolve));
@@ -113,7 +113,7 @@ test(
 );
 
 test(
-  'la route journeys reste disponible si le calcul carbone echoue',
+  'la route journeys reste disponible si le calcul carbone échoue',
   async () => {
     const app = express();
     const journey = {
