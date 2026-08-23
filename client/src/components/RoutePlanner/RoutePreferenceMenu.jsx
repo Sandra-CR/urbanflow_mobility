@@ -144,6 +144,7 @@ export default function RoutePreferenceMenu({
   recentPlaces,
   PlaceSearchField,
   PlaceSuggestions,
+  preferredPlace,
   onLoginClick,
   onPlaceSelect,
   onPreferenceChange,
@@ -170,8 +171,19 @@ export default function RoutePreferenceMenu({
   const activeFavoriteConfig = favoritePreferenceConfig[activePreference];
   const activeFavoriteCategory = activeFavoriteConfig?.category || null;
   const recentPreferencePlaces = useMemo(
-    () => getRecentSuggestions(recentPlaces, null),
-    [recentPlaces]
+    () => {
+      const suggestions = getRecentSuggestions(recentPlaces, null);
+
+      if (!preferredPlace) {
+        return suggestions;
+      }
+
+      return [
+        preferredPlace,
+        ...suggestions.filter((place) => place.id !== preferredPlace.id),
+      ];
+    },
+    [preferredPlace, recentPlaces]
   );
   const {
     places: favoritePlaces,
@@ -407,6 +419,7 @@ export default function RoutePreferenceMenu({
               favoritePlaces={favoritePlaces}
               favoriteMessage={favoriteMessage}
               isLoadingFavorites={isLoadingFavorites}
+              preferredPlace={preferredPlace}
               onAddClick={handleFavoriteAddClick}
               onDeletePlace={handleFavoriteDelete}
               onLoginClick={onLoginClick}

@@ -53,8 +53,6 @@ const ROUTE_SOURCE_ID = 'selected-route';
 const ROUTE_TRANSPORT_LAYER_ID = 'selected-route-transport-line';
 const ROUTE_WALK_LAYER_ID = 'selected-route-walk-line';
 const ROUTE_BIKE_LAYER_ID = 'selected-route-bike-line';
-const ROUTE_MARKER_SOURCE_ID = 'selected-route-markers';
-const ROUTE_MARKER_LAYER_ID = 'selected-route-marker-circles';
 
 function getOnlineStyle(isDarkMode) {
   return isDarkMode ? DARK_STYLE : LIGHT_STYLE;
@@ -185,6 +183,7 @@ function getRouteMarkerFeatures(route) {
       },
       properties: {
         kind: 'start',
+        label: 'Départ',
       },
     },
     {
@@ -195,6 +194,7 @@ function getRouteMarkerFeatures(route) {
       },
       properties: {
         kind: 'end',
+        label: 'Arrivée',
       },
     },
   ];
@@ -219,9 +219,25 @@ function emptyFeatureCollection(features = []) {
   };
 }
 
+function createRouteEndpointMarker(kind) {
+  const marker = document.createElement('div');
+  marker.className = 'route-endpoint-marker';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'route-endpoint-marker__bubble';
+  bubble.textContent = kind === 'start' ? 'Départ' : 'Arrivée';
+
+  const point = document.createElement('div');
+  point.className = 'route-endpoint-marker__point';
+
+  marker.appendChild(bubble);
+  marker.appendChild(point);
+
+  return marker;
+}
+
 function upsertRouteLayers(map, route) {
   const routeData = emptyFeatureCollection(getRouteFeatures(route));
-  const markerData = emptyFeatureCollection(getRouteMarkerFeatures(route));
 
   if (!map.getSource(ROUTE_SOURCE_ID)) {
     map.addSource(ROUTE_SOURCE_ID, {
@@ -267,32 +283,6 @@ function upsertRouteLayers(map, route) {
     });
   } else {
     map.getSource(ROUTE_SOURCE_ID).setData(routeData);
-  }
-
-  if (!map.getSource(ROUTE_MARKER_SOURCE_ID)) {
-    map.addSource(ROUTE_MARKER_SOURCE_ID, {
-      type: 'geojson',
-      data: markerData,
-    });
-    map.addLayer({
-      id: ROUTE_MARKER_LAYER_ID,
-      type: 'circle',
-      source: ROUTE_MARKER_SOURCE_ID,
-      paint: {
-        'circle-radius': 7,
-        'circle-color': [
-          'match',
-          ['get', 'kind'],
-          'start',
-          '#16a34a',
-          '#dc2626',
-        ],
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#ffffff',
-      },
-    });
-  } else {
-    map.getSource(ROUTE_MARKER_SOURCE_ID).setData(markerData);
   }
 }
 
@@ -377,12 +367,31 @@ function drawRouteWhenReady(map, route, { shouldFit = false } = {}) {
   };
 }
 
+/**
+ * Affiche la carte MapLibre, les stations, l'itinéraire actif et, si le
+ * navigateur l'autorise, la position courante de l'utilisateur.
+ *
+ * La carte se recentre sur cette position quand elle devient disponible après
+ * la demande d'autorisation. En revanche, si un itinéraire est sélectionné,
+ * le cadrage de cet itinéraire reste prioritaire.
+ *
+ * @param {object} props Propriétés du composant.
+ * @param {[number, number]} props.center Centre initial de la carte.
+ * @param {number} [props.zoom=13] Niveau de zoom initial.
+ * @param {boolean} [props.isDarkMode=false] Active le style sombre.
+ * @param {Array<object>} [props.stations=[]] Marqueurs de stations à afficher.
+ * @param {object | null} [props.selectedRoute=null] Itinéraire actuellement affiché.
+ * @param {[number, number] | null} [props.userLocation=null] Position navigateur `[lon, lat]`.
+ * @param {string} [props.className=''] Classe CSS racine additionnelle.
+ * @returns {JSX.Element} Carte interactive UrbanFlow.
+ */
 export default function InteractiveMap({
   center,
   zoom = 13,
   isDarkMode = false,
   stations = [],
   selectedRoute = null,
+  userLocation = null,
   className = '',
 }) {
   const [isOnline, setIsOnline] = useState(() =>
@@ -392,10 +401,13 @@ export default function InteractiveMap({
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
+  const routeEndpointMarkersRef = useRef([]);
+  const userLocationMarkerRef = useRef(null);
   const activeStyleRef = useRef(null);
   const initialCenterRef = useRef(center);
   const initialZoomRef = useRef(zoom);
   const initialIsDarkModeRef = useRef(isDarkMode);
+  const lastUserLocationKeyRef = useRef(null);
   const styleKey = isDarkMode ? 'dark' : 'light';
   const mapStyle = useMemo(() => getOnlineStyle(isDarkMode), [isDarkMode]);
 
@@ -464,6 +476,10 @@ export default function InteractiveMap({
       resizeObserver.disconnect();
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
+      routeEndpointMarkersRef.current.forEach((marker) => marker.remove());
+      routeEndpointMarkersRef.current = [];
+      userLocationMarkerRef.current?.remove();
+      userLocationMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
       activeStyleRef.current = null;
@@ -528,6 +544,73 @@ export default function InteractiveMap({
 
     return drawRouteWhenReady(map, selectedRoute, { shouldFit: true });
   }, [selectedRoute]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map) {
+      return;
+    }
+
+    routeEndpointMarkersRef.current.forEach((marker) => marker.remove());
+    routeEndpointMarkersRef.current = [];
+
+    const endpointFeatures = getRouteMarkerFeatures(selectedRoute);
+
+    routeEndpointMarkersRef.current = endpointFeatures.map((feature) =>
+      new maplibregl.Marker({
+        element: createRouteEndpointMarker(feature.properties.kind),
+        anchor: 'bottom',
+      })
+        .setLngLat(feature.geometry.coordinates)
+        .addTo(map)
+    );
+  }, [selectedRoute]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map) {
+      return;
+    }
+
+    if (!userLocation) {
+      userLocationMarkerRef.current?.remove();
+      userLocationMarkerRef.current = null;
+      lastUserLocationKeyRef.current = null;
+      return;
+    }
+
+    if (!userLocationMarkerRef.current) {
+      const markerElement = document.createElement('div');
+      markerElement.className = 'user-location-marker';
+      markerElement.setAttribute('aria-label', 'Votre position');
+
+      userLocationMarkerRef.current = new maplibregl.Marker({
+        element: markerElement,
+        anchor: 'center',
+      })
+        .setLngLat(userLocation)
+        .addTo(map);
+    } else {
+      userLocationMarkerRef.current.setLngLat(userLocation);
+    }
+
+    const locationKey = userLocation.join(',');
+
+    // On recentre dès que la position est connue ou évolue, sauf si
+    // l'utilisateur est en train de consulter un itinéraire cadré.
+    if (selectedRoute || lastUserLocationKeyRef.current === locationKey) {
+      return;
+    }
+
+    lastUserLocationKeyRef.current = locationKey;
+    map.easeTo({
+      center: userLocation,
+      duration: 650,
+      essential: true,
+    });
+  }, [selectedRoute, userLocation]);
 
   return (
     <div className={`interactive-map ${className}`}>

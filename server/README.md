@@ -85,6 +85,12 @@ Certaines validations peuvent ajouter un champ `details`.
 
 ## Fonctionnalités clés
 
+### Géolocalisation
+
+Au chargement de la page avec la carte, le client peut demander l'accès à la position de l'appareil.
+
+Si l'utilisateur accepte, la carte se recentre sur sa position. La position est affichée par un point visuel dédié sur la carte. Si l'autorisation arrive après le premier affichage, le recentrage est relancé automatiquement. Si l'accès est refusé ou indisponible, l'application reste utilisable avec le centrage par défaut.
+
 ### Favoris utilisateur
 
 Les utilisateurs connectés peuvent enregistrer des lieux favoris dans trois catégories : `favorite`, `home` et `work`.

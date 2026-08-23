@@ -52,6 +52,17 @@ export function searchPlaces({ query, count = 8 }) {
   return requestIdfm(`/api/idfm/places?${params.toString()}`);
 }
 
+export function getPlaceFromCoordinates({ lon, lat }) {
+  const params = new URLSearchParams({
+    lon: String(lon),
+    lat: String(lat),
+  });
+
+  return requestIdfm(
+    `/api/idfm/place-from-coordinates?${params.toString()}`
+  );
+}
+
 export function getJourneys({ from, to, fromCoordinates, toCoordinates }) {
   const params = new URLSearchParams({
     from,
