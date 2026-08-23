@@ -327,6 +327,15 @@
   padding: 0 0 18px;
 }
 
+.route-preference-panel--compact {
+  min-height: 0;
+}
+
+.route-preference-panel__preferred {
+  display: grid;
+  gap: 12px;
+}
+
 .route-preference-panel--center {
   place-items: center;
   align-content: center;

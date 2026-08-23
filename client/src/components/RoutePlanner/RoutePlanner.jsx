@@ -707,12 +707,6 @@ function PlaceSearchField({
             setPlaces(results);
             setIsOpen(true);
             setSearchMessage(results.length === 0 ? 'Aucun lieu trouvé.' : '');
-            if (results.length > 0) {
-              saveRecentPlace({
-                label: safeQuery,
-                type: 'recent',
-              });
-            }
           }
         })
         .catch((error) => {
@@ -1348,6 +1342,7 @@ export default function RoutePlanner({
             currentUser={currentUser}
             isContentVisible={shouldShowPreferenceContent}
             recentPlaces={recentPlaces}
+            onRecentPlacesChange={refreshRecentPlaces}
             PlaceSearchField={PlaceSearchField}
             PlaceSuggestions={PlaceSuggestions}
             preferredPlace={destinationSuggestion}
