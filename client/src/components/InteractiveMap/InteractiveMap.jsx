@@ -310,6 +310,40 @@ function fitRoute(map, route) {
   });
 }
 
+function fitSection(map, section) {
+  const coordinates = toRouteGeometry(section?.geometry);
+
+  if (coordinates.length === 0) {
+    return;
+  }
+
+  if (coordinates.length === 1) {
+    map.easeTo({
+      center: coordinates[0],
+      zoom: 17,
+      duration: 550,
+      essential: true,
+    });
+    return;
+  }
+
+  const bounds = coordinates.reduce(
+    (currentBounds, coordinate) => currentBounds.extend(coordinate),
+    new maplibregl.LngLatBounds(coordinates[0], coordinates[0])
+  );
+
+  map.fitBounds(bounds, {
+    padding: {
+      top: 110,
+      right: 90,
+      bottom: 110,
+      left: 90,
+    },
+    maxZoom: 17,
+    duration: 550,
+  });
+}
+
 function drawRoute(map, route, { shouldFit = false } = {}) {
   if (!map.isStyleLoaded()) {
     return false;
@@ -392,6 +426,7 @@ export default function InteractiveMap({
   stations = [],
   selectedRoute = null,
   userLocation = null,
+  focusedSection = null,
   className = '',
 }) {
   const [isOnline, setIsOnline] = useState(() =>
@@ -408,6 +443,7 @@ export default function InteractiveMap({
   const initialZoomRef = useRef(zoom);
   const initialIsDarkModeRef = useRef(isDarkMode);
   const lastUserLocationKeyRef = useRef(null);
+  const lastFocusedSectionKeyRef = useRef(null);
   const styleKey = isDarkMode ? 'dark' : 'light';
   const mapStyle = useMemo(() => getOnlineStyle(isDarkMode), [isDarkMode]);
 
@@ -598,8 +634,6 @@ export default function InteractiveMap({
 
     const locationKey = userLocation.join(',');
 
-    // On recentre dès que la position est connue ou évolue, sauf si
-    // l'utilisateur est en train de consulter un itinéraire cadré.
     if (selectedRoute || lastUserLocationKeyRef.current === locationKey) {
       return;
     }
@@ -611,6 +645,26 @@ export default function InteractiveMap({
       essential: true,
     });
   }, [selectedRoute, userLocation]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map || !focusedSection) {
+      lastFocusedSectionKeyRef.current = null;
+      return;
+    }
+
+    const sectionKey =
+      focusedSection.id ||
+      `${focusedSection.mode}-${focusedSection.from}-${focusedSection.to}`;
+
+    if (lastFocusedSectionKeyRef.current === sectionKey) {
+      return;
+    }
+
+    lastFocusedSectionKeyRef.current = sectionKey;
+    fitSection(map, focusedSection);
+  }, [focusedSection]);
 
   return (
     <div className={`interactive-map ${className}`}>

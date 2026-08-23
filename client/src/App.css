@@ -85,6 +85,51 @@
   z-index: 6;
 }
 
+.map-route-status {
+  max-width: min(320px, calc(100% - 32px));
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-card) 88%, transparent);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+  color: var(--color-text);
+  font-weight: 700;
+  text-align: center;
+  backdrop-filter: blur(10px);
+}
+
+.route-tracking-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.route-tracking-modal__dialog {
+  width: min(440px, 100%);
+  padding: 28px 24px;
+  border-radius: 24px;
+  background: var(--color-card);
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.35);
+  color: var(--color-text);
+  text-align: center;
+}
+
+.route-tracking-modal__dialog p {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.route-tracking-modal__button {
+  display: inline-flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
 .map-workspace {
   display: grid;
   grid-template-columns: var(--route-planner-width, 360px) minmax(0, 1fr);

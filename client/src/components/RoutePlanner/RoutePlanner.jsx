@@ -31,6 +31,7 @@ import {
   getRecentSuggestions,
   isResolvedRecentPlace,
 } from './placeSearchUtils';
+import ActiveJourneyTracker from './ActiveJourneyTracker';
 import './RoutePlanner.css';
 
 function normalizeMode(mode = '') {
@@ -573,7 +574,7 @@ function RouteTimelineItem({ section, index, previousSection, nextSection }) {
   );
 }
 
-function RouteDetails({ journey, onBack }) {
+function RouteDetails({ journey, onBack, children = null }) {
   if (!journey) {
     return null;
   }
@@ -601,19 +602,25 @@ function RouteDetails({ journey, onBack }) {
         <strong>{formatDuration(journey.duration)}</strong>
       </header>
 
-      <CarbonSummary carbonFootprint={journey.carbonFootprint} />
+      {children ? (
+        children
+      ) : (
+        <>
+          <CarbonSummary carbonFootprint={journey.carbonFootprint} />
 
-      <ol className="route-timeline">
-        {timelineSections.map((section, index) => (
-          <RouteTimelineItem
-            key={section.id || `${section.label}-${index}`}
-            section={section}
-            index={index}
-            previousSection={timelineSections[index - 1]}
-            nextSection={timelineSections[index + 1]}
-          />
-        ))}
-      </ol>
+          <ol className="route-timeline">
+            {timelineSections.map((section, index) => (
+              <RouteTimelineItem
+                key={section.id || `${section.label}-${index}`}
+                section={section}
+                index={index}
+                previousSection={timelineSections[index - 1]}
+                nextSection={timelineSections[index + 1]}
+              />
+            ))}
+          </ol>
+        </>
+      )}
     </div>
   );
 }
@@ -1077,9 +1084,14 @@ export default function RoutePlanner({
   journeys = [],
   selectedJourney,
   isRouteDetailsVisible,
+  isRouteTrackingActive = false,
+  currentTrackedStepIndex = 0,
+  trackedStepIndex = 0,
   isLoading,
   message,
+  userLocation = null,
   userLocationPlace,
+  onTrackedStepChange,
   onBackToResults,
   onJourneySelect,
   onLoginClick,
@@ -1295,7 +1307,17 @@ export default function RoutePlanner({
         className="route-planner"
         aria-label="Fiche de route"
       >
-        <RouteDetails journey={selectedJourney} onBack={onBackToResults} />
+        <RouteDetails journey={selectedJourney} onBack={onBackToResults}>
+          {isRouteTrackingActive ? (
+            <ActiveJourneyTracker
+              journey={selectedJourney}
+              currentTrackedStepIndex={currentTrackedStepIndex}
+              currentStepIndex={trackedStepIndex}
+              userLocation={userLocation}
+              onStepChange={onTrackedStepChange}
+            />
+          ) : null}
+        </RouteDetails>
       </aside>
     );
   }

@@ -1,0 +1,205 @@
+.active-journey-tracker {
+  display: grid;
+  gap: 12px;
+}
+
+.active-journey-tracker__card {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-ui);
+}
+
+.active-journey-tracker__controls {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.active-journey-tracker__nav {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--color-primary);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-background) 40%, var(--color-card));
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.active-journey-tracker__nav:hover,
+.active-journey-tracker__nav:focus-visible {
+  color: var(--color-on-primary);
+  background-color: var(--color-primary);
+  outline: none;
+}
+
+.active-journey-tracker__nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.active-journey-tracker__step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.active-journey-tracker__badge {
+  min-width: 0;
+  max-width: max-content;
+}
+
+.active-journey-tracker__badge[data-mode*='metro'] {
+  width: 24px;
+  min-width: 24px;
+}
+
+.active-journey-tracker__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.active-journey-tracker__copy strong {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-journey-tracker__copy span {
+  overflow: hidden;
+  color: var(--color-text-light);
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-journey-tracker__bullets {
+  display: flex;
+  min-width: 0;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.active-journey-tracker__bullet {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-light) 28%, transparent);
+}
+
+.active-journey-tracker__bullet[data-active='true'] {
+  width: 24px;
+  background: var(--color-primary);
+}
+
+.active-journey-tracker__details {
+  display: grid;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.active-journey-tracker__timeline {
+  display: grid;
+  gap: 10px;
+}
+
+.active-journey-tracker__time {
+  color: var(--color-text);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.active-journey-tracker__stops {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.active-journey-tracker__stop {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.active-journey-tracker__stop-rail {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.active-journey-tracker__stop-dot {
+  position: absolute;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--active-step-color);
+}
+
+.active-journey-tracker__stop[data-kind='start'] .active-journey-tracker__stop-dot,
+.active-journey-tracker__stop[data-kind='end'] .active-journey-tracker__stop-dot {
+  width: 14px;
+  height: 14px;
+}
+
+.active-journey-tracker__stop-line {
+  position: absolute;
+  top: 14px;
+  bottom: -14px;
+  left: 50%;
+  width: 4px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--active-step-color);
+}
+
+.active-journey-tracker__progress-marker {
+  position: absolute;
+  top: calc(var(--active-step-progress, 0) * 100%);
+  left: 10px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: var(--color-primary);
+  box-shadow:
+    0 0 0 10px color-mix(in srgb, var(--color-primary) 24%, transparent),
+    0 8px 22px color-mix(in srgb, var(--color-primary) 26%, transparent);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.active-journey-tracker__stop-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.active-journey-tracker__stop-copy span {
+  color: var(--color-text-light);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
