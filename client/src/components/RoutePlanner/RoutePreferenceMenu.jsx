@@ -5,6 +5,7 @@ import {
   getFavoritePlaces,
   saveFavoritePlace,
 } from '../../utils/favoritesApi';
+import { deleteRecentPlaceSearch } from '../../utils/recentPlacesDb';
 import FavoritePlaceAddForm from './FavoritePlaceAddForm';
 import {
   FavoritePlacesPanel,
@@ -142,6 +143,7 @@ export default function RoutePreferenceMenu({
   currentUser,
   isContentVisible,
   recentPlaces,
+  onRecentPlacesChange,
   PlaceSearchField,
   PlaceSuggestions,
   preferredPlace,
@@ -277,6 +279,16 @@ export default function RoutePreferenceMenu({
     }
   }
 
+  async function handleRecentPlaceDelete(place) {
+    try {
+      await deleteRecentPlaceSearch(place);
+      onRecentPlacesChange?.();
+      onPreferenceChange?.();
+    } catch {
+      // La suppression d'un recent reste silencieuse pour ne pas bloquer l'UI.
+    }
+  }
+
   function handleFavoritePlaceSelect(place) {
     onPlaceSelect(createSelectableFavoritePlace(place));
   }
@@ -391,6 +403,7 @@ export default function RoutePreferenceMenu({
           {activePreference === 'clock' ? (
             <RecentPlacesPanel
               places={recentPreferencePlaces}
+              onDeletePlace={handleRecentPlaceDelete}
               onPlaceSelect={handleRecentPlaceSelect}
             />
           ) : activeFavoriteConfig && isAddingFavorite ? (

@@ -22,6 +22,8 @@ export default function RoutePreferencePlaceButton({
   onDelete,
   onSelect,
 }) {
+  const canDelete = Boolean(onDelete) && !place?.isUserLocation;
+
   return (
     <button
       className="route-suggestion"
@@ -38,7 +40,7 @@ export default function RoutePreferencePlaceButton({
         <span className="route-suggestion__label">{place.label}</span>
         {secondaryLabel ? <small>{secondaryLabel}</small> : null}
       </span>
-      {onDelete ? (
+      {canDelete ? (
         <span
           className="route-suggestion__remove"
           role="button"

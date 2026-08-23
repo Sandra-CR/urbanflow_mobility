@@ -1,7 +1,17 @@
 const DB_NAME = 'urbanflow_mobility';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'recent_place_searches';
 const MAX_RECENT_SEARCHES = 10;
+
+function isValidRecentPlace(place) {
+  return Boolean(
+    place &&
+      place.id &&
+      place.label &&
+      String(place.label).trim() &&
+      place.type !== 'recent'
+  );
+}
 
 function openRecentPlacesDb() {
   return new Promise((resolve, reject) => {
@@ -49,7 +59,7 @@ function withRecentPlacesStore(mode, callback) {
 export async function saveRecentPlaceSearch(place) {
   const label = String(place?.label || '').trim();
 
-  if (!label) {
+  if (!label || !isValidRecentPlace(place)) {
     return;
   }
 
@@ -66,14 +76,40 @@ export async function saveRecentPlaceSearch(place) {
   });
 }
 
+export async function deleteRecentPlaceSearch(place) {
+  const label = String(place?.label || '').trim();
+
+  if (!label) {
+    return;
+  }
+
+  await withRecentPlacesStore('readwrite', (store) => {
+    store.delete(label);
+  });
+}
+
 export async function getRecentPlaceSearches() {
-  return withRecentPlacesStore('readonly', (store) => {
+  return withRecentPlacesStore('readwrite', (store) => {
     const request = store.getAll();
 
     return new Promise((resolve, reject) => {
       request.onsuccess = () => {
+        const allPlaces = Array.isArray(request.result) ? request.result : [];
+        const validPlaces = [];
+
+        allPlaces.forEach((place) => {
+          if (isValidRecentPlace(place)) {
+            validPlaces.push(place);
+            return;
+          }
+
+          if (place?.label) {
+            store.delete(place.label);
+          }
+        });
+
         resolve(
-          request.result
+          validPlaces
             .sort((firstPlace, secondPlace) => {
               return secondPlace.searchedAt - firstPlace.searchedAt;
             })
