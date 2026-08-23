@@ -207,7 +207,6 @@ function App() {
   const [routeTrackingMessage, setRouteTrackingMessage] = useState('');
   const [trackingPopupMessage, setTrackingPopupMessage] = useState('');
   const [trackedStepIndex, setTrackedStepIndex] = useState(0);
-  const [currentTrackedStepIndex, setCurrentTrackedStepIndex] = useState(0);
   const latestUserLocationRef = useRef(null);
   // const lastGeolocationUpdateAtRef = useRef(0);
 
@@ -458,17 +457,16 @@ function App() {
         Math.min(trackedStepIndex, Math.max(trackedJourneySections.length - 1, 0))
       ] || null
     : null;
-
-  useEffect(() => {
+  const currentTrackedStepIndex = useMemo(() => {
     if (
       !isRouteTrackingActive ||
       !isValidCoordinatePair(userLocation) ||
       trackedJourneySections.length === 0
     ) {
-      return;
+      return 0;
     }
 
-    const nearestSectionIndex = trackedJourneySections.reduce(
+    return trackedJourneySections.reduce(
       (closestSectionIndex, section, sectionIndex, sections) => {
         const currentDistance = getDistanceToSectionInMeters(userLocation, section);
         const closestDistance = getDistanceToSectionInMeters(
@@ -481,10 +479,6 @@ function App() {
           : closestSectionIndex;
       },
       0
-    );
-
-    setCurrentTrackedStepIndex((currentIndex) =>
-      currentIndex !== nearestSectionIndex ? nearestSectionIndex : currentIndex
     );
   }, [isRouteTrackingActive, trackedJourneySections, userLocation]);
 
@@ -510,7 +504,6 @@ function App() {
     setRouteTrackingMessage('');
     setTrackingPopupMessage('');
     setTrackedStepIndex(0);
-    setCurrentTrackedStepIndex(0);
 
     try {
       const data = await getJourneys({
@@ -566,7 +559,6 @@ function App() {
     setRouteTrackingMessage('');
     setTrackingPopupMessage('');
     setTrackedStepIndex(0);
-    setCurrentTrackedStepIndex(0);
   }
 
   const handleJourneyInputsInvalid = useCallback(() => {
@@ -588,9 +580,6 @@ function App() {
       currentMessage ? '' : currentMessage
     );
     setTrackedStepIndex((currentIndex) => (currentIndex !== 0 ? 0 : currentIndex));
-    setCurrentTrackedStepIndex((currentIndex) =>
-      currentIndex !== 0 ? 0 : currentIndex
-    );
   }, []);
 
   const handleRoutesHome = useCallback(() => {
@@ -604,7 +593,6 @@ function App() {
     setRouteTrackingMessage('');
     setTrackingPopupMessage('');
     setTrackedStepIndex(0);
-    setCurrentTrackedStepIndex(0);
     setRoutePlannerResetKey((currentValue) => currentValue + 1);
   }, []);
 
@@ -668,7 +656,6 @@ function App() {
 
     setRouteTrackingMessage("C'est parti");
     setTrackedStepIndex(0);
-    setCurrentTrackedStepIndex(0);
   }, [requestCurrentPosition, selectedJourneyStartCoordinates, userLocation]);
 
   return (

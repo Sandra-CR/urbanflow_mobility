@@ -216,35 +216,6 @@ function getStepDirection(step) {
   return step?.to || step?.from || 'Etape suivante';
 }
 
-function parseJourneyDateTime(value) {
-  if (!value) {
-    return null;
-  }
-
-  if (/^\d{8}T\d{6}$/.test(value)) {
-    return new Date(
-      `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}`
-    );
-  }
-
-  const date = new Date(value);
-
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatJourneyTime(value) {
-  const date = parseJourneyDateTime(value);
-
-  if (!date) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
-
 function getIntermediateStops(step) {
   if (!Array.isArray(step?.stops) || step.stops.length <= 2) {
     return [];
@@ -288,8 +259,6 @@ function StepDetails({
   userLocation,
   shouldShowProgressMarker = false,
 }) {
-  const startTime = formatJourneyTime(step?.departureDateTime);
-  const endTime = formatJourneyTime(step?.arrivalDateTime);
   const timelineStops = getStepTimelineStops(step);
   const hasStops = timelineStops.length > 0;
   const travelProgress = getStepTravelProgress(step, userLocation);
@@ -302,9 +271,9 @@ function StepDetails({
     <div className="active-journey-tracker__details">
       {hasStops ? (
         <div className="active-journey-tracker__timeline">
-          {/* {startTime ? (
+          {/* {formatJourneyTime(step?.departureDateTime) ? (
             <div className="active-journey-tracker__time active-journey-tracker__time--start">
-              {startTime}
+              {formatJourneyTime(step?.departureDateTime)}
             </div>
           ) : null} */}
 
@@ -338,9 +307,9 @@ function StepDetails({
             ))}
           </ol>
 
-          {/* {endTime ? (
+          {/* {formatJourneyTime(step?.arrivalDateTime) ? (
             <div className="active-journey-tracker__time active-journey-tracker__time--end">
-              {endTime}
+              {formatJourneyTime(step?.arrivalDateTime)}
             </div>
           ) : null} */}
         </div>
