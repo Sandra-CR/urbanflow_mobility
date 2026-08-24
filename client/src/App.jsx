@@ -6,11 +6,7 @@ import InteractiveMap from './components/InteractiveMap/InteractiveMap';
 import MapActions from './components/MapActions/MapActions';
 import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
 import RoutePlanner from './components/RoutePlanner/RoutePlanner';
-import {
-  getCurrentUser,
-  loginUser,
-  registerUser,
-} from './utils/authApi';
+import { getCurrentUser, loginUser, registerUser } from './utils/authApi';
 import {
   getJourneys,
   getPlaceFromCoordinates,
@@ -21,9 +17,16 @@ import {
   getPwaInstallPrompt,
   subscribeToPwaInstallPrompt,
 } from './utils/pwaInstall';
+import { preloadMapTiles } from './utils/offlineMapTiles';
 import './App.css';
 
 const PARIS_CENTER = [2.3522, 48.8566];
+const PARIS_TILE_BOUNDS = {
+  west: 2.2241,
+  south: 48.8156,
+  east: 2.4699,
+  north: 48.9022,
+};
 const START_PROXIMITY_THRESHOLD_METERS = 250;
 const GEOLOCATION_WATCH_OPTIONS = {
   enableHighAccuracy: false,
@@ -100,8 +103,7 @@ function getDistanceFromPointToSegmentInMeters(
   const [endLon, endLat] = segmentEndCoordinates.map(Number);
   const latitudeScale = 111320;
   const longitudeScale =
-    111320 *
-    Math.cos((((pointLat + startLat + endLat) / 3) * Math.PI) / 180);
+    111320 * Math.cos((((pointLat + startLat + endLat) / 3) * Math.PI) / 180);
   const pointX = pointLon * longitudeScale;
   const pointY = pointLat * latitudeScale;
   const startX = startLon * longitudeScale;
@@ -208,6 +210,7 @@ function App() {
   const [trackingPopupMessage, setTrackingPopupMessage] = useState('');
   const [trackedStepIndex, setTrackedStepIndex] = useState(0);
   const latestUserLocationRef = useRef(null);
+  const hasStartedTileCacheRef = useRef(false);
   // const lastGeolocationUpdateAtRef = useRef(0);
 
   const syncUserLocation = useCallback((position) => {
@@ -271,6 +274,42 @@ function App() {
 
     return () => {
       window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof navigator === 'undefined' ||
+      hasStartedTileCacheRef.current
+    ) {
+      return undefined;
+    }
+
+    async function cacheTilesForOfflineUse() {
+      if (!navigator.onLine) {
+        return;
+      }
+
+      hasStartedTileCacheRef.current = true;
+
+      try {
+        await preloadMapTiles({
+          bounds: PARIS_TILE_BOUNDS,
+          minZoom: 11,
+          maxZoom: 15,
+          includeDarkMode: true,
+        });
+      } catch {
+        hasStartedTileCacheRef.current = false;
+      }
+    }
+
+    cacheTilesForOfflineUse();
+    window.addEventListener('online', cacheTilesForOfflineUse);
+
+    return () => {
+      window.removeEventListener('online', cacheTilesForOfflineUse);
     };
   }, []);
 
@@ -454,7 +493,10 @@ function App() {
   );
   const activeTrackedSection = isRouteTrackingActive
     ? trackedJourneySections[
-        Math.min(trackedStepIndex, Math.max(trackedJourneySections.length - 1, 0))
+        Math.min(
+          trackedStepIndex,
+          Math.max(trackedJourneySections.length - 1, 0)
+        )
       ] || null
     : null;
   const currentTrackedStepIndex = useMemo(() => {
@@ -468,7 +510,10 @@ function App() {
 
     return trackedJourneySections.reduce(
       (closestSectionIndex, section, sectionIndex, sections) => {
-        const currentDistance = getDistanceToSectionInMeters(userLocation, section);
+        const currentDistance = getDistanceToSectionInMeters(
+          userLocation,
+          section
+        );
         const closestDistance = getDistanceToSectionInMeters(
           userLocation,
           sections[closestSectionIndex]
@@ -579,7 +624,9 @@ function App() {
     setTrackingPopupMessage((currentMessage) =>
       currentMessage ? '' : currentMessage
     );
-    setTrackedStepIndex((currentIndex) => (currentIndex !== 0 ? 0 : currentIndex));
+    setTrackedStepIndex((currentIndex) =>
+      currentIndex !== 0 ? 0 : currentIndex
+    );
   }, []);
 
   const handleRoutesHome = useCallback(() => {
@@ -606,10 +653,7 @@ function App() {
 
         navigator.geolocation.getCurrentPosition(
           (position) =>
-            resolve([
-              position.coords.longitude,
-              position.coords.latitude,
-            ]),
+            resolve([position.coords.longitude, position.coords.latitude]),
           (error) => reject(error),
           GEOLOCATION_REFRESH_OPTIONS
         );
@@ -637,7 +681,7 @@ function App() {
 
     if (!isValidCoordinatePair(selectedJourneyStartCoordinates)) {
       setTrackingPopupMessage(
-        "Impossible de vérifier votre point de départ pour le moment."
+        'Impossible de vérifier votre point de départ pour le moment.'
       );
       return;
     }
@@ -753,7 +797,11 @@ function App() {
           {selectedJourney && isRouteSheetCtaVisible ? (
             isRouteDetailsVisible ? (
               routeTrackingMessage ? (
-                <div className="map-route-cta map-route-status" role="status" aria-live="polite">
+                <div
+                  className="map-route-cta map-route-status"
+                  role="status"
+                  aria-live="polite"
+                >
                   {routeTrackingMessage}
                 </div>
               ) : (

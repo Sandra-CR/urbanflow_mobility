@@ -83,6 +83,14 @@ export async function preloadMapTiles({
     maxZoom,
     includeDarkMode,
   });
+  const total = urls.length;
+
+  onProgress?.({
+    completed: 0,
+    total,
+    percent: 0,
+  });
+
   const cache = await caches.open(TILE_CACHE_NAME);
   let completed = 0;
 
@@ -100,12 +108,12 @@ export async function preloadMapTiles({
     completed += 1;
     onProgress?.({
       completed,
-      total: urls.length,
-      percent: Math.round((completed / urls.length) * 100),
+      total,
+      percent: total === 0 ? 100 : Math.round((completed / total) * 100),
     });
   });
 
   return {
-    total: urls.length,
+    total,
   };
 }
