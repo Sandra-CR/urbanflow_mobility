@@ -108,15 +108,14 @@ paths:
       summary: Lire l'utilisateur connecté.
       security:
         - cookieAuth: []
+        - {}
       responses:
         '200':
-          description: Utilisateur connecté.
+          description: Utilisateur connecté, ou aucun utilisateur si la session est absente ou invalide.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                $ref: '#/components/schemas/CurrentUserResponse'
         '500':
           $ref: '#/components/responses/ServerError'
     delete:
@@ -397,6 +396,15 @@ components:
       properties:
         user:
           $ref: '#/components/schemas/User'
+    CurrentUserResponse:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/User'
     Coordinates:
       type: array
       minItems: 2

@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { CheckCircle, Eye, EyeClosed, X, XCircle } from '@phosphor-icons/react';
+import {
+  CheckCircle,
+  Eye,
+  EyeClosed,
+  X,
+  XCircle,
+} from '@phosphor-icons/react';
+import DecorativePattern from '../DecorativePattern/DecorativePattern';
 import UrbanflowBrand from '../UrbanflowBrand/UrbanflowBrand';
 import './AuthPanel.css';
 
@@ -68,20 +75,33 @@ export default function AuthPanel({
 
   async function handleSubmit(event) {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const submittedEmail = String(formData.get('email') || '');
+    const submittedPassword = String(formData.get('password') || '');
+    const submittedConfirmPassword = String(
+      formData.get('confirmPassword') || ''
+    );
+
     setError('');
     setDetails([]);
     setIsSubmitting(true);
 
     try {
       if (isRegisterMode) {
-        if (password !== confirmPassword) {
+        if (submittedPassword !== submittedConfirmPassword) {
           setError('Les mots de passe ne correspondent pas.');
           return;
         }
 
-        await onRegister({ email, password });
+        await onRegister({
+          email: submittedEmail,
+          password: submittedPassword,
+        });
       } else {
-        await onLogin({ email, password });
+        await onLogin({
+          email: submittedEmail,
+          password: submittedPassword,
+        });
       }
     } catch (submitError) {
       setError(submitError.message);
@@ -97,6 +117,7 @@ export default function AuthPanel({
         isOverlay ? 'auth-page auth-page--overlay' : 'auth-page app-surface'
       }
     >
+      <DecorativePattern />
       <section className="auth-panel app-card-bg" aria-labelledby="auth-title">
         {isOverlay ? (
           <button
@@ -130,6 +151,7 @@ export default function AuthPanel({
                 autoComplete="email"
                 value={email}
                 required
+                onInput={(event) => setEmail(event.currentTarget.value)}
                 onChange={(event) => setEmail(event.target.value)}
               />
             </div>
@@ -149,6 +171,7 @@ export default function AuthPanel({
                 minLength={isRegisterMode ? 12 : undefined}
                 onBlur={() => setIsPasswordFocused(false)}
                 onFocus={() => setIsPasswordFocused(true)}
+                onInput={(event) => setPassword(event.currentTarget.value)}
                 onChange={(event) => setPassword(event.target.value)}
               />
               <button
@@ -209,6 +232,9 @@ export default function AuthPanel({
                   autoComplete="new-password"
                   value={confirmPassword}
                   required
+                  onInput={(event) =>
+                    setConfirmPassword(event.currentTarget.value)
+                  }
                   onChange={(event) => setConfirmPassword(event.target.value)}
                 />
                 <button

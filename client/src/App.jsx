@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, CaretLeft, CaretRight } from '@phosphor-icons/react';
+import AccountPage from './components/AccountPage/AccountPage';
 import AppNavigation from './components/AppNavigation/AppNavigation';
 import AuthPanel from './components/AuthPanel/AuthPanel';
 import InteractiveMap from './components/InteractiveMap/InteractiveMap';
 import MapActions from './components/MapActions/MapActions';
 import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
 import RoutePlanner from './components/RoutePlanner/RoutePlanner';
-import { getCurrentUser, loginUser, registerUser } from './utils/authApi';
+import {
+  deleteCurrentUser,
+  getCurrentUser,
+  loginUser,
+  logoutUser,
+  registerUser,
+} from './utils/authApi';
 import {
   getJourneys,
   getPlaceFromCoordinates,
@@ -38,6 +45,15 @@ const GEOLOCATION_REFRESH_OPTIONS = {
   maximumAge: 0,
   timeout: 10000,
 };
+const THEME_STORAGE_KEY = 'urbanflow-theme';
+
+function getInitialIsDarkMode() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark';
+}
 // Debug geoloc utile pendant les tests manuels. A réactiver si besoin.
 // const GEOLOCATION_DEBUG_INTERVAL_MS = 10000;
 
@@ -193,7 +209,8 @@ function getTrackableJourneySections(journey) {
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showAccountPage, setShowAccountPage] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(getInitialIsDarkMode);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [isRoutePlannerCollapsed, setIsRoutePlannerCollapsed] = useState(false);
   const [routePlannerResetKey, setRoutePlannerResetKey] = useState(0);
@@ -230,6 +247,21 @@ function App() {
     });
 
     return data.places || [];
+  }, []);
+
+  const handleToggleDarkMode = useCallback(() => {
+    setIsDarkMode((currentValue) => {
+      const nextValue = !currentValue;
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          THEME_STORAGE_KEY,
+          nextValue ? 'dark' : 'light'
+        );
+      }
+
+      return nextValue;
+    });
   }, []);
 
   useEffect(() => {
@@ -531,12 +563,28 @@ function App() {
     const data = await loginUser(credentials);
     setCurrentUser(data.user);
     setShowAuthPanel(false);
+    setShowAccountPage(false);
   }
 
   async function handleRegister(credentials) {
     const data = await registerUser(credentials);
     setCurrentUser(data.user);
     setShowAuthPanel(false);
+    setShowAccountPage(false);
+  }
+
+  async function handleLogout() {
+    await logoutUser();
+    setCurrentUser(null);
+    setShowAuthPanel(false);
+    setShowAccountPage(false);
+  }
+
+  async function handleDeleteAccount() {
+    await deleteCurrentUser();
+    setCurrentUser(null);
+    setShowAuthPanel(false);
+    setShowAccountPage(false);
   }
 
   async function handlePlanJourney({ from, to }) {
@@ -579,7 +627,7 @@ function App() {
 
     if (!promptEvent) {
       setCacheMessage(
-        "L'installation directe n'est pas disponible pour l'instant. Utilisez le bouton Installé dans la barre d'adresse si disponible."
+        "L'installation directe n'est pas disponible pour l'instant. Utilisez le bouton Installer dans la barre d'adresse si disponible."
       );
       return;
     }
@@ -631,6 +679,7 @@ function App() {
 
   const handleRoutesHome = useCallback(() => {
     setShowAuthPanel(false);
+    setShowAccountPage(false);
     setIsRoutePlannerCollapsed(false);
     setJourneys([]);
     setSelectedJourney(null);
@@ -710,9 +759,12 @@ function App() {
       <AppNavigation
         currentUser={currentUser}
         isDarkMode={isDarkMode}
-        isAuthPanelOpen={showAuthPanel}
+        isAuthPanelOpen={showAuthPanel || showAccountPage}
         onAccountClick={() => {
-          if (!currentUser) {
+          if (currentUser) {
+            setShowAuthPanel(false);
+            setShowAccountPage(true);
+          } else {
             setShowAuthPanel(true);
           }
         }}
@@ -727,106 +779,119 @@ function App() {
         onDismiss={() => setCacheMessage('')}
       />
 
-      <MapActions
-        isDarkMode={isDarkMode}
-        onInstallPwa={handleInstallPwa}
-        onToggleDarkMode={() => setIsDarkMode((currentValue) => !currentValue)}
-      />
+      {!showAccountPage ? (
+        <MapActions
+          isDarkMode={isDarkMode}
+          onInstallPwa={handleInstallPwa}
+          onToggleDarkMode={handleToggleDarkMode}
+        />
+      ) : null}
 
-      <section
-        className="map-workspace"
-        style={{
-          '--route-planner-width': isRoutePlannerCollapsed ? '0px' : '360px',
-        }}
-      >
-        <div
-          className="route-planner-shell"
-          data-collapsed={isRoutePlannerCollapsed}
+      {showAccountPage && currentUser ? (
+        <AccountPage
+          currentUser={currentUser}
+          isDarkMode={isDarkMode}
+          onDeleteAccount={handleDeleteAccount}
+          onLogout={handleLogout}
+          onSearchPlaces={handleSearchPlaces}
+          onToggleDarkMode={handleToggleDarkMode}
+        />
+      ) : (
+        <section
+          className="map-workspace"
+          style={{
+            '--route-planner-width': isRoutePlannerCollapsed ? '0px' : '360px',
+          }}
         >
-          <button
-            className="route-planner-shell__collapse-toggle"
-            type="button"
-            aria-label={
-              isRoutePlannerCollapsed
-                ? "Ouvrir le panneau d'itinéraire"
-                : "Replier le panneau d'itinéraire"
-            }
-            aria-expanded={!isRoutePlannerCollapsed}
-            onClick={() =>
-              setIsRoutePlannerCollapsed((currentValue) => !currentValue)
-            }
+          <div
+            className="route-planner-shell"
+            data-collapsed={isRoutePlannerCollapsed}
           >
-            {isRoutePlannerCollapsed ? (
-              <CaretRight size={18} weight="bold" aria-hidden="true" />
-            ) : (
-              <CaretLeft size={18} weight="bold" aria-hidden="true" />
-            )}
-          </button>
-          <RoutePlanner
-            key={routePlannerResetKey}
-            currentUser={currentUser}
-            journeys={journeys}
-            selectedJourney={selectedJourney}
-            isRouteDetailsVisible={isRouteDetailsVisible}
-            isRouteTrackingActive={isRouteTrackingActive}
-            currentTrackedStepIndex={currentTrackedStepIndex}
-            trackedStepIndex={trackedStepIndex}
-            isLoading={isLoadingJourneys}
-            message={journeyMessage}
-            userLocation={userLocation}
-            onTrackedStepChange={setTrackedStepIndex}
-            onBackToResults={() => setIsRouteDetailsVisible(false)}
-            onJourneySelect={handleJourneySelect}
-            onLoginClick={() => setShowAuthPanel(true)}
-            onInputsInvalid={handleJourneyInputsInvalid}
-            onPlan={handlePlanJourney}
-            onSearchPlaces={handleSearchPlaces}
-            userLocationPlace={userLocationPlace}
-          />
-        </div>
-        <section className="map-shell" aria-label="Carte">
-          <InteractiveMap
-            center={PARIS_CENTER}
-            zoom={13}
-            isDarkMode={isDarkMode}
-            stations={[]}
-            selectedRoute={selectedJourney}
-            focusedSection={activeTrackedSection}
-            userLocation={userLocation}
-          />
-          {selectedJourney && isRouteSheetCtaVisible ? (
-            isRouteDetailsVisible ? (
-              routeTrackingMessage ? (
-                <div
-                  className="map-route-cta map-route-status"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {routeTrackingMessage}
-                </div>
+            <button
+              className="route-planner-shell__collapse-toggle"
+              type="button"
+              aria-label={
+                isRoutePlannerCollapsed
+                  ? "Ouvrir le panneau d'itinéraire"
+                  : "Replier le panneau d'itinéraire"
+              }
+              aria-expanded={!isRoutePlannerCollapsed}
+              onClick={() =>
+                setIsRoutePlannerCollapsed((currentValue) => !currentValue)
+              }
+            >
+              {isRoutePlannerCollapsed ? (
+                <CaretRight size={18} weight="bold" aria-hidden="true" />
+              ) : (
+                <CaretLeft size={18} weight="bold" aria-hidden="true" />
+              )}
+            </button>
+            <RoutePlanner
+              key={routePlannerResetKey}
+              currentUser={currentUser}
+              journeys={journeys}
+              selectedJourney={selectedJourney}
+              isRouteDetailsVisible={isRouteDetailsVisible}
+              isRouteTrackingActive={isRouteTrackingActive}
+              currentTrackedStepIndex={currentTrackedStepIndex}
+              trackedStepIndex={trackedStepIndex}
+              isLoading={isLoadingJourneys}
+              message={journeyMessage}
+              userLocation={userLocation}
+              onTrackedStepChange={setTrackedStepIndex}
+              onBackToResults={() => setIsRouteDetailsVisible(false)}
+              onJourneySelect={handleJourneySelect}
+              onLoginClick={() => setShowAuthPanel(true)}
+              onInputsInvalid={handleJourneyInputsInvalid}
+              onPlan={handlePlanJourney}
+              onSearchPlaces={handleSearchPlaces}
+              userLocationPlace={userLocationPlace}
+            />
+          </div>
+          <section className="map-shell" aria-label="Carte">
+            <InteractiveMap
+              center={PARIS_CENTER}
+              zoom={13}
+              isDarkMode={isDarkMode}
+              stations={[]}
+              selectedRoute={selectedJourney}
+              focusedSection={activeTrackedSection}
+              userLocation={userLocation}
+            />
+            {selectedJourney && isRouteSheetCtaVisible ? (
+              isRouteDetailsVisible ? (
+                routeTrackingMessage ? (
+                  <div
+                    className="map-route-cta map-route-status"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {routeTrackingMessage}
+                  </div>
+                ) : (
+                  <button
+                    className="btn-primary map-route-cta"
+                    type="button"
+                    onClick={handleStartRouteTracking}
+                  >
+                    <span>Go</span>
+                    <ArrowRight size={18} weight="regular" aria-hidden="true" />
+                  </button>
+                )
               ) : (
                 <button
                   className="btn-primary map-route-cta"
                   type="button"
-                  onClick={handleStartRouteTracking}
+                  onClick={() => setIsRouteDetailsVisible(true)}
                 >
-                  <span>Go</span>
+                  <span>Voir l'itinéraire</span>
                   <ArrowRight size={18} weight="regular" aria-hidden="true" />
                 </button>
               )
-            ) : (
-              <button
-                className="btn-primary map-route-cta"
-                type="button"
-                onClick={() => setIsRouteDetailsVisible(true)}
-              >
-                <span>Voir l'itinéraire</span>
-                <ArrowRight size={18} weight="regular" aria-hidden="true" />
-              </button>
-            )
-          ) : null}
+            ) : null}
+          </section>
         </section>
-      </section>
+      )}
 
       {showAuthPanel ? (
         <AuthPanel
