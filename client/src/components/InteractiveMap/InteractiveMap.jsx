@@ -432,7 +432,6 @@ export default function InteractiveMap({
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator === 'undefined' ? true : navigator.onLine
   );
-  const [tileError, setTileError] = useState(false);
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -450,7 +449,6 @@ export default function InteractiveMap({
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      setTileError(false);
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -497,7 +495,6 @@ export default function InteractiveMap({
 
     map.on('error', (event) => {
       console.error('MapLibre error:', event.error);
-      setTileError(true);
     });
 
     // Garde la carte nette quand son parent change de taille.
@@ -538,7 +535,6 @@ export default function InteractiveMap({
     };
 
     activeStyleRef.current = styleKey;
-    setTileError(false);
     map.setStyle(mapStyle);
     map.once('styledata', () => {
       map.jumpTo(camera);
@@ -678,11 +674,6 @@ export default function InteractiveMap({
             aria-hidden="true"
           />
           <span>Hors ligne</span>
-        </div>
-      ) : null}
-      {tileError ? (
-        <div className="interactive-map__warning" role="status">
-          Certaines tuiles ne sont pas encore en cache.
         </div>
       ) : null}
     </div>
