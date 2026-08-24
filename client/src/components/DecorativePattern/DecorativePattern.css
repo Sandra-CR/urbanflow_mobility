@@ -1,0 +1,26 @@
+.decorative-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.decorative-pattern__icon {
+  position: absolute;
+  top: var(--decorative-pattern-top);
+  left: var(--decorative-pattern-left);
+  color: var(--color-primary);
+  opacity: 0.26;
+  transform: translate(-50%, -50%) rotate(var(--decorative-pattern-rotate));
+}
+
+.decorative-pattern__icon:nth-child(3n + 2) {
+  color: var(--color-secondary);
+  opacity: 0.22;
+}
+
+.decorative-pattern__icon:nth-child(4n) {
+  color: var(--color-text-light);
+  opacity: 0.18;
+}

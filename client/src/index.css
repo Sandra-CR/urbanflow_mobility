@@ -191,4 +191,64 @@ button {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
+
+  .btn-outline-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 10px 16px;
+    border: 1px solid var(--color-primary);
+    border-radius: 12px;
+    background: var(--color-card) !important;
+    color: var(--color-primary);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 20px;
+    cursor: pointer;
+  }
+
+  .btn-outline-primary:hover,
+  .btn-outline-primary:focus-visible {
+    background: var(--color-primary) !important;
+    color: var(--color-on-primary);
+    outline: none;
+  }
+
+  .btn-outline-primary svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+  }
+
+  .btn-outline-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 10px 16px;
+    border: 1px solid var(--color-danger);
+    border-radius: 12px;
+    background: var(--color-card);
+    color: var(--color-danger);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 20px;
+    cursor: pointer;
+  }
+
+  .btn-outline-danger:hover,
+  .btn-outline-danger:focus-visible {
+    background: var(--color-danger);
+    color: var(--color-on-primary);
+    outline: none;
+  }
+
+  .btn-outline-danger svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+  }
 }

@@ -7,6 +7,7 @@ import {
   clearAuthCookie,
   getAuthCookieOptions,
   signAuthToken,
+  verifyAuthToken,
 } from './jwt.js';
 import {
   isValidEmail,
@@ -57,6 +58,26 @@ function isUniqueEmailViolation(error) {
   return (
     error?.code === '23505' && String(error.constraint || '').includes('email')
   );
+}
+
+/**
+ * Lit le payload d'authentification si un cookie JWT valide est présent.
+ *
+ * @param {object} req Requête Express.
+ * @returns {object | null} Payload JWT ou null sans session exploitable.
+ */
+function getOptionalAuth(req) {
+  const token = req.cookies?.[AUTH_COOKIE_NAME];
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    return verifyAuthToken(token);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -184,19 +205,28 @@ export function createAuthRouter({ query = defaultQuery } = {}) {
     return res.status(204).send();
   });
 
-  router.get('/me', requireAuth, async (req, res, next) => {
+  router.get('/me', async (req, res, next) => {
     try {
+      const auth = getOptionalAuth(req);
+
+      if (!auth) {
+        clearAuthCookie(res);
+        return res.json({
+          user: null,
+        });
+      }
+
       const result = await query(
         `select id, email, created_at
          from users
          where id = $1`,
-        [req.auth.sub]
+        [auth.sub]
       );
 
       if (!result.rows[0]) {
         clearAuthCookie(res);
-        return res.status(401).json({
-          error: 'Session invalide.',
+        return res.json({
+          user: null,
         });
       }
 
