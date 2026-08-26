@@ -172,6 +172,55 @@ paths:
           $ref: '#/components/responses/IdfmMissingToken'
         '504':
           $ref: '#/components/responses/IdfmTimeout'
+  /api/idfm/bike-stations:
+    get:
+      tags:
+        - IDF MobilitÃ©s
+      summary: Rechercher les bornes Vélib proches d'une coordonnée.
+      parameters:
+        - $ref: '#/components/parameters/Lon'
+        - $ref: '#/components/parameters/Lat'
+        - name: distance
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1500
+            minimum: 100
+            maximum: 5000
+          description: Rayon en metres.
+        - name: count
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 20
+          description: Nombre maximal de bornes.
+        - name: availability
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - bikes
+              - docks
+            default: bikes
+          description: Filtre sur les vélos disponibles ou les bornettes libres.
+      responses:
+        '200':
+          description: Bornes Vélib proches.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BikeStationsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/IdfmUnavailable'
+        '504':
+          $ref: '#/components/responses/IdfmTimeout'
   /api/idfm/places:
     get:
       tags:
@@ -268,6 +317,36 @@ paths:
           $ref: '#/components/responses/IdfmUnavailable'
         '503':
           $ref: '#/components/responses/IdfmMissingToken'
+        '504':
+          $ref: '#/components/responses/IdfmTimeout'
+  /api/idfm/bike-station-journey:
+    post:
+      tags:
+        - IDF MobilitÃ©s
+      summary: Composer un itinéraire à vélo via des bornes Vélib.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BikeStationJourneyRequest'
+      responses:
+        '200':
+          description: Itineraire compose.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BikeStationJourneyResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          description: Aucune borne de retour disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          $ref: '#/components/responses/IdfmUnavailable'
         '504':
           $ref: '#/components/responses/IdfmTimeout'
 components:
@@ -467,6 +546,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Line'
+    BikeStation:
+      allOf:
+        - $ref: '#/components/schemas/Place'
+        - type: object
+          properties:
+            stationId:
+              type: string
+            capacity:
+              type: integer
+            availableBikes:
+              type: integer
+            availableDocks:
+              type: integer
+            mechanicalBikes:
+              type: integer
+            electricBikes:
+              type: integer
+    BikeStationsResponse:
+      type: object
+      required:
+        - stations
+        - pagination
+      properties:
+        stations:
+          type: array
+          items:
+            $ref: '#/components/schemas/BikeStation'
+        pagination:
+          type: object
+          nullable: true
     NearbyStationsResponse:
       type: object
       required:
@@ -592,6 +701,13 @@ components:
             $ref: '#/components/schemas/Coordinates'
         carbonFootprint:
           $ref: '#/components/schemas/CarbonFootprint'
+        bikeStations:
+          type: object
+          properties:
+            start:
+              $ref: '#/components/schemas/BikeStation'
+            end:
+              $ref: '#/components/schemas/BikeStation'
     JourneysResponse:
       type: object
       required:
@@ -602,6 +718,30 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Journey'
+        carbonFootprintMessage:
+          type: string
+          nullable: true
+    BikeStationJourneyRequest:
+      type: object
+      required:
+        - fromCoordinates
+        - toCoordinates
+        - startStation
+      properties:
+        fromCoordinates:
+          $ref: '#/components/schemas/Coordinates'
+        toCoordinates:
+          $ref: '#/components/schemas/Coordinates'
+        startStation:
+          $ref: '#/components/schemas/BikeStation'
+    BikeStationJourneyResponse:
+      type: object
+      required:
+        - journey
+        - carbonFootprintMessage
+      properties:
+        journey:
+          $ref: '#/components/schemas/Journey'
         carbonFootprintMessage:
           type: string
           nullable: true

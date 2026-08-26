@@ -130,6 +130,99 @@
   margin-top: 24px;
 }
 
+.bike-station-modal {
+  display: grid;
+  gap: 18px;
+  text-align: left;
+}
+
+.bike-station-modal-overlay[data-mode='stations'] {
+  place-items: start end;
+  pointer-events: none;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.bike-station-modal-overlay[data-mode='stations'] .bike-station-modal {
+  width: min(360px, calc(100vw - 32px));
+  margin-top: 86px;
+  margin-right: 16px;
+  padding: 18px;
+  pointer-events: auto;
+}
+
+.bike-station-modal p {
+  text-align: center;
+}
+
+.bike-station-modal__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.bike-station-modal__actions .btn-primary,
+.bike-station-modal__actions .btn-outline-primary {
+  justify-content: center;
+  width: 100%;
+}
+
+.bike-station-modal__actions .btn-primary:disabled,
+.bike-station-modal__actions .btn-outline-primary:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.bike-station-modal__stations {
+  display: grid;
+  gap: 10px;
+}
+
+.bike-station-modal__stations button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  border-radius: var(--radius-ui);
+  background: var(--color-card);
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.bike-station-modal__stations button:hover,
+.bike-station-modal__stations button:focus-visible {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.bike-station-modal__stations button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.bike-station-modal__stations strong,
+.bike-station-modal__stations span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bike-station-modal__stations span,
+.bike-station-modal__message {
+  color: var(--color-text-light);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.bike-station-modal__message {
+  display: block;
+  text-align: center;
+}
+
 .map-workspace {
   display: grid;
   grid-template-columns: var(--route-planner-width, 360px) minmax(0, 1fr);

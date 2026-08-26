@@ -15,6 +15,8 @@ import {
   registerUser,
 } from './utils/authApi';
 import {
+  getBikeStationJourney,
+  getBikeStations,
   getJourneys,
   getPlaceFromCoordinates,
   searchPlaces,
@@ -99,6 +101,27 @@ function getDistanceBetweenCoordinatesInMeters(fromCoordinates, toCoordinates) {
     earthRadiusMeters *
     Math.atan2(Math.sqrt(haversineValue), Math.sqrt(1 - haversineValue))
   );
+}
+
+function formatStationDistance(distance) {
+  const safeDistance = Number(distance);
+
+  if (!Number.isFinite(safeDistance)) {
+    return null;
+  }
+
+  if (safeDistance < 1000) {
+    return `${Math.round(safeDistance)} m`;
+  }
+
+  return `${(safeDistance / 1000).toFixed(1)} km`;
+}
+
+function formatBikeCount(count) {
+  const safeCount = Number(count);
+  const bikeCount = Number.isFinite(safeCount) ? safeCount : 0;
+
+  return `${bikeCount} ${bikeCount === 1 ? 'vélo' : 'vélos'}`;
 }
 
 function getDistanceFromPointToSegmentInMeters(
@@ -216,6 +239,12 @@ function App() {
   const [routePlannerResetKey, setRoutePlannerResetKey] = useState(0);
   const [journeys, setJourneys] = useState([]);
   const [selectedJourney, setSelectedJourney] = useState(null);
+  const [latestRoutePlaces, setLatestRoutePlaces] = useState(null);
+  const [bikeStationPromptJourney, setBikeStationPromptJourney] =
+    useState(null);
+  const [bikeStationChoices, setBikeStationChoices] = useState([]);
+  const [isLoadingBikeStations, setIsLoadingBikeStations] = useState(false);
+  const [bikeStationMessage, setBikeStationMessage] = useState('');
   const [isRouteSheetCtaVisible, setIsRouteSheetCtaVisible] = useState(false);
   const [isRouteDetailsVisible, setIsRouteDetailsVisible] = useState(false);
   const [isLoadingJourneys, setIsLoadingJourneys] = useState(false);
@@ -247,6 +276,13 @@ function App() {
     });
 
     return data.places || [];
+  }, []);
+
+  const clearBikeStationFlow = useCallback(() => {
+    setBikeStationPromptJourney(null);
+    setBikeStationChoices([]);
+    setIsLoadingBikeStations(false);
+    setBikeStationMessage('');
   }, []);
 
   const handleToggleDarkMode = useCallback(() => {
@@ -592,6 +628,8 @@ function App() {
     setJourneyMessage('');
     setJourneys([]);
     setSelectedJourney(null);
+    setLatestRoutePlaces({ from, to });
+    clearBikeStationFlow();
     setIsRouteSheetCtaVisible(false);
     setIsRouteDetailsVisible(false);
     setRouteTrackingMessage('');
@@ -645,13 +683,115 @@ function App() {
     setCacheMessage("Installation de l'app annulée.");
   }
 
-  function handleJourneySelect(journey) {
+  const selectJourneyForDisplay = useCallback((journey) => {
     setSelectedJourney(journey);
     setIsRouteSheetCtaVisible(true);
     setIsRouteDetailsVisible(false);
     setRouteTrackingMessage('');
     setTrackingPopupMessage('');
     setTrackedStepIndex(0);
+  }, []);
+
+  function handleBikeStationPromptYes() {
+    if (bikeStationPromptJourney) {
+      selectJourneyForDisplay(bikeStationPromptJourney);
+    }
+
+    clearBikeStationFlow();
+  }
+
+  async function handleBikeStationPromptNo() {
+    if (!latestRoutePlaces?.from?.coordinates) {
+      setBikeStationMessage('Le point de départ est introuvable.');
+      return;
+    }
+
+    setIsLoadingBikeStations(true);
+    setBikeStationMessage('');
+
+    try {
+      const [lon, lat] = latestRoutePlaces.from.coordinates;
+      const data = await getBikeStations({
+        lon,
+        lat,
+        distance: 1500,
+        count: 5,
+        availability: 'bikes',
+      });
+      const stations = data.stations || [];
+
+      setBikeStationChoices(stations);
+
+      if (stations.length === 0) {
+        setBikeStationMessage('Aucune borne avec vélo disponible à proximité.');
+      }
+    } catch (error) {
+      setBikeStationMessage(error.message);
+    } finally {
+      setIsLoadingBikeStations(false);
+    }
+  }
+
+  const handleBikeStationSelect = useCallback(
+    async (station) => {
+      if (
+        bikeStationChoices.length === 0 ||
+        !latestRoutePlaces?.from?.coordinates ||
+        !latestRoutePlaces?.to?.coordinates
+      ) {
+        return;
+      }
+
+      setIsLoadingBikeStations(true);
+      setBikeStationMessage('');
+
+      try {
+        const data = await getBikeStationJourney({
+          fromCoordinates: latestRoutePlaces.from.coordinates,
+          toCoordinates: latestRoutePlaces.to.coordinates,
+          startStation: station,
+        });
+        const stationJourney = data.journey;
+
+        setJourneys((currentJourneys) =>
+          currentJourneys.map((currentJourney) =>
+            currentJourney === bikeStationPromptJourney
+              ? stationJourney
+              : currentJourney
+          )
+        );
+        selectJourneyForDisplay(stationJourney);
+        clearBikeStationFlow();
+
+        if (data.carbonFootprintMessage) {
+          setJourneyMessage(data.carbonFootprintMessage);
+        }
+      } catch (error) {
+        setBikeStationMessage(error.message);
+      } finally {
+        setIsLoadingBikeStations(false);
+      }
+    },
+    [
+      bikeStationChoices.length,
+      bikeStationPromptJourney,
+      clearBikeStationFlow,
+      latestRoutePlaces,
+      selectJourneyForDisplay,
+    ]
+  );
+
+  function handleJourneySelect(journey) {
+    if (journey.profile === 'bike' && !journey.bikeStations) {
+      setBikeStationPromptJourney(journey);
+      setBikeStationChoices([]);
+      setBikeStationMessage('');
+      setIsLoadingBikeStations(false);
+      return;
+    }
+
+    clearBikeStationFlow();
+    selectJourneyForDisplay(journey);
   }
 
   const handleJourneyInputsInvalid = useCallback(() => {
@@ -661,6 +801,8 @@ function App() {
     setSelectedJourney((currentJourney) =>
       currentJourney ? null : currentJourney
     );
+    setLatestRoutePlaces(null);
+    clearBikeStationFlow();
     setJourneyMessage((currentMessage) =>
       currentMessage ? '' : currentMessage
     );
@@ -675,7 +817,7 @@ function App() {
     setTrackedStepIndex((currentIndex) =>
       currentIndex !== 0 ? 0 : currentIndex
     );
-  }, []);
+  }, [clearBikeStationFlow]);
 
   const handleRoutesHome = useCallback(() => {
     setShowAuthPanel(false);
@@ -683,6 +825,8 @@ function App() {
     setIsRoutePlannerCollapsed(false);
     setJourneys([]);
     setSelectedJourney(null);
+    setLatestRoutePlaces(null);
+    clearBikeStationFlow();
     setJourneyMessage('');
     setIsRouteSheetCtaVisible(false);
     setIsRouteDetailsVisible(false);
@@ -690,7 +834,7 @@ function App() {
     setTrackingPopupMessage('');
     setTrackedStepIndex(0);
     setRoutePlannerResetKey((currentValue) => currentValue + 1);
-  }, []);
+  }, [clearBikeStationFlow]);
 
   const requestCurrentPosition = useCallback(
     () =>
@@ -853,9 +997,10 @@ function App() {
               center={PARIS_CENTER}
               zoom={13}
               isDarkMode={isDarkMode}
-              stations={[]}
+              stations={bikeStationChoices}
               selectedRoute={selectedJourney}
               focusedSection={activeTrackedSection}
+              onStationSelect={handleBikeStationSelect}
               userLocation={userLocation}
             />
             {selectedJourney && isRouteSheetCtaVisible ? (
@@ -901,6 +1046,70 @@ function App() {
           onLogin={handleLogin}
           onRegister={handleRegister}
         />
+      ) : null}
+
+      {bikeStationPromptJourney ? (
+        <div
+          className="route-tracking-modal bike-station-modal-overlay"
+          data-mode={bikeStationChoices.length > 0 ? 'stations' : 'prompt'}
+          role="presentation"
+        >
+          <div
+            className="route-tracking-modal__dialog bike-station-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bike-station-modal-title"
+          >
+            <p id="bike-station-modal-title">Avez-vous un vélo ?</p>
+            {bikeStationChoices.length === 0 ? (
+              <div className="bike-station-modal__actions">
+                <button
+                  className="btn-outline-primary"
+                  type="button"
+                  onClick={handleBikeStationPromptYes}
+                >
+                  Oui
+                </button>
+                <button
+                  className="btn-primary"
+                  type="button"
+                  disabled={isLoadingBikeStations}
+                  onClick={handleBikeStationPromptNo}
+                >
+                  {isLoadingBikeStations
+                    ? 'Recherche...'
+                    : 'Non, voir les bornes'}
+                </button>
+              </div>
+            ) : (
+              <div className="bike-station-modal__stations">
+                {bikeStationChoices.map((station) => (
+                  <button
+                    key={station.id}
+                    type="button"
+                    disabled={isLoadingBikeStations}
+                    onClick={() => handleBikeStationSelect(station)}
+                  >
+                    <strong>{station.name}</strong>
+                    <span>
+                      {[
+                        formatStationDistance(station.distance),
+                        formatBikeCount(station.availableBikes),
+                      ]
+                        .filter(Boolean)
+                        .join(' - ')}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {bikeStationMessage ? (
+              <span className="bike-station-modal__message">
+                {bikeStationMessage}
+              </span>
+            ) : null}
+          </div>
+        </div>
       ) : null}
 
       {trackingPopupMessage ? (

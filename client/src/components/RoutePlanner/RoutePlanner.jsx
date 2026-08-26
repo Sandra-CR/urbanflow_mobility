@@ -590,11 +590,7 @@ function RouteDetails({ journey, onBack, children = null }) {
   return (
     <div className="route-detail" aria-label="Fiche de route">
       <header className="route-detail__header">
-        <button
-          className="route-detail__back"
-          type="button"
-          onClick={onBack}
-        >
+        <button className="route-detail__back" type="button" onClick={onBack}>
           <ArrowLeft size={16} weight="bold" aria-hidden="true" />
           <span>Retour</span>
         </button>
@@ -1121,7 +1117,10 @@ export default function RoutePlanner({
     (userLocationPlace?.id &&
       (userLocationPlace.id === fromPlace?.id ||
         userLocationPlace.id === toPlace?.id)) ||
-    areCoordinatesEqual(userLocationPlace?.coordinates, fromPlace?.coordinates) ||
+    areCoordinatesEqual(
+      userLocationPlace?.coordinates,
+      fromPlace?.coordinates
+    ) ||
     areCoordinatesEqual(userLocationPlace?.coordinates, toPlace?.coordinates);
   const preferencePreferredPlace = !isUserLocationAlreadySelected
     ? userLocationPlace
@@ -1296,7 +1295,10 @@ export default function RoutePlanner({
 
     return {
       ...activeSuggestions,
-      places: prependUniquePlace(activeSuggestions.places, destinationSuggestion),
+      places: prependUniquePlace(
+        activeSuggestions.places,
+        destinationSuggestion
+      ),
     };
   }, [activeSuggestions, destinationSuggestion]);
 

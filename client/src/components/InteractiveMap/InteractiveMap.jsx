@@ -68,6 +68,20 @@ function createStationMarker(station) {
   return marker;
 }
 
+function formatBikeCount(count) {
+  const safeCount = Number(count);
+  const bikeCount = Number.isFinite(safeCount) ? safeCount : 0;
+
+  return `${bikeCount} ${bikeCount === 1 ? 'vélo' : 'vélos'}`;
+}
+
+function formatDockCount(count) {
+  const safeCount = Number(count);
+  const dockCount = Number.isFinite(safeCount) ? safeCount : 0;
+
+  return `${dockCount} ${dockCount === 1 ? 'place' : 'places'}`;
+}
+
 function createStationPopup(station) {
   const content = document.createElement('div');
   content.className = 'station-popup';
@@ -78,7 +92,10 @@ function createStationPopup(station) {
 
   if (station.type) {
     const type = document.createElement('span');
-    type.textContent = station.type;
+    type.textContent =
+      station.type === 'bike'
+        ? `${formatBikeCount(station.availableBikes)} - ${formatDockCount(station.availableDocks)}`
+        : station.type;
     content.appendChild(type);
   }
 
@@ -427,6 +444,7 @@ export default function InteractiveMap({
   selectedRoute = null,
   userLocation = null,
   focusedSection = null,
+  onStationSelect,
   className = '',
 }) {
   const [isOnline, setIsOnline] = useState(() =>
@@ -551,21 +569,26 @@ export default function InteractiveMap({
 
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = stations.map((station) => {
+      const markerElement = createStationMarker(station);
       const popup = new maplibregl.Popup({
         offset: 16,
         closeButton: false,
         className: 'station-popup-frame',
       }).setDOMContent(createStationPopup(station));
 
+      markerElement.addEventListener('click', () => {
+        onStationSelect?.(station);
+      });
+
       return new maplibregl.Marker({
-        element: createStationMarker(station),
+        element: markerElement,
         anchor: 'center',
       })
         .setLngLat(station.coordinates)
         .setPopup(popup)
         .addTo(map);
     });
-  }, [stations]);
+  }, [onStationSelect, stations]);
 
   useEffect(() => {
     const map = mapRef.current;

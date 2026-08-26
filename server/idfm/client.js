@@ -1,12 +1,15 @@
 const DEFAULT_IDFM_BASE_URL =
   'https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia';
 const DEFAULT_ROUTING_BASE_URL = 'https://router.project-osrm.org';
+const DEFAULT_VELIB_BASE_URL =
+  'https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole';
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const JOURNEY_TIMEOUT_MS = 12000;
 const WALKING_SPEED_METERS_PER_SECOND = 1.25;
 const BIKE_SPEED_METERS_PER_SECOND = 4.2;
 const EARTH_RADIUS_METERS = 6371000;
+const VELIB_TIMEOUT_MS = 8000;
 const JOURNEY_PROFILE_ORDER = {
   walking: 0,
   bike: 1,
@@ -37,6 +40,26 @@ const JOURNEY_PROFILE_ORDER = {
  * @property {number[]} coordinates Coordonnées `[longitude, latitude]`.
  * @property {string | null} city Ville ou région administrative.
  * @property {NormalizedLine[]} lines Lignes desservant le lieu.
+ */
+
+/**
+ * Borne vélo normalisée renvoyée au client.
+ *
+ * @typedef {object} NormalizedBikeStation
+ * @property {string} id Identifiant normalisé côté client.
+ * @property {string} stationId Identifiant GBFS/Vélib de la borne.
+ * @property {string} name Nom de la borne.
+ * @property {string} label Libellé utilisé dans l'interface.
+ * @property {'bike'} type Type de lieu vélo.
+ * @property {number} distance Distance en mètres depuis le point de recherche.
+ * @property {number[]} coordinates Coordonnées `[longitude, latitude]`.
+ * @property {string | null} city Ville, non renseignée pour Vélib.
+ * @property {NormalizedLine[]} lines Toujours vide pour les bornes Vélib.
+ * @property {number} capacity Capacité totale déclarée par la borne.
+ * @property {number} availableBikes Nombre de vélos disponibles.
+ * @property {number} availableDocks Nombre de places libres.
+ * @property {number} mechanicalBikes Nombre de vélos mécaniques disponibles.
+ * @property {number} electricBikes Nombre de vélos électriques disponibles.
  */
 
 /**
@@ -75,6 +98,7 @@ const JOURNEY_PROFILE_ORDER = {
  * @property {string | null} arrivalDateTime Date d'arrivée Navitia.
  * @property {NormalizedJourneySection[]} sections Sections détaillées.
  * @property {number[][] | null} geometry Géométrie globale `[longitude, latitude]`.
+ * @property {{start: NormalizedBikeStation, end: NormalizedBikeStation}} [bikeStations] Bornes utilisées par un itinéraire vélo partagé.
  */
 
 function getConfig() {
@@ -86,6 +110,9 @@ function getConfig() {
     ),
     routingBaseUrl: (
       process.env.ROUTING_API_BASE_URL || DEFAULT_ROUTING_BASE_URL
+    ).replace(/\/$/, ''),
+    velibBaseUrl: (
+      process.env.VELIB_API_BASE_URL || DEFAULT_VELIB_BASE_URL
     ).replace(/\/$/, ''),
   };
 }
@@ -447,6 +474,7 @@ function createDirectFallbackJourney({
     arrivalDateTime: null,
     sections: [section],
     geometry,
+    isStraightLineFallback: !route,
   };
 }
 
@@ -500,6 +528,36 @@ async function fetchStreetRoute(
   } catch {
     return null;
   }
+}
+
+async function requestJson(url, { fetchImpl, signal }) {
+  let response;
+
+  try {
+    response = await fetchImpl(url, {
+      signal,
+      headers: {
+        accept: 'application/json',
+      },
+    });
+  } catch (fetchError) {
+    fetchError.status = fetchError.name === 'AbortError' ? 504 : 502;
+    fetchError.message =
+      fetchError.name === 'AbortError'
+        ? 'Délai dépassé pour le service vélo.'
+        : 'Service de données vélo inaccessible.';
+    throw fetchError;
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = new Error('Service de données vélo inaccessible.');
+    error.status = response.status;
+    throw error;
+  }
+
+  return data;
 }
 
 async function requestIdfm(url, { apiKey, fetchImpl, signal }) {
@@ -742,6 +800,388 @@ function simplifyGeometry(coordinates, maxPoints = 240) {
   }
 
   return simplifiedCoordinates;
+}
+
+function getVelibStationId(station) {
+  return String(station?.station_id ?? station?.stationId ?? '').trim();
+}
+
+function getAvailableBikeCount(status = {}) {
+  return Number(status.num_bikes_available ?? status.numBikesAvailable ?? 0);
+}
+
+function getAvailableDockCount(status = {}) {
+  return Number(status.num_docks_available ?? status.numDocksAvailable ?? 0);
+}
+
+function getTypedBikeCount(status = {}, type) {
+  const bikeTypes = status.num_bikes_available_types;
+
+  if (!Array.isArray(bikeTypes)) {
+    return 0;
+  }
+
+  return bikeTypes.reduce(
+    (total, entry) => total + Number(entry[type] || 0),
+    0
+  );
+}
+
+function normalizeBikeStation(info, status, originCoordinates) {
+  const lon = Number(info.lon);
+  const lat = Number(info.lat);
+
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return null;
+  }
+
+  const coordinates = [lon, lat];
+
+  return {
+    id: `velib:${getVelibStationId(info)}`,
+    stationId: getVelibStationId(info),
+    name: toOptionalText(info.name) || 'Station Vélib',
+    label: toOptionalText(info.name) || 'Station Vélib',
+    type: 'bike',
+    distance: Math.round(
+      getStraightLineDistanceMeters(originCoordinates, coordinates)
+    ),
+    coordinates,
+    city: null,
+    lines: [],
+    capacity: Number(info.capacity || 0),
+    availableBikes: getAvailableBikeCount(status),
+    availableDocks: getAvailableDockCount(status),
+    mechanicalBikes: getTypedBikeCount(status, 'mechanical'),
+    electricBikes: getTypedBikeCount(status, 'ebike'),
+  };
+}
+
+async function fetchVelibStations({ fetchImpl, signal, velibBaseUrl }) {
+  const [information, status] = await Promise.all([
+    requestJson(`${velibBaseUrl}/station_information.json`, {
+      fetchImpl,
+      signal,
+    }),
+    requestJson(`${velibBaseUrl}/station_status.json`, {
+      fetchImpl,
+      signal,
+    }),
+  ]);
+  const statusesById = new Map(
+    (status.data?.stations || []).map((stationStatus) => [
+      getVelibStationId(stationStatus),
+      stationStatus,
+    ])
+  );
+
+  return (information.data?.stations || [])
+    .map((stationInfo) => ({
+      info: stationInfo,
+      status: statusesById.get(getVelibStationId(stationInfo)) || {},
+    }))
+    .filter(({ status: stationStatus }) => {
+      const isInstalled = Number(stationStatus.is_installed ?? 1) === 1;
+      const isRenting = Number(stationStatus.is_renting ?? 1) === 1;
+      const isReturning = Number(stationStatus.is_returning ?? 1) === 1;
+
+      return isInstalled && (isRenting || isReturning);
+    });
+}
+
+function createStreetSection({
+  id,
+  profile,
+  label,
+  from,
+  to,
+  fromCoordinates,
+  toCoordinates,
+  route,
+}) {
+  const speed =
+    profile === 'bike'
+      ? BIKE_SPEED_METERS_PER_SECOND
+      : WALKING_SPEED_METERS_PER_SECOND;
+  const geometry = route?.geometry || [fromCoordinates, toCoordinates];
+  const distance =
+    route?.distance ||
+    getPathDistanceMeters(geometry) ||
+    getStraightLineDistanceMeters(fromCoordinates, toCoordinates);
+
+  return {
+    id,
+    type: 'street_network',
+    mode: profile === 'bike' ? 'bike' : 'walking',
+    label,
+    duration: Math.max(1, Math.round(distance / speed)),
+    from,
+    to,
+    departureDateTime: null,
+    arrivalDateTime: null,
+    color: profile === 'bike' ? '#14b8a6' : '#64748b',
+    textColor: '#ffffff',
+    line: null,
+    distanceKm: distance / 1000,
+    stopCount: null,
+    stops: [],
+    geometry,
+  };
+}
+
+function mergeSectionGeometries(sections) {
+  return sections.flatMap((section, sectionIndex) => {
+    const geometry = section.geometry || [];
+
+    if (sectionIndex === 0) {
+      return geometry;
+    }
+
+    return geometry.slice(1);
+  });
+}
+
+function addSectionDateTimes(sections, departureDate = new Date()) {
+  let cursorTimestamp = Math.ceil(departureDate.getTime() / 60000) * 60000;
+
+  return sections.map((section) => {
+    const departureDateTime = new Date(cursorTimestamp).toISOString();
+    cursorTimestamp += Math.max(0, Number(section.duration) || 0) * 1000;
+
+    return {
+      ...section,
+      departureDateTime,
+      arrivalDateTime: new Date(cursorTimestamp).toISOString(),
+    };
+  });
+}
+
+function toBikeStationCoordinates(station) {
+  return toCoordinatePair(station?.coordinates);
+}
+
+function getBikeStationName(station, fallback) {
+  return (
+    toOptionalText(station?.name) || toOptionalText(station?.label) || fallback
+  );
+}
+
+/**
+ * Recherche les bornes Vélib proches d'une coordonnée.
+ *
+ * Les flux GBFS `station_information` et `station_status` sont fusionnés pour
+ * exposer à la fois la position, la capacité, les vélos disponibles et les
+ * places libres. `availability` filtre les bornes selon l'usage demandé :
+ * vélos au départ ou bornettes libres à l'arrivée.
+ *
+ * @param {object} params Paramètres de recherche.
+ * @param {number | string} params.lon Longitude du point de recherche.
+ * @param {number | string} params.lat Latitude du point de recherche.
+ * @param {number | string} [params.distance=1500] Rayon en mètres, borné entre 100 et 5000.
+ * @param {number | string} [params.count=5] Nombre de bornes, borné entre 1 et 20.
+ * @param {'bikes' | 'docks'} [params.availability='bikes'] Disponibilité requise.
+ * @param {object} [dependencies] Dépendances injectables.
+ * @param {Function} [dependencies.fetchImpl] Implémentation compatible fetch.
+ * @param {AbortSignal} [dependencies.signal] Signal d'annulation.
+ * @returns {Promise<{stations: NormalizedBikeStation[], pagination: null}>}
+ * @throws {Error} 400 si les coordonnées sont invalides.
+ * @throws {Error} 502/504 si les flux Vélib échouent ou expirent.
+ */
+export async function fetchBikeStations(
+  { lon, lat, distance = 1500, count = 5, availability = 'bikes' },
+  { fetchImpl = fetch, signal } = {}
+) {
+  const originCoordinates = toCoordinatePair([lon, lat]);
+
+  if (!originCoordinates) {
+    const error = new Error('Coordonnées invalides.');
+    error.status = 400;
+    throw error;
+  }
+
+  const { velibBaseUrl } = getConfig();
+  const safeDistance = toBoundedInteger(distance, {
+    fallback: 1500,
+    min: 100,
+    max: 5000,
+  });
+  const safeCount = toBoundedInteger(count, {
+    fallback: 5,
+    min: 1,
+    max: 20,
+  });
+  const stationPairs = await fetchVelibStations({
+    fetchImpl,
+    signal,
+    velibBaseUrl,
+  });
+  const stations = stationPairs
+    .map(({ info, status }) =>
+      normalizeBikeStation(info, status, originCoordinates)
+    )
+    .filter(Boolean)
+    .filter((station) =>
+      availability === 'docks'
+        ? station.availableDocks > 0
+        : station.availableBikes > 0
+    )
+    .filter((station) => station.distance <= safeDistance)
+    .sort(
+      (firstStation, secondStation) =>
+        firstStation.distance - secondStation.distance
+    )
+    .slice(0, safeCount);
+
+  return {
+    stations,
+    pagination: null,
+  };
+}
+
+/**
+ * Compose un itinéraire vélo partagé à partir d'une borne de départ choisie.
+ *
+ * Le trajet généré contient trois sections compatibles avec les feuilles de
+ * route existantes : marche jusqu'à la borne choisie, vélo jusqu'à la borne
+ * d'arrivée la plus proche avec une place libre, puis marche vers la
+ * destination. Les géométries de rue sont demandées à OSRM et retombent sur une
+ * ligne directe si le service de routage est indisponible.
+ *
+ * @param {object} params Paramètres de calcul.
+ * @param {number[] | string[]} params.fromCoordinates Coordonnées `[longitude, latitude]` du départ.
+ * @param {number[] | string[]} params.toCoordinates Coordonnées `[longitude, latitude]` de l'arrivée.
+ * @param {NormalizedBikeStation} params.startStation Borne de départ choisie par l'utilisateur.
+ * @param {object} [dependencies] Dépendances injectables.
+ * @param {Function} [dependencies.fetchImpl] Implémentation compatible fetch.
+ * @param {AbortSignal} [dependencies.signal] Signal d'annulation.
+ * @returns {Promise<{journey: NormalizedJourney}>}
+ * @throws {Error} 400 si les coordonnées ou la borne sont invalides.
+ * @throws {Error} 404 si aucune borne d'arrivée avec place libre n'est trouvée.
+ * @throws {Error} 502/504 si les flux Vélib échouent ou expirent.
+ */
+export async function fetchBikeStationJourney(
+  { fromCoordinates, toCoordinates, startStation },
+  { fetchImpl = fetch, signal } = {}
+) {
+  const safeFromCoordinates = toCoordinatePair(fromCoordinates);
+  const safeToCoordinates = toCoordinatePair(toCoordinates);
+  const startStationCoordinates = toBikeStationCoordinates(startStation);
+
+  if (!safeFromCoordinates || !safeToCoordinates || !startStationCoordinates) {
+    const error = new Error('Coordonnées invalides.');
+    error.status = 400;
+    throw error;
+  }
+
+  const endStationsResult = await fetchBikeStations(
+    {
+      lon: safeToCoordinates[0],
+      lat: safeToCoordinates[1],
+      distance: 3000,
+      count: 1,
+      availability: 'docks',
+    },
+    { fetchImpl, signal }
+  );
+  const endStation = endStationsResult.stations[0];
+  const endStationCoordinates = toBikeStationCoordinates(endStation);
+
+  if (!endStation || !endStationCoordinates) {
+    const error = new Error(
+      "Aucune borne proche de l'arrivée avec une place libre."
+    );
+    error.status = 404;
+    throw error;
+  }
+
+  const { routingBaseUrl } = getConfig();
+  const [walkToStartRoute, bikeRoute, walkToDestinationRoute] =
+    await Promise.all([
+      fetchStreetRoute(
+        {
+          profile: 'walking',
+          fromCoordinates: safeFromCoordinates,
+          toCoordinates: startStationCoordinates,
+        },
+        { fetchImpl, signal, routingBaseUrl }
+      ),
+      fetchStreetRoute(
+        {
+          profile: 'bike',
+          fromCoordinates: startStationCoordinates,
+          toCoordinates: endStationCoordinates,
+        },
+        { fetchImpl, signal, routingBaseUrl }
+      ),
+      fetchStreetRoute(
+        {
+          profile: 'walking',
+          fromCoordinates: endStationCoordinates,
+          toCoordinates: safeToCoordinates,
+        },
+        { fetchImpl, signal, routingBaseUrl }
+      ),
+    ]);
+  const startStationName = getBikeStationName(startStation, 'Borne de départ');
+  const endStationName = getBikeStationName(endStation, "Borne d'arrivée");
+  const sections = addSectionDateTimes([
+    createStreetSection({
+      id: 'bike-station-walk-to-start',
+      profile: 'walking',
+      label: 'Marche',
+      from: 'Départ',
+      to: startStationName,
+      fromCoordinates: safeFromCoordinates,
+      toCoordinates: startStationCoordinates,
+      route: walkToStartRoute,
+    }),
+    createStreetSection({
+      id: 'bike-station-ride',
+      profile: 'bike',
+      label: 'Vélo',
+      from: startStationName,
+      to: endStationName,
+      fromCoordinates: startStationCoordinates,
+      toCoordinates: endStationCoordinates,
+      route: bikeRoute,
+    }),
+    createStreetSection({
+      id: 'bike-station-walk-to-destination',
+      profile: 'walking',
+      label: 'Marche',
+      from: endStationName,
+      to: 'Arrivée',
+      fromCoordinates: endStationCoordinates,
+      toCoordinates: safeToCoordinates,
+      route: walkToDestinationRoute,
+    }),
+  ]);
+  const geometry = mergeSectionGeometries(sections);
+
+  return {
+    journey: {
+      id: `bike-stations-${startStation.stationId}-${endStation.stationId}`,
+      profile: 'bike',
+      duration: sections.reduce(
+        (total, section) => total + section.duration,
+        0
+      ),
+      walkingDuration: sections
+        .filter((section) => section.mode === 'walking')
+        .reduce((total, section) => total + section.duration, 0),
+      bikeDuration:
+        sections.find((section) => section.mode === 'bike')?.duration || 0,
+      nbTransfers: 0,
+      departureDateTime: sections[0]?.departureDateTime || null,
+      arrivalDateTime: sections[sections.length - 1]?.arrivalDateTime || null,
+      sections,
+      geometry,
+      bikeStations: {
+        start: startStation,
+        end: endStation,
+      },
+    },
+  };
 }
 
 function normalizeJourney(journey, profile) {
@@ -1078,10 +1518,14 @@ export async function fetchJourneys(
 
     return normalizeJourneys(response.value.data, response.value.profile);
   });
+  const rejectedProfiles = settledResponses
+    .filter((response) => response.status === 'rejected')
+    .map((response, index) => requests[index].profile);
   const directFallbackCoordinates = {
     fromCoordinates: toCoordinatePair(fromCoordinates),
     toCoordinates: toCoordinatePair(toCoordinates),
   };
+  let hasStraightLineFallback = false;
 
   if (
     directFallbackCoordinates.fromCoordinates &&
@@ -1096,6 +1540,7 @@ export async function fetchJourneys(
           },
           { fetchImpl, signal, routingBaseUrl }
         );
+        hasStraightLineFallback = hasStraightLineFallback || !route;
 
         journeys.push(
           createDirectFallbackJourney({
@@ -1117,8 +1562,23 @@ export async function fetchJourneys(
     throw error;
   }
 
+  const serviceMessages = [];
+
+  if (rejectedProfiles.includes('transit')) {
+    serviceMessages.push(
+      'Les itinéraires multimodaux sont temporairement indisponibles.'
+    );
+  }
+
+  if (hasStraightLineFallback) {
+    serviceMessages.push(
+      'Le tracé précis à pied ou à vélo est temporairement indisponible : une ligne directe est affichée.'
+    );
+  }
+
   return {
     journeys: orderJourneys(journeys),
+    serviceMessages,
   };
 }
 
@@ -1135,6 +1595,50 @@ export function createFetchNearbyStationsWithTimeout(fetchNearbyStationsImpl) {
 
     try {
       return await fetchNearbyStationsImpl(params, {
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+}
+
+/**
+ * Décore une fonction de recherche de bornes vélo avec un timeout court.
+ *
+ * @param {Function} fetchBikeStationsImpl Fonction compatible avec `fetchBikeStations`.
+ * @returns {Function} Fonction qui annule la recherche après `VELIB_TIMEOUT_MS`.
+ */
+export function createFetchBikeStationsWithTimeout(fetchBikeStationsImpl) {
+  return async function fetchBikeStationsWithTimeout(params) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), VELIB_TIMEOUT_MS);
+
+    try {
+      return await fetchBikeStationsImpl(params, {
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+}
+
+/**
+ * Décore une fonction de calcul d'itinéraire vélo partagé avec un timeout.
+ *
+ * @param {Function} fetchBikeStationJourneyImpl Fonction compatible avec `fetchBikeStationJourney`.
+ * @returns {Function} Fonction qui annule le calcul après `JOURNEY_TIMEOUT_MS`.
+ */
+export function createFetchBikeStationJourneyWithTimeout(
+  fetchBikeStationJourneyImpl
+) {
+  return async function fetchBikeStationJourneyWithTimeout(params) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), JOURNEY_TIMEOUT_MS);
+
+    try {
+      return await fetchBikeStationJourneyImpl(params, {
         signal: controller.signal,
       });
     } finally {

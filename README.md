@@ -7,12 +7,12 @@ UrbanFlow Mobility est une application web de mobilité urbaine éco-conçue, pe
 Le projet est organisé en monorepo avec une séparation claire entre le client et le serveur.
 
 - `client` : application frontend React avec Vite, Tailwind CSS, MapLibre et configuration PWA.
-- `server` : API backend Node.js avec Express, PostgreSQL/Supabase, auth JWT et proxy IDF Mobilités.
+- `server` : API backend Node.js avec Express, PostgreSQL/Supabase, auth JWT, proxy IDF Mobilités et flux GBFS Vélib.
 
 ## Documentation
 
 - `client/README.md` : conventions visuelles, PWA, stockage local, assets et icônes.
-- `server/README.md` : configuration backend, migrations PostgreSQL, API HTTP, calcul carbone, fallback OSRM, tests et JSDoc.
+- `server/README.md` : configuration backend, migrations PostgreSQL, API HTTP, calcul carbone, fallback OSRM, bornes Vélib, tests et JSDoc.
 
 ## Installation
 

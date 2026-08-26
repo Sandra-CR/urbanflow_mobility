@@ -29,3 +29,8 @@ panneaux.
   réaffichent pas automatiquement.
 - Dans les favoris persistés, `label` est le nom personnalisé et `placeLabel`
   est le vrai arrêt ou la vraie adresse à injecter dans le champ.
+- Un clic sur une proposition vélo demande si l'utilisateur possède un vélo.
+  `Oui` conserve le trajet direct. `Non, voir les bornes` affiche les cinq
+  bornes Vélib les plus proches avec vélos disponibles, puis remplace la
+  proposition vélo par un trajet composé marche, vélo partagé et marche après
+  sélection d'une borne.
