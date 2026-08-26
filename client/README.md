@@ -24,9 +24,10 @@ npm.cmd run build
 
 Le client lit ses variables depuis `client/.env`. Copier `client/.env.example` vers `client/.env` si l'API ne tourne pas sur `http://localhost:3000`.
 
-| Variable       | Obligatoire | Valeur par défaut       | Description                           |
-| -------------- | ----------- | ----------------------- | ------------------------------------- |
-| `VITE_API_URL` | Non         | `http://localhost:3000` | URL de l'API appelée par le frontend. |
+| Variable             | Obligatoire | Valeur par défaut       | Description                                      |
+| -------------------- | ----------- | ----------------------- | ------------------------------------------------ |
+| `VITE_API_URL`       | Non         | `http://localhost:3000` | URL de l'API appelée par le frontend.            |
+| `VITE_CARTO_API_KEY` | Oui         | -                       | Cle API CARTO utilisée pour les tuiles de carte. |
 
 ## Organisation des composants
 

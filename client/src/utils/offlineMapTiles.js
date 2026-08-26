@@ -1,8 +1,22 @@
 export const TILE_CACHE_NAME = 'carto-map-tiles';
 
+const CARTO_API_KEY = import.meta.env.VITE_CARTO_API_KEY?.trim();
+
+function withCartoApiKey(url) {
+  if (!CARTO_API_KEY) {
+    return url;
+  }
+
+  return `${url}?key=${encodeURIComponent(CARTO_API_KEY)}`;
+}
+
 export const TILE_URLS = {
-  light: 'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-  dark: 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+  light: withCartoApiKey(
+    'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+  ),
+  dark: withCartoApiKey(
+    'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+  ),
 };
 
 function lngLatToTile(lng, lat, zoom) {

@@ -3,6 +3,10 @@ import {
   createFetchPlaceFromCoordinatesWithTimeout,
   createFetchJourneysWithTimeout,
   createFetchNearbyStationsWithTimeout,
+  createFetchBikeStationJourneyWithTimeout,
+  createFetchBikeStationsWithTimeout,
+  fetchBikeStationJourney as defaultFetchBikeStationJourney,
+  fetchBikeStations as defaultFetchBikeStations,
   createSearchPlacesWithTimeout,
   fetchPlaceFromCoordinates as defaultFetchPlaceFromCoordinates,
   fetchJourneys as defaultFetchJourneys,
@@ -84,6 +88,8 @@ async function addCarbonFootprints(journeys, calculateCarbonFootprint) {
  *
  * @param {object} [options] Dépendances injectables.
  * @param {Function} [options.fetchNearbyStations] Recherche les stations proches.
+ * @param {Function} [options.fetchBikeStations] Recherche les bornes Vélib proches.
+ * @param {Function} [options.fetchBikeStationJourney] Compose un itinéraire via bornes Vélib.
  * @param {Function} [options.searchPlaces] Recherche les lieux IDF Mobilités.
  * @param {Function} [options.fetchJourneys] Calcule les itinéraires.
  * @param {Function} [options.calculateCarbonFootprint] Calcule l'empreinte carbone.
@@ -95,6 +101,12 @@ export function createIdfmRouter({
   ),
   fetchNearbyStations = createFetchNearbyStationsWithTimeout(
     defaultFetchNearbyStations
+  ),
+  fetchBikeStations = createFetchBikeStationsWithTimeout(
+    defaultFetchBikeStations
+  ),
+  fetchBikeStationJourney = createFetchBikeStationJourneyWithTimeout(
+    defaultFetchBikeStationJourney
   ),
   searchPlaces = createSearchPlacesWithTimeout(defaultSearchPlaces),
   fetchJourneys = createFetchJourneysWithTimeout(defaultFetchJourneys),
@@ -122,6 +134,34 @@ export function createIdfmRouter({
       if (error.name === 'AbortError') {
         return res.status(504).json({
           error: "Délai dépassé pour l'API IDF Mobilités.",
+        });
+      }
+
+      return next(error);
+    }
+  });
+
+  router.get('/bike-stations', async (req, res, next) => {
+    try {
+      const result = await fetchBikeStations({
+        lon: req.query.lon,
+        lat: req.query.lat,
+        distance: req.query.distance,
+        count: req.query.count,
+        availability: req.query.availability,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      if (error.status) {
+        return res.status(error.status).json({
+          error: error.message,
+        });
+      }
+
+      if (error.name === 'AbortError') {
+        return res.status(504).json({
+          error: 'Délai dépassé pour le service Vélib.',
         });
       }
 
@@ -183,20 +223,56 @@ export function createIdfmRouter({
       });
       const { journeys, missingModes, carbonUnavailable } =
         await addCarbonFootprints(result.journeys, calculateCarbonFootprint);
+      const routeMessages = result.serviceMessages || [];
+      const carbonMessage = carbonUnavailable
+        ? 'Le calcul carbone est temporairement indisponible.'
+        : missingModes.length > 0
+          ? `Le calcul de carbone ne trouve pas les données nécessaires (${missingModes.join(', ')}).`
+          : null;
 
       return res.json({
-        ...result,
         journeys,
-        carbonFootprintMessage: carbonUnavailable
-          ? 'Le calcul carbone est temporairement indisponible.'
-          : missingModes.length > 0
-            ? `Le calcul de carbone ne trouve pas les données nécessaires (${missingModes.join(', ')}).`
-            : null,
+        carbonFootprintMessage:
+          [...routeMessages, carbonMessage].filter(Boolean).join(' ') || null,
       });
     } catch (error) {
       if (error.status) {
         return res.status(error.status).json({
           error: error.message,
+        });
+      }
+
+      return next(error);
+    }
+  });
+
+  router.post('/bike-station-journey', async (req, res, next) => {
+    try {
+      const result = await fetchBikeStationJourney({
+        fromCoordinates: req.body?.fromCoordinates,
+        toCoordinates: req.body?.toCoordinates,
+        startStation: req.body?.startStation,
+      });
+      const journeyWithCarbonFootprint = await withCarbonFootprint(
+        result.journey,
+        calculateCarbonFootprint
+      );
+
+      return res.json({
+        ...result,
+        journey: journeyWithCarbonFootprint,
+        carbonFootprintMessage: null,
+      });
+    } catch (error) {
+      if (error.status) {
+        return res.status(error.status).json({
+          error: error.message,
+        });
+      }
+
+      if (error.name === 'AbortError') {
+        return res.status(504).json({
+          error: 'Délai dépassé pour le service Vélib.',
         });
       }
 

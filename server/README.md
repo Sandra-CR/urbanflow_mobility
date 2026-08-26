@@ -35,6 +35,7 @@ Le serveur lit ses variables depuis `server/.env`. Copier `server/.env.example` 
 | `IDFM_API_KEY`         | Oui pour IDF Mobilités | Aucune                            | Clé API PRIM Ile-de-France Mobilités.                                            |
 | `IDFM_API_BASE_URL`    | Non                    | API Navitia IDFM production       | Base URL de l'API IDF Mobilités.                                                 |
 | `ROUTING_API_BASE_URL` | Non                    | `https://router.project-osrm.org` | Base URL OSRM pour les trajets directs marche/vélo de secours.                   |
+| `VELIB_API_BASE_URL`   | Non                    | Flux GBFS Vélib Métropole         | Base URL des flux `station_information` et `station_status` Vélib.               |
 
 ## Migrations PostgreSQL
 
@@ -68,8 +69,10 @@ Le contrat strict de l'API est décrit dans `server/openapi.yaml` au format Open
 - `GET /api/favorites`
 - `POST /api/favorites`
 - `GET /api/idfm/nearby-stations`
+- `GET /api/idfm/bike-stations`
 - `GET /api/idfm/places`
 - `GET /api/idfm/journeys`
+- `POST /api/idfm/bike-station-journey`
 
 L'API est exposée sur `http://localhost:3000` par défaut. Les routes d'authentification utilisent un cookie httpOnly nommé `urbanflow_auth`.
 
@@ -116,6 +119,18 @@ Ce comportement évite qu'une indisponibilité Supabase bloque le calcul d'itin�
 La route `GET /api/idfm/journeys` demande des trajets marche, vélo et transports à IDF Mobilités. Si IDF Mobilités ne renvoie pas de trajet direct marche ou vélo, le serveur peut construire un trajet de secours avec OSRM via `ROUTING_API_BASE_URL`.
 
 OSRM sert uniquement à enrichir les trajets directs marche/vélo avec une géométrie de rue et une distance plus réaliste. Si OSRM est indisponible, le serveur revient à une ligne directe entre les coordonnées fournies.
+
+### Vélo partagé via bornes Vélib
+
+Quand l'utilisateur choisit un itinéraire à vélo sans avoir de vélo, le client interroge `GET /api/idfm/bike-stations`. Cette route lit les flux publics GBFS Vélib `station_information.json` et `station_status.json`, fusionne les informations statiques et temps réel, puis renvoie les bornes les plus proches avec au moins un vélo disponible.
+
+Après le choix d'une borne de départ, `POST /api/idfm/bike-station-journey` compose un itinéraire en trois sections normalisées :
+
+1. marche du point de départ vers la borne choisie ;
+2. vélo jusqu'à la borne d'arrivée la plus proche de la destination avec au moins une place libre ;
+3. marche de cette borne jusqu'à la destination.
+
+Ces sections utilisent le même format que les autres feuilles de route. Elles sont donc compatibles avec le rendu de la frise, le suivi de trajet et le calcul carbone. Les géométries de rue viennent d'OSRM quand il répond ; sinon, le segment concerné retombe sur une ligne directe.
 
 ## Documentation technique
 
