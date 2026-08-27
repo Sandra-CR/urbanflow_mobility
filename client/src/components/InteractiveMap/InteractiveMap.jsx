@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { WifiSlash } from '@phosphor-icons/react';
 import * as maplibregl from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { TILE_URLS } from '../../utils/offlineMapTiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './InteractiveMap.css';
+
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 const LIGHT_STYLE = {
   version: 8,
