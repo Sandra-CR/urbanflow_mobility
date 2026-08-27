@@ -8,18 +8,20 @@ import {
 } from 'react';
 import {
   ArrowsDownUp,
+  ArrowLeft,
   Bus,
   CaretDown,
   HourglassMedium,
   Leaf,
   MapPin,
-  MapTrifold,
+  // MapTrifold,
   PersonSimpleBike,
   PersonSimpleWalk,
   Steps,
   Subway,
   TrainSimple,
   Tram,
+  Warning,
 } from '@phosphor-icons/react';
 import {
   getRecentPlaceSearches,
@@ -30,6 +32,12 @@ import {
   getRecentSuggestions,
   isResolvedRecentPlace,
 } from './placeSearchUtils';
+import ActiveJourneyTracker from './ActiveJourneyTracker';
+import RouteDisruptionsPage from './RouteDisruptionsPage';
+import {
+  getSortedRouteDisruptions,
+} from './routeDisruptionsUtils';
+import TransportLineBadge from './TransportLineBadge';
 import './RoutePlanner.css';
 
 function normalizeMode(mode = '') {
@@ -126,7 +134,54 @@ function isAddressPlace(place) {
   return place.type === 'address' && getPlaceLines(place).length === 0;
 }
 
+function isUserLocationPlace(place) {
+  return Boolean(place?.isUserLocation);
+}
+
+function areCoordinatesEqual(firstCoordinates, secondCoordinates) {
+  if (
+    !Array.isArray(firstCoordinates) ||
+    !Array.isArray(secondCoordinates) ||
+    firstCoordinates.length < 2 ||
+    secondCoordinates.length < 2
+  ) {
+    return false;
+  }
+
+  return (
+    Number(firstCoordinates[0]) === Number(secondCoordinates[0]) &&
+    Number(firstCoordinates[1]) === Number(secondCoordinates[1])
+  );
+}
+
+function prependUniquePlace(places, preferredPlace, excludedPlace = null) {
+  if (!preferredPlace) {
+    return places;
+  }
+
+  if (
+    (excludedPlace?.id && preferredPlace.id === excludedPlace.id) ||
+    areCoordinatesEqual(preferredPlace.coordinates, excludedPlace?.coordinates)
+  ) {
+    return places;
+  }
+
+  const filteredPlaces = places.filter((place) => {
+    if (place.id && preferredPlace.id) {
+      return place.id !== preferredPlace.id;
+    }
+
+    return !areCoordinatesEqual(place.coordinates, preferredPlace.coordinates);
+  });
+
+  return [preferredPlace, ...filteredPlaces];
+}
+
 function getPlaceIconType(place) {
+  if (isUserLocationPlace(place)) {
+    return 'current-location';
+  }
+
   if (isAddressPlace(place)) {
     return 'address';
   }
@@ -168,6 +223,15 @@ function getPlaceIconType(place) {
 function PlaceTypeIcon({ place }) {
   const iconType = getPlaceIconType(place);
 
+  if (iconType === 'current-location') {
+    return (
+      <span
+        className="route-suggestion__current-location-marker"
+        aria-hidden="true"
+      />
+    );
+  }
+
   if (iconType === 'train') {
     return <TrainSimple size={20} weight="regular" aria-hidden="true" />;
   }
@@ -187,28 +251,11 @@ function PlaceTypeIcon({ place }) {
   return <MapPin size={20} weight="regular" aria-hidden="true" />;
 }
 
-function TransportLineBadge({ line }) {
-  const lineMode = normalizeMode(line.commercialMode || line.physicalMode);
-  const style = {
-    '--route-line-color': line.color || '#64748b',
-    '--route-line-text': line.textColor || '#ffffff',
-  };
-  const label = line.code || line.label || line.commercialMode;
-
-  return (
-    <span
-      className="route-line-badge"
-      data-mode={lineMode}
-      data-transport="true"
-      style={style}
-      title={line.label || label}
-    >
-      <span>{label}</span>
-    </span>
-  );
-}
-
 function PlaceSuggestionDetails({ place }) {
+  if (isUserLocationPlace(place)) {
+    return place.secondaryLabel ? <small>{place.secondaryLabel}</small> : null;
+  }
+
   if (isAddressPlace(place)) {
     return place.city ? <small>{place.city}</small> : null;
   }
@@ -512,7 +559,7 @@ function RouteTimelineItem({ section, index, previousSection, nextSection }) {
   );
 }
 
-function RouteDetails({ journey }) {
+function RouteDetails({ journey, onBack, children = null }) {
   if (!journey) {
     return null;
   }
@@ -528,23 +575,33 @@ function RouteDetails({ journey }) {
   return (
     <div className="route-detail" aria-label="Fiche de route">
       <header className="route-detail__header">
-        <JourneySequence sections={journey.sections} />
+        <button className="route-detail__back" type="button" onClick={onBack}>
+          <ArrowLeft size={16} weight="bold" aria-hidden="true" />
+          <span>Retour</span>
+        </button>
+        {/* <JourneySequence sections={journey.sections} /> */}
         <strong>{formatDuration(journey.duration)}</strong>
       </header>
 
-      <CarbonSummary carbonFootprint={journey.carbonFootprint} />
+      {children ? (
+        children
+      ) : (
+        <>
+          <CarbonSummary carbonFootprint={journey.carbonFootprint} />
 
-      <ol className="route-timeline">
-        {timelineSections.map((section, index) => (
-          <RouteTimelineItem
-            key={section.id || `${section.label}-${index}`}
-            section={section}
-            index={index}
-            previousSection={timelineSections[index - 1]}
-            nextSection={timelineSections[index + 1]}
-          />
-        ))}
-      </ol>
+          <ol className="route-timeline">
+            {timelineSections.map((section, index) => (
+              <RouteTimelineItem
+                key={section.id || `${section.label}-${index}`}
+                section={section}
+                index={index}
+                previousSection={timelineSections[index - 1]}
+                nextSection={timelineSections[index + 1]}
+              />
+            ))}
+          </ol>
+        </>
+      )}
     </div>
   );
 }
@@ -569,6 +626,7 @@ function PlaceSearchField({
   onFieldFocus,
   onFieldBlur,
   onQueryChange,
+  preferredPlace,
 }) {
   const [query, setQuery] = useState(selectedPlace?.label || '');
   const [places, setPlaces] = useState([]);
@@ -646,12 +704,6 @@ function PlaceSearchField({
             setPlaces(results);
             setIsOpen(true);
             setSearchMessage(results.length === 0 ? 'Aucun lieu trouvé.' : '');
-            if (results.length > 0) {
-              saveRecentPlace({
-                label: safeQuery,
-                type: 'recent',
-              });
-            }
           }
         })
         .catch((error) => {
@@ -779,7 +831,7 @@ function PlaceSearchField({
     if (isOpen && (places.length > 0 || searchMessage)) {
       onSuggestionsChange({
         fieldId: id,
-        places,
+        places: prependUniquePlace(places, preferredPlace),
         message: searchMessage,
         onSelect: handleSelect,
       });
@@ -794,6 +846,7 @@ function PlaceSearchField({
     isOpen,
     onSuggestionsChange,
     places,
+    preferredPlace,
     query,
     searchMessage,
     showRecentSearches,
@@ -1009,18 +1062,26 @@ function getDominantLabel(profile) {
 
 export default function RoutePlanner({
   currentUser,
+  disruptions = [],
   journeys = [],
   selectedJourney,
-  selectedJourneyId,
   isRouteDetailsVisible,
+  isRouteTrackingActive = false,
+  currentTrackedStepIndex = 0,
+  trackedStepIndex = 0,
   isLoading,
   message,
+  userLocation = null,
+  userLocationPlace,
+  onTrackedStepChange,
+  onBackToResults,
   onJourneySelect,
   onLoginClick,
   onInputsInvalid,
   onPlan,
   onSearchPlaces,
 }) {
+  const plannerRef = useRef(null);
   const fromId = useId();
   const toId = useId();
   const fromInputRef = useRef(null);
@@ -1036,8 +1097,27 @@ export default function RoutePlanner({
     to: '',
   });
   const [activeSuggestions, setActiveSuggestions] = useState(null);
+  const [isDisruptionsOpen, setIsDisruptionsOpen] = useState(false);
+  const [selectedDisruption, setSelectedDisruption] = useState(null);
   const [recentPlaces, setRecentPlaces] = useState([]);
   const hasValidatedRoute = Boolean(fromPlace?.id && toPlace?.id);
+  const isUserLocationAlreadySelected =
+    (userLocationPlace?.id &&
+      (userLocationPlace.id === fromPlace?.id ||
+        userLocationPlace.id === toPlace?.id)) ||
+    areCoordinatesEqual(
+      userLocationPlace?.coordinates,
+      fromPlace?.coordinates
+    ) ||
+    areCoordinatesEqual(userLocationPlace?.coordinates, toPlace?.coordinates);
+  const preferencePreferredPlace = !isUserLocationAlreadySelected
+    ? userLocationPlace
+    : null;
+  const destinationSuggestion =
+    (focusedRouteField === 'to' || !focusedRouteField) &&
+    !isUserLocationAlreadySelected
+      ? userLocationPlace
+      : null;
   const hasVisibleRouteResults =
     hasValidatedRoute && (isLoading || journeys.length > 0);
   const isFocusedRouteFieldEmpty = focusedRouteField
@@ -1045,6 +1125,15 @@ export default function RoutePlanner({
     : true;
   const shouldShowPreferenceContent =
     isFocusedRouteFieldEmpty && !hasVisibleRouteResults;
+  const shouldShowPreferences = !hasValidatedRoute;
+  const sortedDisruptions = useMemo(
+    () => getSortedRouteDisruptions(journeys, disruptions),
+    [disruptions, journeys]
+  );
+  const handleDisruptionsBack = useCallback(() => {
+    setSelectedDisruption(null);
+    setIsDisruptionsOpen(false);
+  }, []);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -1121,6 +1210,14 @@ export default function RoutePlanner({
   }, [refreshRecentPlaces]);
 
   useEffect(() => {
+    if (!isRouteDetailsVisible || !selectedJourney) {
+      return;
+    }
+
+    plannerRef.current?.scrollTo(0, 0);
+  }, [isRouteDetailsVisible, selectedJourney]);
+
+  useEffect(() => {
     if (!fromPlace?.id || !toPlace?.id) {
       latestPlanKeyRef.current = '';
       if (!wasLatestInputStateInvalidRef.current) {
@@ -1177,26 +1274,92 @@ export default function RoutePlanner({
       return;
     }
 
+    if (!fromPlace?.id) {
+      setRoutePlace('from', place);
+      window.setTimeout(() => toInputRef.current?.focus(), 0);
+      return;
+    }
+
     setRoutePlace('to', place);
     window.setTimeout(() => fromInputRef.current?.focus(), 0);
   }
 
+  const destinationActiveSuggestions = useMemo(() => {
+    if (!activeSuggestions || !destinationSuggestion) {
+      return activeSuggestions;
+    }
+
+    return {
+      ...activeSuggestions,
+      places: prependUniquePlace(
+        activeSuggestions.places,
+        destinationSuggestion
+      ),
+    };
+  }, [activeSuggestions, destinationSuggestion]);
+
   if (isRouteDetailsVisible && selectedJourney) {
     return (
-      <aside className="route-planner" aria-label="Fiche de route">
-        <RouteDetails journey={selectedJourney} />
+      <aside
+        ref={plannerRef}
+        className="route-planner"
+        aria-label="Fiche de route"
+      >
+        <RouteDetails journey={selectedJourney} onBack={onBackToResults}>
+          {isRouteTrackingActive ? (
+            <ActiveJourneyTracker
+              journey={selectedJourney}
+              currentTrackedStepIndex={currentTrackedStepIndex}
+              currentStepIndex={trackedStepIndex}
+              userLocation={userLocation}
+              onStepChange={onTrackedStepChange}
+            />
+          ) : null}
+        </RouteDetails>
+      </aside>
+    );
+  }
+
+  if (isDisruptionsOpen) {
+    return (
+      <aside
+        ref={plannerRef}
+        className="route-planner"
+        aria-label="Perturbations"
+      >
+        <RouteDisruptionsPage
+          disruptions={sortedDisruptions}
+          selectedDisruption={selectedDisruption}
+          onBack={handleDisruptionsBack}
+          onSelect={setSelectedDisruption}
+        />
       </aside>
     );
   }
 
   return (
-    <aside className="route-planner" aria-label="Recherche d'itinéraire">
+    <aside
+      ref={plannerRef}
+      className="route-planner"
+      aria-label="Recherche d'itinéraire"
+    >
       <form className="route-planner__form" onSubmit={handleSubmit}>
         <div className="route-planner__header">
           <h1>
-            <MapTrifold size={24} weight="regular" aria-hidden="true" />
+            {/* <MapTrifold size={24} weight="regular" aria-hidden="true" /> */}
             <span>Itinéraires</span>
           </h1>
+          <button
+            className="route-disruptions-button"
+            type="button"
+            aria-label={`Afficher les perturbations (${sortedDisruptions.length})`}
+            aria-expanded={isDisruptionsOpen}
+            title="Afficher les perturbations"
+            onClick={() => setIsDisruptionsOpen(true)}
+          >
+            <Warning size={22} weight="fill" aria-hidden="true" />
+            <span>{sortedDisruptions.length}</span>
+          </button>
         </div>
 
         <div className="route-fields">
@@ -1219,6 +1382,7 @@ export default function RoutePlanner({
             onFieldFocus={() => setFocusedRouteField('from')}
             onFieldBlur={() => clearFocusedRouteField('from')}
             onQueryChange={handleFromQueryChange}
+            preferredPlace={null}
           />
           <button
             className="route-fields__swap"
@@ -1246,21 +1410,27 @@ export default function RoutePlanner({
             onFieldFocus={() => setFocusedRouteField('to')}
             onFieldBlur={() => clearFocusedRouteField('to')}
             onQueryChange={handleToQueryChange}
+            preferredPlace={destinationSuggestion}
           />
         </div>
-        <RoutePreferenceMenu
-          activeSuggestions={activeSuggestions}
-          currentUser={currentUser}
-          isContentVisible={shouldShowPreferenceContent}
-          recentPlaces={recentPlaces}
-          PlaceSearchField={PlaceSearchField}
-          PlaceSuggestions={PlaceSuggestions}
-          onLoginClick={onLoginClick}
-          onPlaceSelect={handlePreferencePlaceSelect}
-          onPreferenceChange={() => setActiveSuggestions(null)}
-          onSearchPlaces={onSearchPlaces}
-          areSuggestionStatesEqual={areSuggestionStatesEqual}
-        />
+        {shouldShowPreferences ? (
+          <RoutePreferenceMenu
+            activeSuggestions={destinationActiveSuggestions}
+            currentUser={currentUser}
+            excludedPlaces={[fromPlace, toPlace]}
+            isContentVisible={shouldShowPreferenceContent}
+            recentPlaces={recentPlaces}
+            onRecentPlacesChange={refreshRecentPlaces}
+            PlaceSearchField={PlaceSearchField}
+            PlaceSuggestions={PlaceSuggestions}
+            preferredPlace={preferencePreferredPlace}
+            onLoginClick={onLoginClick}
+            onPlaceSelect={handlePreferencePlaceSelect}
+            onPreferenceChange={() => setActiveSuggestions(null)}
+            onSearchPlaces={onSearchPlaces}
+            areSuggestionStatesEqual={areSuggestionStatesEqual}
+          />
+        ) : null}
 
         {message ? (
           <div className="route-planner__message" role="status">
@@ -1274,7 +1444,7 @@ export default function RoutePlanner({
           {journeys.map((journey, index) => (
             <button
               className="route-result"
-              data-active={journey.id === selectedJourneyId}
+              data-active={journey === selectedJourney}
               data-profile={journey.profile}
               key={`${journey.id}-${index}`}
               type="button"

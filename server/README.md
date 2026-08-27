@@ -35,6 +35,7 @@ Le serveur lit ses variables depuis `server/.env`. Copier `server/.env.example` 
 | `IDFM_API_KEY`         | Oui pour IDF Mobilités | Aucune                            | Clé API PRIM Ile-de-France Mobilités.                                            |
 | `IDFM_API_BASE_URL`    | Non                    | API Navitia IDFM production       | Base URL de l'API IDF Mobilités.                                                 |
 | `ROUTING_API_BASE_URL` | Non                    | `https://router.project-osrm.org` | Base URL OSRM pour les trajets directs marche/vélo de secours.                   |
+| `VELIB_API_BASE_URL`   | Non                    | Flux GBFS Vélib Métropole         | Base URL des flux `station_information` et `station_status` Vélib.               |
 
 ## Migrations PostgreSQL
 
@@ -67,9 +68,12 @@ Le contrat strict de l'API est décrit dans `server/openapi.yaml` au format Open
 - `DELETE /api/auth/me`
 - `GET /api/favorites`
 - `POST /api/favorites`
+- `GET /api/idfm/disruptions`
 - `GET /api/idfm/nearby-stations`
+- `GET /api/idfm/bike-stations`
 - `GET /api/idfm/places`
 - `GET /api/idfm/journeys`
+- `POST /api/idfm/bike-station-journey`
 
 L'API est exposée sur `http://localhost:3000` par défaut. Les routes d'authentification utilisent un cookie httpOnly nommé `urbanflow_auth`.
 
@@ -84,6 +88,12 @@ Toutes les réponses d'erreur utilisent le format :
 Certaines validations peuvent ajouter un champ `details`.
 
 ## Fonctionnalités clés
+
+### Géolocalisation
+
+Au chargement de la page avec la carte, le client peut demander l'accès à la position de l'appareil.
+
+Si l'utilisateur accepte, la carte se recentre sur sa position. La position est affichée par un point visuel dédié sur la carte. Si l'autorisation arrive après le premier affichage, le recentrage est relancé automatiquement. Si l'accès est refusé ou indisponible, l'application reste utilisable avec le centrage par défaut.
 
 ### Favoris utilisateur
 
@@ -110,6 +120,26 @@ Ce comportement évite qu'une indisponibilité Supabase bloque le calcul d'itin�
 La route `GET /api/idfm/journeys` demande des trajets marche, vélo et transports à IDF Mobilités. Si IDF Mobilités ne renvoie pas de trajet direct marche ou vélo, le serveur peut construire un trajet de secours avec OSRM via `ROUTING_API_BASE_URL`.
 
 OSRM sert uniquement à enrichir les trajets directs marche/vélo avec une géométrie de rue et une distance plus réaliste. Si OSRM est indisponible, le serveur revient à une ligne directe entre les coordonnées fournies.
+
+### Perturbations IDF Mobilités
+
+La route `GET /api/idfm/disruptions` expose les perturbations applicables au moment de la requête pour les métros, RER, lignes rapides/Transilien et tramways. Les bus sont exclus.
+
+Le serveur interroge `traffic_reports` côté IDF Mobilités avec `since` et `until` positionnés sur l'instant courant. Les perturbations sont rattachées aux lignes depuis les liens `traffic_reports.lines[].links` et depuis les `impacted_objects` présents sur chaque disruption, car certaines lignes impactées ne sont exposées que par ce second chemin.
+
+Avant réponse au client, les résultats sont normalisés et regroupés par ligne. Les doublons par message sont fusionnés, les messages HTML sont nettoyés, les perturbations non applicables au jour courant sont filtrées, puis le tri place les interruptions avant les perturbations dans l'ordre métro, RER, ligne rapide/Transilien, tram.
+
+### Vélo partagé via bornes Vélib
+
+Quand l'utilisateur choisit un itinéraire à vélo sans avoir de vélo, le client interroge `GET /api/idfm/bike-stations`. Cette route lit les flux publics GBFS Vélib `station_information.json` et `station_status.json`, fusionne les informations statiques et temps réel, puis renvoie les bornes les plus proches avec au moins un vélo disponible.
+
+Après le choix d'une borne de départ, `POST /api/idfm/bike-station-journey` compose un itinéraire en trois sections normalisées :
+
+1. marche du point de départ vers la borne choisie ;
+2. vélo jusqu'à la borne d'arrivée la plus proche de la destination avec au moins une place libre ;
+3. marche de cette borne jusqu'à la destination.
+
+Ces sections utilisent le même format que les autres feuilles de route. Elles sont donc compatibles avec le rendu de la frise, le suivi de trajet et le calcul carbone. Les géométries de rue viennent d'OSRM quand il répond ; sinon, le segment concerné retombe sur une ligne directe.
 
 ## Documentation technique
 

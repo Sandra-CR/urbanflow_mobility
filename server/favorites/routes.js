@@ -135,6 +135,15 @@ export function createFavoritesRouter({ query = defaultQuery } = {}) {
     }
 
     try {
+      if (category === 'home' || category === 'work') {
+        await query(
+          `delete from user_favorite_places
+            where user_id = $1
+              and category = $2`,
+          [req.auth.sub, category]
+        );
+      }
+
       const result = await query(
         `insert into user_favorite_places (user_id, category, label, place_label, station_id, geom)
               values (

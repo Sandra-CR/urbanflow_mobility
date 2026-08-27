@@ -35,6 +35,49 @@
   min-height: 420px;
 }
 
+.route-planner-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: visible;
+  transition: width 220ms ease;
+}
+
+.route-planner-shell[data-collapsed='true'] .route-planner {
+  overflow: hidden;
+}
+
+.route-planner-shell[data-collapsed='true'] .route-planner > * {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.route-planner-shell__collapse-toggle {
+  position: absolute;
+  top: 5px;
+  right: -35px;
+  z-index: 9;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--color-text-light) 18%, transparent);
+  border-radius: 0 12px 12px 0;
+  background: var(--color-card);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.route-planner-shell__collapse-toggle:hover,
+.route-planner-shell__collapse-toggle:focus-visible {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  outline: none;
+}
+
 .map-route-cta {
   position: absolute;
   right: 16px;
@@ -42,9 +85,147 @@
   z-index: 6;
 }
 
+.map-route-status {
+  max-width: min(320px, calc(100% - 32px));
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-card) 88%, transparent);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+  color: var(--color-text);
+  font-weight: 700;
+  text-align: center;
+  backdrop-filter: blur(10px);
+}
+
+.route-tracking-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.route-tracking-modal__dialog {
+  width: min(440px, 100%);
+  padding: 28px 24px;
+  border-radius: 24px;
+  background: var(--color-card);
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.35);
+  color: var(--color-text);
+  text-align: center;
+}
+
+.route-tracking-modal__dialog p {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.route-tracking-modal__button {
+  display: inline-flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.bike-station-modal {
+  display: grid;
+  gap: 18px;
+  text-align: left;
+}
+
+.bike-station-modal-overlay[data-mode='stations'] {
+  place-items: start end;
+  pointer-events: none;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.bike-station-modal-overlay[data-mode='stations'] .bike-station-modal {
+  width: min(360px, calc(100vw - 32px));
+  margin-top: 86px;
+  margin-right: 16px;
+  padding: 18px;
+  pointer-events: auto;
+}
+
+.bike-station-modal p {
+  text-align: center;
+}
+
+.bike-station-modal__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.bike-station-modal__actions .btn-primary,
+.bike-station-modal__actions .btn-outline-primary {
+  justify-content: center;
+  width: 100%;
+}
+
+.bike-station-modal__actions .btn-primary:disabled,
+.bike-station-modal__actions .btn-outline-primary:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.bike-station-modal__stations {
+  display: grid;
+  gap: 10px;
+}
+
+.bike-station-modal__stations button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  border-radius: var(--radius-ui);
+  background: var(--color-card);
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.bike-station-modal__stations button:hover,
+.bike-station-modal__stations button:focus-visible {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.bike-station-modal__stations button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.bike-station-modal__stations strong,
+.bike-station-modal__stations span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bike-station-modal__stations span,
+.bike-station-modal__message {
+  color: var(--color-text-light);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.bike-station-modal__message {
+  display: block;
+  text-align: center;
+}
+
 .map-workspace {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: var(--route-planner-width, 360px) minmax(0, 1fr);
   width: 100vw;
   height: 100svh;
   min-height: 540px;
@@ -62,9 +243,18 @@
     grid-row: 2;
   }
 
+  .route-planner-shell {
+    grid-row: 2;
+    align-self: end;
+  }
+
   .map-shell {
     grid-row: 1;
     min-height: 0;
+  }
+
+  .route-planner-shell__collapse-toggle {
+    display: none;
   }
 }
 

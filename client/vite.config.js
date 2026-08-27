@@ -17,7 +17,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern:
-              /^https:\/\/basemaps\.cartocdn\.com\/.*\.(?:png|jpg|webp)$/,
+              /^https:\/\/basemaps\.cartocdn\.com\/.*\.(?:png|jpg|webp)(?:\?.*)?$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'carto-map-tiles',

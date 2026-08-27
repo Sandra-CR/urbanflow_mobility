@@ -15,7 +15,7 @@ function listen(app) {
   });
 }
 
-test('la route journeys garde les itineraires si un facteur carbone manque', async () => {
+test('la route journeys garde les itinéraires si un facteur carbone manque', async () => {
   const app = express();
   const journey = {
     id: 'journey-1',
@@ -143,6 +143,255 @@ test('la route journeys reste disponible si le calcul carbone échoue', async ()
       body.carbonFootprintMessage,
       'Le calcul carbone est temporairement indisponible.'
     );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('la route journeys expose les messages de service des itineraires', async () => {
+  const app = express();
+  const journey = {
+    id: 'journey-1',
+    duration: 600,
+    profile: 'walking',
+    sections: [{ mode: 'walking', distanceKm: 2 }],
+  };
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchJourneys: async () => ({
+        journeys: [journey],
+        serviceMessages: [
+          'Les itinéraires multimodaux sont temporairement indisponibles.',
+        ],
+      }),
+      calculateCarbonFootprint: async () => ({
+        total_co2e: 0,
+        unit: 'g',
+        segments: [],
+      }),
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/idfm/journeys?from=from-id&to=to-id`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(
+      body.carbonFootprintMessage,
+      'Les itinéraires multimodaux sont temporairement indisponibles.'
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('la route disruptions renvoie les perturbations normalisees', async () => {
+  const app = express();
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchDisruptions: async ({ count }) => ({
+        disruptions: [
+          {
+            id: 'metro-stop',
+            type: 'interruption',
+            title: 'Trafic interrompu',
+            line: {
+              id: 'line:metro:1',
+              code: '1',
+              label: 'Metro 1',
+              commercialMode: 'Metro',
+            },
+          },
+        ],
+        pagination: { items_per_page: Number(count) },
+      }),
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/idfm/disruptions?count=25`);
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.disruptions[0].id, 'metro-stop');
+    assert.equal(body.disruptions[0].type, 'interruption');
+    assert.equal(body.pagination.items_per_page, 25);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('la route bike-stations renvoie les bornes velo proches', async () => {
+  const app = express();
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchBikeStations: async ({ lon, lat, availability }) => ({
+        stations: [
+          {
+            id: 'velib:1',
+            stationId: '1',
+            name: 'Borne test',
+            label: 'Borne test',
+            type: 'bike',
+            distance: 120,
+            coordinates: [Number(lon), Number(lat)],
+            city: null,
+            lines: [],
+            capacity: 30,
+            availableBikes: availability === 'bikes' ? 3 : 0,
+            availableDocks: availability === 'docks' ? 4 : 1,
+            mechanicalBikes: 2,
+            electricBikes: 1,
+          },
+        ],
+        pagination: null,
+      }),
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/idfm/bike-stations?lon=2.3522&lat=48.8566&availability=bikes`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.stations[0].stationId, '1');
+    assert.equal(body.stations[0].availableBikes, 3);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('la route bike-stations expose les erreurs du service velo', async () => {
+  const app = express();
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchBikeStations: async () => {
+        const error = new Error('Service de données vélo inaccessible.');
+        error.status = 502;
+        throw error;
+      },
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/idfm/bike-stations?lon=2.3522&lat=48.8566`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 502);
+    assert.equal(body.error, 'Service de données vélo inaccessible.');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('la route bike-station-journey renvoie un trajet compose avec carbone', async () => {
+  const app = express();
+  const journey = {
+    id: 'bike-stations-1-2',
+    duration: 900,
+    profile: 'bike',
+    sections: [
+      { mode: 'walking', distanceKm: 0.2 },
+      { mode: 'bike', distanceKm: 3 },
+      { mode: 'walking', distanceKm: 0.1 },
+    ],
+  };
+
+  app.use(express.json());
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchBikeStationJourney: async () => ({ journey }),
+      calculateCarbonFootprint: async ({ legs }) => ({
+        total_co2e: legs[0]?.mode === 'voiture_solo' ? 719.4 : 0,
+        unit: 'g',
+        segments: [],
+      }),
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/idfm/bike-station-journey`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        fromCoordinates: [2.3522, 48.8566],
+        toCoordinates: [2.295, 48.8738],
+        startStation: {
+          stationId: '1',
+          coordinates: [2.353, 48.857],
+        },
+      }),
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.journey.id, 'bike-stations-1-2');
+    assert.equal(body.journey.carbonFootprint.car_solo_co2e, 719.4);
+    assert.equal(body.carbonFootprintMessage, null);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('la route place-from-coordinates renvoie un lieu resolu', async () => {
+  const app = express();
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchPlaceFromCoordinates: async () => ({
+        place: {
+          id: '2.3522;48.8566',
+          label: '5 Avenue Anatole France',
+          name: '5 Avenue Anatole France',
+          type: 'address',
+          coordinates: [2.3522, 48.8566],
+          city: 'Paris',
+          lines: [],
+        },
+      }),
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/idfm/place-from-coordinates?lon=2.3522&lat=48.8566`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.place.label, '5 Avenue Anatole France');
+    assert.deepEqual(body.place.coordinates, [2.3522, 48.8566]);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

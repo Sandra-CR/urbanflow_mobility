@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { createAuthRouter } from '../auth/routes.js';
-import { getAuthCookieOptions } from '../auth/jwt.js';
+import { getAuthCookieOptions, signAuthToken } from '../auth/jwt.js';
 import { validateStrongPassword } from '../auth/passwordPolicy.js';
 
 process.env.JWT_SECRET = 'test-secret-with-enough-length-for-auth-tests';
@@ -116,6 +116,79 @@ test('inscrit un utilisateur et pose un cookie httpOnly', async () => {
     assert.match(cookie, /SameSite=Strict/);
     assert.strictEqual(queries[1].params[0], 'user@example.com');
     assert.notStrictEqual(queries[1].params[1], 'UrbanFlow!2026');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('renvoie un utilisateur null sans session courante', async () => {
+  const app = createTestApp(async () => {
+    throw new Error('Unexpected query without auth cookie');
+  });
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/me`);
+    const body = await response.json();
+
+    assert.strictEqual(response.status, 200);
+    assert.deepStrictEqual(body, { user: null });
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('renvoie un utilisateur null avec une session invalide', async () => {
+  const app = createTestApp(async () => {
+    throw new Error('Unexpected query with invalid auth cookie');
+  });
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/me`, {
+      headers: {
+        cookie: 'urbanflow_auth=invalid-token',
+      },
+    });
+    const body = await response.json();
+    const cookie = response.headers.get('set-cookie');
+
+    assert.strictEqual(response.status, 200);
+    assert.deepStrictEqual(body, { user: null });
+    assert.match(cookie, /urbanflow_auth=/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('renvoie l utilisateur courant avec une session valide', async () => {
+  const user = {
+    id: '1',
+    email: 'user@example.com',
+    created_at: new Date('2026-01-01T00:00:00.000Z'),
+  };
+  const app = createTestApp(async (text, params) => {
+    assert.ok(text.includes('from users'));
+    assert.deepStrictEqual(params, [user.id]);
+
+    return {
+      rowCount: 1,
+      rows: [user],
+    };
+  });
+  const { server, baseUrl } = await listen(app);
+  const token = signAuthToken(user);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/me`, {
+      headers: {
+        cookie: `urbanflow_auth=${token}`,
+      },
+    });
+    const body = await response.json();
+
+    assert.strictEqual(response.status, 200);
+    assert.strictEqual(body.user.email, user.email);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

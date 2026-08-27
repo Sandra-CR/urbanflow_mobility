@@ -24,9 +24,10 @@ npm.cmd run build
 
 Le client lit ses variables depuis `client/.env`. Copier `client/.env.example` vers `client/.env` si l'API ne tourne pas sur `http://localhost:3000`.
 
-| Variable       | Obligatoire | Valeur par défaut       | Description                           |
-| -------------- | ----------- | ----------------------- | ------------------------------------- |
-| `VITE_API_URL` | Non         | `http://localhost:3000` | URL de l'API appelée par le frontend. |
+| Variable             | Obligatoire | Valeur par défaut       | Description                                      |
+| -------------------- | ----------- | ----------------------- | ------------------------------------------------ |
+| `VITE_API_URL`       | Non         | `http://localhost:3000` | URL de l'API appelée par le frontend.            |
+| `VITE_CARTO_API_KEY` | Oui         | -                       | Cle API CARTO utilisée pour les tuiles de carte. |
 
 ## Organisation des composants
 
@@ -118,7 +119,7 @@ Le client utilise `vite-plugin-pwa` pour générer le service worker et le manif
 
 Les tuiles Carto sont mises en cache avec une stratégie `CacheFirst` dans le cache `carto-map-tiles`. Le cache runtime garde jusqu'à `600` entrées pendant `30` jours.
 
-Le bouton de téléchargement des tuiles utilise la Cache API via `src/utils/offlineMapTiles.js`. Il précharge les tuiles clair/sombre autour de Paris, du zoom `11` au zoom `15`, et affiche une progression dans l'interface.
+Le préchargement automatique des tuiles utilise la Cache API via `src/utils/offlineMapTiles.js`. Il précharge silencieusement les tuiles clair/sombre autour de Paris, du zoom `11` au zoom `15`.
 
 Les recherches récentes du route planner sont stockées dans IndexedDB via `src/utils/recentPlacesDb.js`. La base s'appelle `urbanflow_mobility`, le store `recent_place_searches`, et seules les `10` dernières recherches sont affichées. Si IndexedDB est indisponible, le route planner reste utilisable sans historique.
 

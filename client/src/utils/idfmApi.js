@@ -43,6 +43,50 @@ export function getNearbyStations({ lon, lat, distance = 900, count = 30 }) {
   return requestIdfm(`/api/idfm/nearby-stations?${params.toString()}`);
 }
 
+export function getBikeStations({
+  lon,
+  lat,
+  distance = 1500,
+  count = 5,
+  availability = 'bikes',
+}) {
+  const params = new URLSearchParams({
+    lon: String(lon),
+    lat: String(lat),
+    distance: String(distance),
+    count: String(count),
+    availability,
+  });
+
+  return requestIdfm(`/api/idfm/bike-stations?${params.toString()}`);
+}
+
+export function getDisruptions({ count = 100 } = {}) {
+  const params = new URLSearchParams({
+    count: String(count),
+  });
+
+  return requestIdfm(`/api/idfm/disruptions?${params.toString()}`);
+}
+
+export function getBikeStationJourney({
+  fromCoordinates,
+  toCoordinates,
+  startStation,
+}) {
+  return requestIdfm('/api/idfm/bike-station-journey', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      fromCoordinates,
+      toCoordinates,
+      startStation,
+    }),
+  });
+}
+
 export function searchPlaces({ query, count = 8 }) {
   const params = new URLSearchParams({
     q: query,
@@ -50,6 +94,15 @@ export function searchPlaces({ query, count = 8 }) {
   });
 
   return requestIdfm(`/api/idfm/places?${params.toString()}`);
+}
+
+export function getPlaceFromCoordinates({ lon, lat }) {
+  const params = new URLSearchParams({
+    lon: String(lon),
+    lat: String(lat),
+  });
+
+  return requestIdfm(`/api/idfm/place-from-coordinates?${params.toString()}`);
 }
 
 export function getJourneys({ from, to, fromCoordinates, toCoordinates }) {

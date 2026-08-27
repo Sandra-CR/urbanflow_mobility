@@ -5,6 +5,7 @@ import {
   getFavoritePlaces,
   saveFavoritePlace,
 } from '../../utils/favoritesApi';
+import { deleteRecentPlaceSearch } from '../../utils/recentPlacesDb';
 import FavoritePlaceAddForm from './FavoritePlaceAddForm';
 import {
   FavoritePlacesPanel,
@@ -13,12 +14,13 @@ import {
 import {
   getRecentSuggestions,
   isResolvedRecentPlace,
+  isSamePlace,
 } from './placeSearchUtils';
 
 const routePreferenceButtons = [
   {
     id: 'clock',
-    label: 'Récents',
+    label: 'Recents',
     Icon: Clock,
   },
   {
@@ -42,23 +44,33 @@ const favoritePreferenceConfig = {
   star: {
     category: 'favorite',
     titleLabel: 'Favoris',
-    emptyLabel: 'Aucun favori enregistré.',
+    emptyLabel: 'Aucun favori enregistre.',
     loginLabel: 'vos favoris',
     Icon: Star,
+    usesCustomName: true,
+    submitLabel: 'Ajouter',
   },
   house: {
     category: 'home',
     titleLabel: 'Domicile',
-    emptyLabel: 'Aucun domicile enregistré.',
+    emptyLabel: 'Aucun domicile enregistre.',
     loginLabel: 'votre domicile',
     Icon: House,
+    defaultLabel: 'Domicile',
+    isSinglePlaceCategory: true,
+    usesCustomName: false,
+    submitLabel: 'Enregistrer',
   },
   bag: {
     category: 'work',
     titleLabel: 'Travail',
-    emptyLabel: 'Aucun lieu de travail enregistré.',
+    emptyLabel: 'Aucun lieu de travail enregistre.',
     loginLabel: 'votre lieu de travail',
     Icon: BagSimple,
+    defaultLabel: 'Travail',
+    isSinglePlaceCategory: true,
+    usesCustomName: false,
+    submitLabel: 'Enregistrer',
   },
 };
 
@@ -68,17 +80,6 @@ const emptyFavoritePlacesState = {
   message: '',
 };
 
-/**
- * Convertit un favori affichable en lieu réellement sélectionnable.
- *
- * La liste affiche `label` comme nom personnalisé ("Maison", "Bureau"), mais le
- * champ d'itinéraire doit recevoir `placeLabel`, c'est-à-dire le vrai arrêt ou
- * la vraie adresse. Pour les arrêts, `stationId` préserve l'identifiant IDFM
- * nécessaire au calcul transports.
- *
- * @param {object} place Favori renvoyé par l'API.
- * @returns {object} Lieu prêt à remplir un champ départ/arrivée.
- */
 function createSelectableFavoritePlace(place) {
   const placeLabel = place.placeLabel || place.name || place.label;
 
@@ -90,15 +91,6 @@ function createSelectableFavoritePlace(place) {
   };
 }
 
-/**
- * Déduit l'état du panneau actif.
- *
- * @param {object} params Paramètres du panneau.
- * @param {string | null} params.category Catégorie active.
- * @param {object | null} params.currentUser Utilisateur connecté.
- * @param {object} params.favoritePlacesState Dernier chargement.
- * @returns {{places: Array<object>, message: string, isLoading: boolean}}
- */
 function getFavoritePanelState({ category, currentUser, favoritePlacesState }) {
   if (!category || !currentUser) {
     return {
@@ -117,33 +109,16 @@ function getFavoritePanelState({ category, currentUser, favoritePlacesState }) {
   };
 }
 
-/**
- * Orchestre le menu de préférences du planificateur.
- *
- * Les quatre boutons restent visibles. Sous le séparateur, on affiche soit les
- * suggestions de recherche, soit les préférences.
- *
- * @param {object} props Propriétés du composant.
- * @param {object | null} props.activeSuggestions Suggestions de recherche.
- * @param {object | null} props.currentUser Utilisateur connecté.
- * @param {boolean} props.isContentVisible Affiche les panneaux de préférence.
- * @param {Array<object>} props.recentPlaces Recherches récentes.
- * @param {Function} props.PlaceSearchField Champ de recherche partagé.
- * @param {Function} props.PlaceSuggestions Liste de suggestions partagée.
- * @param {Function} props.onLoginClick Ouverture de la connexion.
- * @param {Function} props.onPlaceSelect Sélection d'un lieu.
- * @param {Function} props.onPreferenceChange Fonction appelée au changement d'onglet.
- * @param {Function} props.onSearchPlaces Recherche de lieux.
- * @param {Function} props.areSuggestionStatesEqual Comparateur de suggestions.
- * @returns {JSX.Element} Menu de préférences.
- */
 export default function RoutePreferenceMenu({
   activeSuggestions,
   currentUser,
+  excludedPlaces = [],
   isContentVisible,
   recentPlaces,
+  onRecentPlacesChange,
   PlaceSearchField,
   PlaceSuggestions,
+  preferredPlace,
   onLoginClick,
   onPlaceSelect,
   onPreferenceChange,
@@ -169,10 +144,26 @@ export default function RoutePreferenceMenu({
 
   const activeFavoriteConfig = favoritePreferenceConfig[activePreference];
   const activeFavoriteCategory = activeFavoriteConfig?.category || null;
-  const recentPreferencePlaces = useMemo(
-    () => getRecentSuggestions(recentPlaces, null),
-    [recentPlaces]
+  const filteredExcludedPlaces = useMemo(
+    () => excludedPlaces.filter(Boolean),
+    [excludedPlaces]
   );
+  const recentPreferencePlaces = useMemo(() => {
+    const suggestions = filteredExcludedPlaces.reduce(
+      (currentSuggestions, excludedPlace) =>
+        currentSuggestions.filter((place) => !isSamePlace(place, excludedPlace)),
+      getRecentSuggestions(recentPlaces, null)
+    );
+
+    if (!preferredPlace) {
+      return suggestions;
+    }
+
+    return [
+      preferredPlace,
+      ...suggestions.filter((place) => !isSamePlace(place, preferredPlace)),
+    ];
+  }, [filteredExcludedPlaces, preferredPlace, recentPlaces]);
   const {
     places: favoritePlaces,
     message: favoriteMessage,
@@ -182,6 +173,16 @@ export default function RoutePreferenceMenu({
     currentUser,
     favoritePlacesState,
   });
+  const visibleFavoritePlaces = useMemo(
+    () =>
+      favoritePlaces.filter(
+        (place) =>
+          !filteredExcludedPlaces.some((excludedPlace) =>
+            isSamePlace(createSelectableFavoritePlace(place), excludedPlace)
+          )
+      ),
+    [favoritePlaces, filteredExcludedPlaces]
+  );
 
   const resetFavoriteDraft = useCallback(() => {
     setIsAddingFavorite(false);
@@ -193,10 +194,30 @@ export default function RoutePreferenceMenu({
     setFavoriteDraftSyncKey((syncKey) => syncKey + 1);
   }, []);
 
+  const openFavoriteEditor = useCallback(
+    (place = null) => {
+      resetFavoriteDraft();
+      setFavoriteDraftName(
+        activeFavoriteConfig?.usesCustomName === false
+          ? activeFavoriteConfig.defaultLabel || ''
+          : place?.label || ''
+      );
+      setFavoriteDraftPlace(place ? createSelectableFavoritePlace(place) : null);
+      setIsAddingFavorite(true);
+    },
+    [activeFavoriteConfig, resetFavoriteDraft]
+  );
+
   const handleFavoriteAddClick = useCallback(() => {
-    resetFavoriteDraft();
-    setIsAddingFavorite(true);
-  }, [resetFavoriteDraft]);
+    openFavoriteEditor();
+  }, [openFavoriteEditor]);
+
+  const handleFavoriteEditClick = useCallback(
+    (place) => {
+      openFavoriteEditor(place);
+    },
+    [openFavoriteEditor]
+  );
 
   const handleFavoriteDraftSuggestionsChange = useCallback(
     (nextSuggestions) => {
@@ -261,7 +282,17 @@ export default function RoutePreferenceMenu({
         onPlaceSelect(resolvedPlace);
       }
     } catch {
-      // Un récent non résolu ne bloque pas l'interface.
+      // Un recent non resolu ne bloque pas l'interface.
+    }
+  }
+
+  async function handleRecentPlaceDelete(place) {
+    try {
+      await deleteRecentPlaceSearch(place);
+      onRecentPlacesChange?.();
+      onPreferenceChange?.();
+    } catch {
+      // La suppression d'un recent reste silencieuse pour ne pas bloquer l'UI.
     }
   }
 
@@ -272,7 +303,8 @@ export default function RoutePreferenceMenu({
   async function handleFavoriteAddSubmit() {
     if (
       !activeFavoriteConfig ||
-      !favoriteDraftName.trim() ||
+      (activeFavoriteConfig.usesCustomName !== false &&
+        !favoriteDraftName.trim()) ||
       !favoriteDraftPlace
     ) {
       return;
@@ -286,7 +318,10 @@ export default function RoutePreferenceMenu({
         category: activeFavoriteConfig.category,
         place: {
           ...favoriteDraftPlace,
-          label: favoriteDraftName.trim(),
+          label:
+            activeFavoriteConfig.usesCustomName === false
+              ? activeFavoriteConfig.defaultLabel
+              : favoriteDraftName.trim(),
           placeLabel: favoriteDraftPlace.label || favoriteDraftPlace.name,
         },
       });
@@ -294,8 +329,9 @@ export default function RoutePreferenceMenu({
 
       setFavoritePlacesState((currentState) => ({
         category: activeFavoriteConfig.category,
-        places:
-          currentState.category === activeFavoriteConfig.category
+        places: activeFavoriteConfig.isSinglePlaceCategory
+          ? [nextPlace]
+          : currentState.category === activeFavoriteConfig.category
             ? [
                 nextPlace,
                 ...currentState.places.filter(
@@ -379,6 +415,7 @@ export default function RoutePreferenceMenu({
           {activePreference === 'clock' ? (
             <RecentPlacesPanel
               places={recentPreferencePlaces}
+              onDeletePlace={handleRecentPlaceDelete}
               onPlaceSelect={handleRecentPlaceSelect}
             />
           ) : activeFavoriteConfig && isAddingFavorite ? (
@@ -404,10 +441,11 @@ export default function RoutePreferenceMenu({
             <FavoritePlacesPanel
               config={activeFavoriteConfig}
               currentUser={currentUser}
-              favoritePlaces={favoritePlaces}
+              favoritePlaces={visibleFavoritePlaces}
               favoriteMessage={favoriteMessage}
               isLoadingFavorites={isLoadingFavorites}
               onAddClick={handleFavoriteAddClick}
+              onEditPlace={handleFavoriteEditClick}
               onDeletePlace={handleFavoriteDelete}
               onLoginClick={onLoginClick}
               onPlaceSelect={handleFavoritePlaceSelect}
