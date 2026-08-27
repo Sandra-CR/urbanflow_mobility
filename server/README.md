@@ -68,6 +68,7 @@ Le contrat strict de l'API est décrit dans `server/openapi.yaml` au format Open
 - `DELETE /api/auth/me`
 - `GET /api/favorites`
 - `POST /api/favorites`
+- `GET /api/idfm/disruptions`
 - `GET /api/idfm/nearby-stations`
 - `GET /api/idfm/bike-stations`
 - `GET /api/idfm/places`
@@ -119,6 +120,14 @@ Ce comportement évite qu'une indisponibilité Supabase bloque le calcul d'itin�
 La route `GET /api/idfm/journeys` demande des trajets marche, vélo et transports à IDF Mobilités. Si IDF Mobilités ne renvoie pas de trajet direct marche ou vélo, le serveur peut construire un trajet de secours avec OSRM via `ROUTING_API_BASE_URL`.
 
 OSRM sert uniquement à enrichir les trajets directs marche/vélo avec une géométrie de rue et une distance plus réaliste. Si OSRM est indisponible, le serveur revient à une ligne directe entre les coordonnées fournies.
+
+### Perturbations IDF Mobilités
+
+La route `GET /api/idfm/disruptions` expose les perturbations applicables au moment de la requête pour les métros, RER, lignes rapides/Transilien et tramways. Les bus sont exclus.
+
+Le serveur interroge `traffic_reports` côté IDF Mobilités avec `since` et `until` positionnés sur l'instant courant. Les perturbations sont rattachées aux lignes depuis les liens `traffic_reports.lines[].links` et depuis les `impacted_objects` présents sur chaque disruption, car certaines lignes impactées ne sont exposées que par ce second chemin.
+
+Avant réponse au client, les résultats sont normalisés et regroupés par ligne. Les doublons par message sont fusionnés, les messages HTML sont nettoyés, les perturbations non applicables au jour courant sont filtrées, puis le tri place les interruptions avant les perturbations dans l'ordre métro, RER, ligne rapide/Transilien, tram.
 
 ### Vélo partagé via bornes Vélib
 

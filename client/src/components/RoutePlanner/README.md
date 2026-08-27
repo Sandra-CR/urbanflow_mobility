@@ -15,6 +15,13 @@ panneaux.
   texte secondaire et suppression éventuelle.
 - `FavoritePlaceAddForm.jsx` rend le formulaire d'ajout d'un favori/domicile/
   travail en réutilisant le champ de recherche de lieux.
+- `RouteDisruptionsPage.jsx` rend la page dédiée aux perturbations, avec la
+  séparation interruptions/perturbations, les cards par ligne et le détail.
+- `RouteDisruptionsPage.css` contient les styles de la page perturbations.
+- `routeDisruptionsUtils.js` regroupe la normalisation, le regroupement par
+  ligne, le tri d'affichage et les libellés de perturbations.
+- `TransportLineBadge.jsx` centralise le rendu couleur/lettre/numéro des lignes
+  de transport utilisé par les suggestions, les trajets et les perturbations.
 - `placeSearchUtils.js` contient les helpers partagés pour les recherches
   récentes.
 
@@ -27,6 +34,12 @@ panneaux.
   préférence disparaissent.
 - Quand un itinéraire validé est affiché, les items de préférence ne se
   réaffichent pas automatiquement.
+- Le bouton perturbations ouvre une page interne qui remplace le contenu
+  itinéraire. Un retour depuis le détail revient à la liste des perturbations ;
+  un retour depuis la liste revient au planificateur.
+- Les perturbations sont affichées en deux groupes, interruptions puis
+  perturbations. Chaque ligne est représentée par une card avec badge de ligne,
+  titre de mode et messages distincts séparés visuellement.
 - Dans les favoris persistés, `label` est le nom personnalisé et `placeLabel`
   est le vrai arrêt ou la vraie adresse à injecter dans le champ.
 - Un clic sur une proposition vélo demande si l'utilisateur possède un vélo.

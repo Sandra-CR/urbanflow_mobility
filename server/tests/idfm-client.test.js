@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import {
   fetchBikeStationJourney,
   fetchBikeStations,
+  fetchDisruptions,
   fetchJourneys,
 } from '../idfm/client.js';
 
@@ -279,6 +280,272 @@ test('fetchJourneys transforme une marche au meme lieu en changement de quai', a
     assert.equal(section.mode, 'platform_change');
     assert.equal(section.label, 'Changement de quai');
     assert.equal(section.duration, 120);
+  } finally {
+    if (previousApiKey) {
+      process.env.IDFM_API_KEY = previousApiKey;
+    } else {
+      delete process.env.IDFM_API_KEY;
+    }
+  }
+});
+
+test('fetchDisruptions trie les interruptions puis perturbations hors bus', async () => {
+  const previousApiKey = process.env.IDFM_API_KEY;
+  process.env.IDFM_API_KEY = 'test-api-key';
+  const requestedUrls = [];
+  const now = new Date('2026-08-27T10:00:00');
+
+  const fetchImpl = async (url) => {
+    requestedUrls.push(new URL(url));
+
+    return {
+      ok: true,
+      json: async () => ({
+        disruptions: [
+          {
+            id: 'tram-delay',
+            status: 'active',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Retards' },
+            messages: [{ text: '<b>Retards</b> sur **Biblioth&#232;que**' }],
+            application_periods: [
+              { begin: '20260827T080000', end: '20260827T120000' },
+            ],
+          },
+          {
+            id: 'rer-stop',
+            status: 'active',
+            severity: { effect: 'NO_SERVICE', name: 'Trafic interrompu' },
+            messages: [{ text: 'Trafic interrompu sur le RER C' }],
+            application_periods: [
+              { begin: '20260827T060000', end: '20260827T110000' },
+            ],
+          },
+          {
+            id: 'rer-delay',
+            status: 'active',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Retards' },
+            messages: [{ text: 'Retards sur le RER C' }],
+            application_periods: [
+              { begin: '20260827T060000', end: '20260827T110000' },
+            ],
+          },
+          {
+            id: 'metro-stop',
+            status: 'active',
+            severity: { effect: 'NO_SERVICE', name: 'Trafic interrompu' },
+            messages: [{ text: 'Trafic interrompu sur le metro 1' }],
+            application_periods: [
+              { begin: '20260827T090000', end: '20260827T103000' },
+            ],
+          },
+          {
+            id: 'rapid-weekend',
+            status: 'futur',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Retards' },
+            messages: [{ text: 'Travaux ce weekend sur la ligne N' }],
+            application_periods: [
+              { begin: '20260829T000000', end: '20260830T235959' },
+            ],
+          },
+          {
+            id: 'rer-weekend-text',
+            status: 'active',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Retards' },
+            messages: [
+              {
+                text: 'RER C : entre Champ de Mars et Pontoise les 05-06/09 et 19-20/09',
+              },
+            ],
+            application_periods: [
+              { begin: '20260827T060000', end: '20260827T110000' },
+            ],
+          },
+          {
+            id: 'metro-weekend-html',
+            status: 'active',
+            severity: { effect: 'NO_SERVICE', name: 'Trafic interrompu' },
+            messages: [
+              {
+                text: '<p>P&#233;riode : les week-ends, toute la journ&#233;e.<br><br>Dates : du samedi 29 au dimanche 30 ao&#251;t.<br><br>Le trafic est interrompu entre Gare du Nord et Denfert-Rochereau</p>',
+              },
+            ],
+            application_periods: [
+              { begin: '20260827T060000', end: '20260827T110000' },
+            ],
+          },
+          {
+            id: 'rer-long-range',
+            status: 'active',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Retards' },
+            messages: [
+              {
+                text: 'RER B : Châtelet <-> Aéroport CDG2 - Mitry - Claye 01/06-31/12',
+              },
+            ],
+            application_periods: [
+              { begin: '20260827T060000', end: '20260827T110000' },
+            ],
+          },
+          {
+            id: 'rer-c-summer',
+            status: 'active',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Retards' },
+            messages: [
+              {
+                text: 'RER C : toute la journee du 6 juillet au 30 aout, Orly Ville non desservie',
+              },
+            ],
+            application_periods: [
+              { begin: '20260827T060000', end: '20260827T110000' },
+            ],
+            impacted_objects: [
+              {
+                pt_object: {
+                  embedded_type: 'line',
+                  line: {
+                    id: 'line:rer:C',
+                    code: 'C',
+                    name: 'RER C',
+                    commercial_mode: 'RER',
+                  },
+                },
+              },
+            ],
+          },
+          {
+            id: 'rer-d-open-start',
+            status: 'active',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Trafic reduit' },
+            messages: [
+              {
+                text: 'RER D : a partir du 24 aout, le trafic est reduit',
+              },
+            ],
+            application_periods: [
+              { begin: '20260827T060000', end: '20260827T110000' },
+            ],
+            impacted_objects: [
+              {
+                pt_object: {
+                  embedded_type: 'line',
+                  line: {
+                    id: 'line:rer:D',
+                    code: 'D',
+                    name: 'RER D',
+                    commercial_mode: 'RER',
+                  },
+                },
+              },
+            ],
+          },
+          {
+            id: 'tram-vague',
+            status: 'active',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Retards' },
+            messages: [{ text: 'Arrêt(s) non desservi(s)' }],
+            application_periods: [
+              { begin: '20260827T060000', end: '20260827T110000' },
+            ],
+          },
+          {
+            id: 'bus-delay',
+            status: 'active',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Retards' },
+            messages: [{ text: 'Retards sur le bus 42' }],
+          },
+        ],
+        traffic_reports: [
+          {
+            lines: [
+              {
+                id: 'line:tram:T3A',
+                code: 'T3a',
+                name: 'T3a',
+                commercial_mode: 'Tram',
+                links: [{ type: 'disruption', id: 'tram-delay' }],
+              },
+              {
+                id: 'line:rer:C',
+                code: 'C',
+                name: 'RER C',
+                commercial_mode: 'RER',
+                links: [
+                  { type: 'disruption', id: 'rer-stop' },
+                  { type: 'disruption', id: 'rer-delay' },
+                  { type: 'disruption', id: 'rer-weekend-text' },
+                ],
+              },
+              {
+                id: 'line:metro:1',
+                code: '1',
+                name: 'Metro 1',
+                commercial_mode: 'Metro',
+                links: [
+                  { type: 'disruption', id: 'metro-stop' },
+                  { type: 'disruption', id: 'metro-weekend-html' },
+                ],
+              },
+              {
+                id: 'line:rer:B',
+                code: 'B',
+                name: 'RER B',
+                commercial_mode: 'RER',
+                links: [{ type: 'disruption', id: 'rer-long-range' }],
+              },
+              {
+                id: 'line:rapid:N',
+                code: 'N',
+                name: 'Ligne N',
+                commercial_mode: 'Train',
+                links: [{ type: 'disruption', id: 'rapid-weekend' }],
+              },
+              {
+                id: 'line:tram:T2',
+                code: 'T2',
+                name: 'T2',
+                commercial_mode: 'Tram',
+                links: [{ type: 'disruption', id: 'tram-vague' }],
+              },
+              {
+                id: 'line:bus:42',
+                code: '42',
+                name: 'Bus 42',
+                commercial_mode: 'Bus',
+                links: [{ type: 'disruption', id: 'bus-delay' }],
+              },
+            ],
+          },
+        ],
+        pagination: { total_result: 12 },
+      }),
+    };
+  };
+
+  try {
+    const result = await fetchDisruptions({ count: 12 }, { fetchImpl, now });
+
+    assert.equal(requestedUrls[0].pathname.endsWith('/traffic_reports'), true);
+    assert.equal(requestedUrls[0].searchParams.get('count'), '12');
+    assert.equal(requestedUrls[0].searchParams.get('since'), '20260827T100000');
+    assert.equal(requestedUrls[0].searchParams.get('until'), '20260827T100000');
+    assert.deepEqual(
+      result.disruptions.map((disruption) => disruption.id),
+      ['line:metro:1', 'line:rer:C', 'line:rer:B', 'line:rer:D', 'line:tram:T3A']
+    );
+    assert.deepEqual(
+      result.disruptions.map((disruption) => disruption.type),
+      [
+        'interruption',
+        'interruption',
+        'perturbation',
+        'perturbation',
+        'perturbation',
+      ]
+    );
+    assert.equal(result.disruptions[0].line.code, '1');
+    assert.equal(result.disruptions[1].count, 3);
+    assert.equal(result.disruptions[4].message, 'Retards sur Bibliothèque');
+    assert.equal(result.pagination.total_result, 12);
   } finally {
     if (previousApiKey) {
       process.env.IDFM_API_KEY = previousApiKey;

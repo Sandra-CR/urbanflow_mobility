@@ -61,6 +61,14 @@ export function getBikeStations({
   return requestIdfm(`/api/idfm/bike-stations?${params.toString()}`);
 }
 
+export function getDisruptions({ count = 100 } = {}) {
+  const params = new URLSearchParams({
+    count: String(count),
+  });
+
+  return requestIdfm(`/api/idfm/disruptions?${params.toString()}`);
+}
+
 export function getBikeStationJourney({
   fromCoordinates,
   toCoordinates,

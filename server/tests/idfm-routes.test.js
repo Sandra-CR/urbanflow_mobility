@@ -192,6 +192,46 @@ test('la route journeys expose les messages de service des itineraires', async (
   }
 });
 
+test('la route disruptions renvoie les perturbations normalisees', async () => {
+  const app = express();
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchDisruptions: async ({ count }) => ({
+        disruptions: [
+          {
+            id: 'metro-stop',
+            type: 'interruption',
+            title: 'Trafic interrompu',
+            line: {
+              id: 'line:metro:1',
+              code: '1',
+              label: 'Metro 1',
+              commercialMode: 'Metro',
+            },
+          },
+        ],
+        pagination: { items_per_page: Number(count) },
+      }),
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/idfm/disruptions?count=25`);
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.disruptions[0].id, 'metro-stop');
+    assert.equal(body.disruptions[0].type, 'interruption');
+    assert.equal(body.pagination.items_per_page, 25);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('la route bike-stations renvoie les bornes velo proches', async () => {
   const app = express();
 
