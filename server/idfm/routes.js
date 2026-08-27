@@ -1,10 +1,12 @@
 import express from 'express';
 import {
+  createFetchDisruptionsWithTimeout,
   createFetchPlaceFromCoordinatesWithTimeout,
   createFetchJourneysWithTimeout,
   createFetchNearbyStationsWithTimeout,
   createFetchBikeStationJourneyWithTimeout,
   createFetchBikeStationsWithTimeout,
+  fetchDisruptions as defaultFetchDisruptions,
   fetchBikeStationJourney as defaultFetchBikeStationJourney,
   fetchBikeStations as defaultFetchBikeStations,
   createSearchPlacesWithTimeout,
@@ -87,6 +89,7 @@ async function addCarbonFootprints(journeys, calculateCarbonFootprint) {
  * Crée le routeur Express dédié aux données IDF Mobilités.
  *
  * @param {object} [options] Dépendances injectables.
+ * @param {Function} [options.fetchDisruptions] Recherche les perturbations applicables par ligne.
  * @param {Function} [options.fetchNearbyStations] Recherche les stations proches.
  * @param {Function} [options.fetchBikeStations] Recherche les bornes Vélib proches.
  * @param {Function} [options.fetchBikeStationJourney] Compose un itinéraire via bornes Vélib.
@@ -96,6 +99,9 @@ async function addCarbonFootprints(journeys, calculateCarbonFootprint) {
  * @returns {object} Routeur Express configuré
  */
 export function createIdfmRouter({
+  fetchDisruptions = createFetchDisruptionsWithTimeout(
+    defaultFetchDisruptions
+  ),
   fetchPlaceFromCoordinates = createFetchPlaceFromCoordinatesWithTimeout(
     defaultFetchPlaceFromCoordinates
   ),
@@ -113,6 +119,30 @@ export function createIdfmRouter({
   calculateCarbonFootprint = defaultCalculateCarbonFootprint,
 } = {}) {
   const router = express.Router();
+
+  router.get('/disruptions', async (req, res, next) => {
+    try {
+      const result = await fetchDisruptions({
+        count: req.query.count,
+      });
+
+      return res.json(result);
+    } catch (error) {
+      if (error.status) {
+        return res.status(error.status).json({
+          error: error.message,
+        });
+      }
+
+      if (error.name === 'AbortError') {
+        return res.status(504).json({
+          error: "DÃ©lai dÃ©passÃ© pour l'API IDF MobilitÃ©s.",
+        });
+      }
+
+      return next(error);
+    }
+  });
 
   router.get('/nearby-stations', async (req, res, next) => {
     try {

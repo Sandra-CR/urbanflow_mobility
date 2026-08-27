@@ -17,6 +17,7 @@ import {
 import {
   getBikeStationJourney,
   getBikeStations,
+  getDisruptions,
   getJourneys,
   getPlaceFromCoordinates,
   searchPlaces,
@@ -238,6 +239,7 @@ function App() {
   const [isRoutePlannerCollapsed, setIsRoutePlannerCollapsed] = useState(false);
   const [routePlannerResetKey, setRoutePlannerResetKey] = useState(0);
   const [journeys, setJourneys] = useState([]);
+  const [disruptions, setDisruptions] = useState([]);
   const [selectedJourney, setSelectedJourney] = useState(null);
   const [latestRoutePlaces, setLatestRoutePlaces] = useState(null);
   const [bikeStationPromptJourney, setBikeStationPromptJourney] =
@@ -276,6 +278,16 @@ function App() {
     });
 
     return data.places || [];
+  }, []);
+
+  const refreshDisruptions = useCallback(() => {
+    getDisruptions({ count: 100 })
+      .then((data) => {
+        setDisruptions(data.disruptions || []);
+      })
+      .catch(() => {
+        setDisruptions([]);
+      });
   }, []);
 
   const clearBikeStationFlow = useCallback(() => {
@@ -319,6 +331,10 @@ function App() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    refreshDisruptions();
+  }, [refreshDisruptions]);
 
   useEffect(
     () =>
@@ -645,6 +661,7 @@ function App() {
       });
       const nextJourneys = data.journeys || [];
 
+      refreshDisruptions();
       setJourneys(nextJourneys);
       setSelectedJourney(nextJourneys[0] || null);
 
@@ -973,6 +990,7 @@ function App() {
             <RoutePlanner
               key={routePlannerResetKey}
               currentUser={currentUser}
+              disruptions={disruptions}
               journeys={journeys}
               selectedJourney={selectedJourney}
               isRouteDetailsVisible={isRouteDetailsVisible}

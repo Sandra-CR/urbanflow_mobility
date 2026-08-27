@@ -14,13 +14,14 @@ import {
   HourglassMedium,
   Leaf,
   MapPin,
-  MapTrifold,
+  // MapTrifold,
   PersonSimpleBike,
   PersonSimpleWalk,
   Steps,
   Subway,
   TrainSimple,
   Tram,
+  Warning,
 } from '@phosphor-icons/react';
 import {
   getRecentPlaceSearches,
@@ -32,6 +33,11 @@ import {
   isResolvedRecentPlace,
 } from './placeSearchUtils';
 import ActiveJourneyTracker from './ActiveJourneyTracker';
+import RouteDisruptionsPage from './RouteDisruptionsPage';
+import {
+  getSortedRouteDisruptions,
+} from './routeDisruptionsUtils';
+import TransportLineBadge from './TransportLineBadge';
 import './RoutePlanner.css';
 
 function normalizeMode(mode = '') {
@@ -243,27 +249,6 @@ function PlaceTypeIcon({ place }) {
   }
 
   return <MapPin size={20} weight="regular" aria-hidden="true" />;
-}
-
-function TransportLineBadge({ line }) {
-  const lineMode = normalizeMode(line.commercialMode || line.physicalMode);
-  const style = {
-    '--route-line-color': line.color || '#64748b',
-    '--route-line-text': line.textColor || '#ffffff',
-  };
-  const label = line.code || line.label || line.commercialMode;
-
-  return (
-    <span
-      className="route-line-badge"
-      data-mode={lineMode}
-      data-transport="true"
-      style={style}
-      title={line.label || label}
-    >
-      <span>{label}</span>
-    </span>
-  );
 }
 
 function PlaceSuggestionDetails({ place }) {
@@ -1077,6 +1062,7 @@ function getDominantLabel(profile) {
 
 export default function RoutePlanner({
   currentUser,
+  disruptions = [],
   journeys = [],
   selectedJourney,
   isRouteDetailsVisible,
@@ -1111,6 +1097,8 @@ export default function RoutePlanner({
     to: '',
   });
   const [activeSuggestions, setActiveSuggestions] = useState(null);
+  const [isDisruptionsOpen, setIsDisruptionsOpen] = useState(false);
+  const [selectedDisruption, setSelectedDisruption] = useState(null);
   const [recentPlaces, setRecentPlaces] = useState([]);
   const hasValidatedRoute = Boolean(fromPlace?.id && toPlace?.id);
   const isUserLocationAlreadySelected =
@@ -1138,6 +1126,14 @@ export default function RoutePlanner({
   const shouldShowPreferenceContent =
     isFocusedRouteFieldEmpty && !hasVisibleRouteResults;
   const shouldShowPreferences = !hasValidatedRoute;
+  const sortedDisruptions = useMemo(
+    () => getSortedRouteDisruptions(journeys, disruptions),
+    [disruptions, journeys]
+  );
+  const handleDisruptionsBack = useCallback(() => {
+    setSelectedDisruption(null);
+    setIsDisruptionsOpen(false);
+  }, []);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -1324,6 +1320,23 @@ export default function RoutePlanner({
     );
   }
 
+  if (isDisruptionsOpen) {
+    return (
+      <aside
+        ref={plannerRef}
+        className="route-planner"
+        aria-label="Perturbations"
+      >
+        <RouteDisruptionsPage
+          disruptions={sortedDisruptions}
+          selectedDisruption={selectedDisruption}
+          onBack={handleDisruptionsBack}
+          onSelect={setSelectedDisruption}
+        />
+      </aside>
+    );
+  }
+
   return (
     <aside
       ref={plannerRef}
@@ -1333,9 +1346,20 @@ export default function RoutePlanner({
       <form className="route-planner__form" onSubmit={handleSubmit}>
         <div className="route-planner__header">
           <h1>
-            <MapTrifold size={24} weight="regular" aria-hidden="true" />
+            {/* <MapTrifold size={24} weight="regular" aria-hidden="true" /> */}
             <span>Itinéraires</span>
           </h1>
+          <button
+            className="route-disruptions-button"
+            type="button"
+            aria-label={`Afficher les perturbations (${sortedDisruptions.length})`}
+            aria-expanded={isDisruptionsOpen}
+            title="Afficher les perturbations"
+            onClick={() => setIsDisruptionsOpen(true)}
+          >
+            <Warning size={22} weight="fill" aria-hidden="true" />
+            <span>{sortedDisruptions.length}</span>
+          </button>
         </div>
 
         <div className="route-fields">

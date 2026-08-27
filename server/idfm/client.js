@@ -29,6 +29,25 @@ const JOURNEY_PROFILE_ORDER = {
  */
 
 /**
+ * Perturbation IDF Mobilites normalisee et rattachee a une ligne.
+ *
+ * Les perturbations sont regroupees par ligne avant exposition au client. Le
+ * type vaut `interruption` pour les effets bloquants comme `NO_SERVICE`, sinon
+ * `perturbation`. Les bus sont exclus, les messages HTML sont nettoyes, et les
+ * periodes futures ou non applicables au jour courant sont filtrees.
+ *
+ * @typedef {object} NormalizedDisruption
+ * @property {string} id Identifiant de regroupement, generalement celui de la ligne.
+ * @property {string | null} status Statut Navitia/IDFM dominant du groupe.
+ * @property {'interruption' | 'perturbation'} type Gravite normalisee.
+ * @property {string} title Titre affiche pour le groupe.
+ * @property {string} message Message principal nettoye.
+ * @property {NormalizedLine} line Ligne concernee.
+ * @property {number} count Nombre de perturbations distinctes retenues sur la ligne.
+ * @property {object[]} disruptions Details distincts rattaches a la ligne.
+ */
+
+/**
  * Lieu normalisé renvoyé au client.
  *
  * @typedef {object} NormalizedPlace
@@ -207,6 +226,666 @@ function normalizeLine(line) {
     color: color ? `#${color.replace(/^#/, '')}` : null,
     textColor: textColor ? `#${textColor.replace(/^#/, '')}` : null,
   };
+}
+
+function getLineModeText(line = {}) {
+  return [
+    line.commercialMode,
+    line.commercial_mode,
+    line.physicalMode,
+    line.physical_modes?.[0]?.name,
+    line.network?.name,
+    line.label,
+    line.code,
+    line.name,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function getDisruptionModeRank(line = {}) {
+  const normalizedMode = normalizePlaceName(getLineModeText(line));
+  const code = String(line.code || line.label || '').trim();
+
+  if (normalizedMode.includes('bus')) {
+    return null;
+  }
+
+  if (normalizedMode.includes('metro') || /^\d{1,2}$/.test(code)) {
+    return 0;
+  }
+
+  if (normalizedMode.includes('rer')) {
+    return 1;
+  }
+
+  if (
+    normalizedMode.includes('rapid') ||
+    normalizedMode.includes('train') ||
+    /^[A-E]$/i.test(code)
+  ) {
+    return 2;
+  }
+
+  if (normalizedMode.includes('tram') || /^T\d*/i.test(code)) {
+    return 3;
+  }
+
+  return null;
+}
+
+function getDisruptionSeverityRank(disruption = {}) {
+  const severityText = normalizePlaceName(
+    [
+      disruption.severity?.effect,
+      disruption.severity?.name,
+      disruption.status,
+      disruption.cause,
+      disruption.category,
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+
+  if (
+    severityText.includes('no_service') ||
+    severityText.includes('interrupt') ||
+    severityText.includes('suspend') ||
+    severityText.includes('ferme') ||
+    severityText.includes('closed') ||
+    severityText.includes('blocked')
+  ) {
+    return 0;
+  }
+
+  return 1;
+}
+
+function getDisruptionMessage(disruption = {}) {
+  const messages = Array.isArray(disruption.messages)
+    ? disruption.messages
+    : [];
+
+  return cleanDisruptionText(
+    toOptionalText(messages[0]?.text) ||
+      toOptionalText(disruption.message) ||
+      toOptionalText(disruption.severity?.name) ||
+      'Perturbation en cours'
+  );
+}
+
+function decodeHtmlEntities(value) {
+  return String(value || '')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([a-f\d]+);/gi, (_, code) =>
+      String.fromCharCode(Number.parseInt(code, 16))
+    )
+    .replace(
+      /&(amp|lt|gt|quot|apos|nbsp);/g,
+      (_, entity) =>
+        ({
+          amp: '&',
+          lt: '<',
+          gt: '>',
+          quot: '"',
+          apos: "'",
+          nbsp: ' ',
+        })[entity] || ''
+    );
+}
+
+function cleanDisruptionText(value) {
+  return decodeHtmlEntities(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\*\*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeDisruptionText(value) {
+  return normalizePlaceName(cleanDisruptionText(value))
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function isUninformativeDisruptionMessage(message) {
+  const normalizedMessage = normalizeDisruptionText(message);
+
+  return [
+    'arret s non desservi s',
+    'arret non desservi',
+    'arrets non desservis',
+  ].includes(normalizedMessage);
+}
+
+function getLineDisruptionIds(line = {}) {
+  const links = Array.isArray(line.links) ? line.links : [];
+
+  return links
+    .filter((link) => link.rel === 'disruptions' || link.type === 'disruption')
+    .map((link) => toOptionalText(link.id))
+    .filter(Boolean);
+}
+
+function getImpactedObjectLine(impactedObject = {}) {
+  const ptObject =
+    impactedObject.pt_object ||
+    impactedObject.impacted_object ||
+    impactedObject;
+
+  if (!ptObject || typeof ptObject !== 'object') {
+    return null;
+  }
+
+  if (ptObject.embedded_type === 'line' && ptObject.line) {
+    return ptObject.line;
+  }
+
+  return (
+    ptObject.line ||
+    ptObject.route?.line ||
+    ptObject.stop_point?.line ||
+    ptObject.stop_area?.line ||
+    null
+  );
+}
+
+function getDisruptionImpactedLines(disruption = {}) {
+  const impactedObjects = [
+    ...(Array.isArray(disruption.impacted_objects)
+      ? disruption.impacted_objects
+      : []),
+    ...(Array.isArray(disruption.impactedObjects)
+      ? disruption.impactedObjects
+      : []),
+  ];
+
+  return impactedObjects.map(getImpactedObjectLine).filter(Boolean);
+}
+
+function upsertNormalizedTrafficDisruption(
+  normalizedDisruptions,
+  disruption,
+  line,
+  now
+) {
+  if (!isDisruptionCurrentlyApplicable(disruption, now)) {
+    return;
+  }
+
+  const normalizedDisruption = normalizeTrafficDisruption(disruption, line);
+
+  if (!normalizedDisruption) {
+    return;
+  }
+
+  normalizedDisruptions.set(
+    `${normalizedDisruption.id}:${normalizedDisruption.line.id}`,
+    normalizedDisruption
+  );
+}
+
+function formatNavitiaDateTime(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0');
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    'T',
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+  ].join('');
+}
+
+function createTrafficReportsUrl({ count, date = new Date() }, baseUrl) {
+  const url = new URL(`${baseUrl}/traffic_reports`);
+  const navitiaDateTime = formatNavitiaDateTime(date);
+
+  url.searchParams.set('count', String(count));
+  url.searchParams.set('depth', '2');
+  url.searchParams.set('since', navitiaDateTime);
+  url.searchParams.set('until', navitiaDateTime);
+  url.searchParams.set('disable_geojson', 'true');
+
+  return url;
+}
+
+function parseNavitiaDateTime(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (/^\d{8}T\d{6}$/.test(value)) {
+    return new Date(
+      `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}`
+    );
+  }
+
+  if (/^\d{14}$/.test(value)) {
+    return new Date(
+      `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(8, 10)}:${value.slice(10, 12)}:${value.slice(12, 14)}`
+    );
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getMonthIndex(value) {
+  const month = Number(value);
+
+  return Number.isInteger(month) && month >= 1 && month <= 12
+    ? month - 1
+    : null;
+}
+
+const FRENCH_MONTHS = new Map(
+  [
+    'janvier',
+    'fevrier',
+    'mars',
+    'avril',
+    'mai',
+    'juin',
+    'juillet',
+    'aout',
+    'septembre',
+    'octobre',
+    'novembre',
+    'decembre',
+  ].map((month, index) => [month, index])
+);
+
+const FRENCH_WEEKDAY_PATTERN =
+  '(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\\s+';
+const FRENCH_MONTH_PATTERN =
+  '(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)';
+
+function getFrenchMonthIndex(value) {
+  return FRENCH_MONTHS.get(normalizePlaceName(value));
+}
+
+function isDatePartsCurrent({ startDay, startMonth, endDay, endMonth }, now) {
+  if (
+    !Number.isInteger(startDay) ||
+    !Number.isInteger(endDay) ||
+    !Number.isInteger(startMonth) ||
+    !Number.isInteger(endMonth)
+  ) {
+    return false;
+  }
+
+  const currentYear = now.getFullYear();
+  const startDate = new Date(currentYear, startMonth, startDay, 0, 0, 0);
+  const endDate = new Date(currentYear, endMonth, endDay, 23, 59, 59);
+  const currentTime = now.getTime();
+
+  return startDate.getTime() <= currentTime && currentTime <= endDate.getTime();
+}
+
+function isStartDateReached({ startDay, startMonth }, now) {
+  if (!Number.isInteger(startDay) || !Number.isInteger(startMonth)) {
+    return false;
+  }
+
+  const startDate = new Date(now.getFullYear(), startMonth, startDay, 0, 0, 0);
+
+  return startDate.getTime() <= now.getTime();
+}
+
+function hasCurrentDateInFrenchMessageDates(message, now = new Date()) {
+  const normalizedMessage = cleanDisruptionText(message);
+  const fullRangePattern = new RegExp(
+    `\\b(?:du\\s+)?(?:${FRENCH_WEEKDAY_PATTERN})?(\\d{1,2})\\s+${FRENCH_MONTH_PATTERN}\\s+(?:au|a|à|-)\\s+(?:${FRENCH_WEEKDAY_PATTERN})?(\\d{1,2})\\s+${FRENCH_MONTH_PATTERN}\\b`,
+    'gi'
+  );
+  const rangePattern = new RegExp(
+    `\\b(?:du\\s+)?(?:${FRENCH_WEEKDAY_PATTERN})?(\\d{1,2})\\s+(?:au|a|à|-)\\s+(?:${FRENCH_WEEKDAY_PATTERN})?(\\d{1,2})\\s+${FRENCH_MONTH_PATTERN}\\b`,
+    'gi'
+  );
+  const openStartPattern = new RegExp(
+    `\\b(?:a|à)\\s+partir\\s+du\\s+(?:${FRENCH_WEEKDAY_PATTERN})?(\\d{1,2})\\s+${FRENCH_MONTH_PATTERN}\\b`,
+    'gi'
+  );
+  const singleDatePattern = new RegExp(
+    `\\b(?:${FRENCH_WEEKDAY_PATTERN})?(\\d{1,2})\\s+${FRENCH_MONTH_PATTERN}\\b`,
+    'gi'
+  );
+  const fullRangeMatches = [...normalizedMessage.matchAll(fullRangePattern)];
+  const dateMatches = [
+    ...normalizedMessage.matchAll(rangePattern),
+    ...normalizedMessage.matchAll(singleDatePattern),
+  ];
+  const openStartMatches = [...normalizedMessage.matchAll(openStartPattern)];
+
+  if (
+    fullRangeMatches.length === 0 &&
+    dateMatches.length === 0 &&
+    openStartMatches.length === 0
+  ) {
+    return true;
+  }
+
+  const todayDay = now.getDate();
+  const todayMonth = now.getMonth();
+
+  if (
+    fullRangeMatches.some((match) =>
+      isDatePartsCurrent(
+        {
+          startDay: Number(match[1]),
+          startMonth: getFrenchMonthIndex(match[2]),
+          endDay: Number(match[3]),
+          endMonth: getFrenchMonthIndex(match[4]),
+        },
+        now
+      )
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    openStartMatches.some((match) =>
+      isStartDateReached(
+        {
+          startDay: Number(match[1]),
+          startMonth: getFrenchMonthIndex(match[2]),
+        },
+        now
+      )
+    )
+  ) {
+    return true;
+  }
+
+  return dateMatches.some((match) => {
+    if (match.length === 4) {
+      const startDay = Number(match[1]);
+      const endDay = Number(match[2]);
+      const monthIndex = getFrenchMonthIndex(match[3]);
+
+      return (
+        monthIndex === todayMonth &&
+        Number.isInteger(startDay) &&
+        Number.isInteger(endDay) &&
+        startDay <= todayDay &&
+        todayDay <= endDay
+      );
+    }
+
+    const day = Number(match[1]);
+    const monthIndex = getFrenchMonthIndex(match[2]);
+
+    return monthIndex === todayMonth && day === todayDay;
+  });
+}
+
+function isWeekendOnlyMessage(message, now = new Date()) {
+  const normalizedMessage = normalizeDisruptionText(message);
+  const day = now.getDay();
+  const isWeekend = day === 0 || day === 6;
+
+  return (
+    !isWeekend &&
+    (normalizedMessage.includes('week end') ||
+      normalizedMessage.includes('week ends') ||
+      normalizedMessage.includes('weekend') ||
+      normalizedMessage.includes('weekends'))
+  );
+}
+
+function hasCurrentDateInExplicitMessageDates(message, now = new Date()) {
+  const normalizedMessage = cleanDisruptionText(message);
+  const numericRangeMatches = [
+    ...normalizedMessage.matchAll(
+      /\b(\d{1,2})\/(\d{1,2})\s*-\s*(\d{1,2})\/(\d{1,2})\b/g
+    ),
+  ];
+  const dateMatches = [
+    ...normalizedMessage.matchAll(/\b(\d{1,2})-(\d{1,2})\/(\d{1,2})\b/g),
+    ...normalizedMessage
+      .replace(
+        /\b\d{1,2}\/\d{1,2}\s*-\s*\d{1,2}\/\d{1,2}\b/g,
+        ''
+      )
+      .matchAll(/\b(\d{1,2})\/(\d{1,2})\b/g),
+  ];
+
+  if (numericRangeMatches.length === 0 && dateMatches.length === 0) {
+    return hasCurrentDateInFrenchMessageDates(message, now);
+  }
+
+  const todayDay = now.getDate();
+  const todayMonth = now.getMonth();
+
+  const hasCurrentNumericRange = numericRangeMatches.some((match) =>
+    isDatePartsCurrent(
+      {
+        startDay: Number(match[1]),
+        startMonth: getMonthIndex(match[2]),
+        endDay: Number(match[3]),
+        endMonth: getMonthIndex(match[4]),
+      },
+      now
+    )
+  );
+  const hasCurrentNumericDate = dateMatches.some((match) => {
+    if (match.length === 4) {
+      const startDay = Number(match[1]);
+      const endDay = Number(match[2]);
+      const monthIndex = getMonthIndex(match[3]);
+
+      return (
+        monthIndex === todayMonth &&
+        Number.isInteger(startDay) &&
+        Number.isInteger(endDay) &&
+        startDay <= todayDay &&
+        todayDay <= endDay
+      );
+    }
+
+    const day = Number(match[1]);
+    const monthIndex = getMonthIndex(match[2]);
+
+    return monthIndex === todayMonth && day === todayDay;
+  });
+
+  return (
+    (hasCurrentNumericRange || hasCurrentNumericDate) &&
+    hasCurrentDateInFrenchMessageDates(message, now)
+  );
+}
+
+function isDisruptionCurrentlyApplicable(disruption = {}, now = new Date()) {
+  const applicationPeriods = Array.isArray(disruption.application_periods)
+    ? disruption.application_periods
+    : [];
+  const message = getDisruptionMessage(disruption);
+
+  if (
+    isUninformativeDisruptionMessage(message) ||
+    isWeekendOnlyMessage(message, now)
+  ) {
+    return false;
+  }
+
+  if (!hasCurrentDateInExplicitMessageDates(message, now)) {
+    return false;
+  }
+
+  if (applicationPeriods.length === 0) {
+    return true;
+  }
+
+  const nowTime = now.getTime();
+
+  return applicationPeriods.some((period) => {
+    const begin = parseNavitiaDateTime(period.begin || period.start);
+    const end = parseNavitiaDateTime(period.end || period.stop);
+
+    if (!begin || !end) {
+      return false;
+    }
+
+    return begin.getTime() <= nowTime && nowTime <= end.getTime();
+  });
+}
+
+function normalizeTrafficDisruption(disruption, line) {
+  const normalizedLine = normalizeLine(line);
+  const modeRank = getDisruptionModeRank(line);
+
+  if (!disruption || !normalizedLine || modeRank === null) {
+    return null;
+  }
+
+  const severityRank = getDisruptionSeverityRank(disruption);
+
+  return {
+    id: toOptionalText(disruption.id) || toOptionalText(disruption.uri),
+    uri: toOptionalText(disruption.uri),
+    status: toOptionalText(disruption.status),
+    type: severityRank === 0 ? 'interruption' : 'perturbation',
+    title: getDisruptionMessage(disruption),
+    message: getDisruptionMessage(disruption),
+    cause: toOptionalText(disruption.cause),
+    category: toOptionalText(disruption.category),
+    severity: {
+      name: toOptionalText(disruption.severity?.name),
+      effect: toOptionalText(disruption.severity?.effect),
+      color: toOptionalText(disruption.severity?.color),
+    },
+    applicationPeriods: disruption.application_periods || [],
+    line: normalizedLine,
+    severityRank,
+    modeRank,
+  };
+}
+
+function groupDisruptionsByLine(disruptions) {
+  const disruptionsByLine = new Map();
+
+  disruptions.forEach((disruption) => {
+    const lineKey = disruption.line.id || disruption.line.code;
+    const currentGroup = disruptionsByLine.get(lineKey);
+    const nextDisruption = {
+      id: disruption.id,
+      uri: disruption.uri,
+      status: disruption.status,
+      type: disruption.type,
+      title: disruption.title,
+      message: disruption.message,
+      cause: disruption.cause,
+      category: disruption.category,
+      severity: disruption.severity,
+      applicationPeriods: disruption.applicationPeriods,
+    };
+
+    if (!currentGroup) {
+      disruptionsByLine.set(lineKey, {
+        id: lineKey,
+        status: disruption.status,
+        type: disruption.type,
+        title: disruption.title,
+        message: disruption.message,
+        line: disruption.line,
+        severityRank: disruption.severityRank,
+        modeRank: disruption.modeRank,
+        disruptions: [nextDisruption],
+      });
+      return;
+    }
+
+    const hasSameMessage = currentGroup.disruptions.some(
+      (currentDisruption) =>
+        currentDisruption.id === nextDisruption.id ||
+        currentDisruption.message === nextDisruption.message
+    );
+
+    if (!hasSameMessage) {
+      currentGroup.disruptions.push(nextDisruption);
+    }
+
+    if (disruption.severityRank < currentGroup.severityRank) {
+      currentGroup.status = disruption.status;
+      currentGroup.type = disruption.type;
+      currentGroup.title = disruption.title;
+      currentGroup.message = disruption.message;
+      currentGroup.severityRank = disruption.severityRank;
+    }
+  });
+
+  return [...disruptionsByLine.values()].map((group) => ({
+    ...group,
+    count: group.disruptions.length,
+    title:
+      group.disruptions.length === 1
+        ? group.title
+        : `${group.disruptions.length} perturbations sur cette ligne`,
+  }));
+}
+
+function sortDisruptions(disruptions) {
+  return disruptions.sort((first, second) => {
+    const severityDelta = first.severityRank - second.severityRank;
+
+    if (severityDelta !== 0) {
+      return severityDelta;
+    }
+
+    const modeDelta = first.modeRank - second.modeRank;
+
+    if (modeDelta !== 0) {
+      return modeDelta;
+    }
+
+    return String(first.line.code || first.line.label || '').localeCompare(
+      String(second.line.code || second.line.label || ''),
+      'fr',
+      { numeric: true }
+    );
+  });
+}
+
+function normalizeTrafficReports(data, { now = new Date() } = {}) {
+  const disruptionsById = new Map(
+    (data.disruptions || [])
+      .map((disruption) => [toOptionalText(disruption.id), disruption])
+      .filter(([id]) => id)
+  );
+  const normalizedDisruptions = new Map();
+
+  (data.traffic_reports || []).forEach((trafficReport) => {
+    (trafficReport.lines || []).forEach((line) => {
+      getLineDisruptionIds(line).forEach((disruptionId) => {
+        const disruption = disruptionsById.get(disruptionId);
+
+        upsertNormalizedTrafficDisruption(
+          normalizedDisruptions,
+          disruption,
+          line,
+          now
+        );
+      });
+    });
+  });
+
+  (data.disruptions || []).forEach((disruption) => {
+    getDisruptionImpactedLines(disruption).forEach((line) => {
+      upsertNormalizedTrafficDisruption(
+        normalizedDisruptions,
+        disruption,
+        line,
+        now
+      );
+    });
+  });
+
+  return sortDisruptions(groupDisruptionsByLine([...normalizedDisruptions.values()]));
 }
 
 function getPlaceLines(embeddedObject) {
@@ -1305,6 +1984,53 @@ export async function fetchNearbyStations(
 }
 
 /**
+ * Recupere les perturbations transports IDF Mobilites applicables maintenant.
+ *
+ * La route Navitia `traffic_reports` est interrogee avec `since` et `until`
+ * positionnes sur l'instant courant. Les disruptions sont ensuite rattachees
+ * aux lignes via deux sources : les liens exposes dans `traffic_reports.lines`
+ * et les `impacted_objects` portes par chaque disruption. Les bus sont exclus,
+ * les doublons par ligne/message sont fusionnes, et les resultats sont tries par
+ * gravite puis par mode : interruptions, perturbations, puis metro, RER, ligne
+ * rapide et tram.
+ *
+ * @param {object} [params] Parametres de recherche.
+ * @param {number | string} [params.count=100] Nombre de rapports demandes.
+ * @param {object} [dependencies] Dependances injectables.
+ * @param {Function} [dependencies.fetchImpl] Implementation compatible fetch.
+ * @param {AbortSignal} [dependencies.signal] Signal d'annulation.
+ * @param {Date} [dependencies.now=new Date()] Instant de reference pour la requete et les filtres.
+ * @returns {Promise<{disruptions: NormalizedDisruption[], pagination: object | null}>}
+ * @throws {Error} 503 si `IDFM_API_KEY` est absent.
+ * @throws {Error} 502/504 si l'API IDF Mobilites echoue ou expire.
+ */
+export async function fetchDisruptions(
+  { count = 100 } = {},
+  { fetchImpl = fetch, signal, now = new Date() } = {}
+) {
+  const { apiKey, baseUrl } = getConfig();
+
+  if (!apiKey) {
+    const error = new Error('Jeton Ile-de-France Mobilites manquant.');
+    error.status = 503;
+    throw error;
+  }
+
+  const safeCount = toBoundedInteger(count, {
+    fallback: 100,
+    min: 1,
+    max: 200,
+  });
+  const url = createTrafficReportsUrl({ count: safeCount, date: now }, baseUrl);
+  const data = await requestIdfm(url, { apiKey, fetchImpl, signal });
+
+  return {
+    disruptions: normalizeTrafficReports(data, { now }),
+    pagination: data.pagination || null,
+  };
+}
+
+/**
  * Recherche des lieux IDF Mobilités pour l'autocomplétion.
  *
  * Une requête de moins de deux caractères renvoie une liste vide sans appeler
@@ -1595,6 +2321,27 @@ export function createFetchNearbyStationsWithTimeout(fetchNearbyStationsImpl) {
 
     try {
       return await fetchNearbyStationsImpl(params, {
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+}
+
+/**
+ * Decore une fonction de recherche de perturbations avec un timeout court.
+ *
+ * @param {Function} fetchDisruptionsImpl Fonction compatible avec `fetchDisruptions`.
+ * @returns {Function} Fonction qui annule la recherche apres `DEFAULT_TIMEOUT_MS`.
+ */
+export function createFetchDisruptionsWithTimeout(fetchDisruptionsImpl) {
+  return async function fetchDisruptionsWithTimeout(params) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+    try {
+      return await fetchDisruptionsImpl(params, {
         signal: controller.signal,
       });
     } finally {

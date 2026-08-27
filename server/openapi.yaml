@@ -172,6 +172,35 @@ paths:
           $ref: '#/components/responses/IdfmMissingToken'
         '504':
           $ref: '#/components/responses/IdfmTimeout'
+  /api/idfm/disruptions:
+    get:
+      tags:
+        - IDF MobilitÃ©s
+      summary: Rechercher les perturbations en cours.
+      description: Renvoie les interruptions puis les perturbations sur metro, RER, lignes rapides et tram. Les bus sont exclus.
+      parameters:
+        - name: count
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 200
+          description: Nombre maximal de rapports trafic demandes a IDF Mobilites.
+      responses:
+        '200':
+          description: Perturbations trouvees.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisruptionsResponse'
+        '502':
+          $ref: '#/components/responses/IdfmUnavailable'
+        '503':
+          $ref: '#/components/responses/IdfmMissingToken'
+        '504':
+          $ref: '#/components/responses/IdfmTimeout'
   /api/idfm/bike-stations:
     get:
       tags:
@@ -517,6 +546,63 @@ components:
         textColor:
           type: string
           nullable: true
+    Disruption:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        uri:
+          type: string
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum:
+            - interruption
+            - perturbation
+        title:
+          type: string
+        message:
+          type: string
+        cause:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        severity:
+          type: object
+          properties:
+            name:
+              type: string
+              nullable: true
+            effect:
+              type: string
+              nullable: true
+            color:
+              type: string
+              nullable: true
+        applicationPeriods:
+          type: array
+          items:
+            type: object
+        line:
+          $ref: '#/components/schemas/Line'
+        severityRank:
+          type: integer
+        modeRank:
+          type: integer
+        count:
+          type: integer
+          description: Nombre de messages regroupes pour cette ligne.
+        disruptions:
+          type: array
+          description: Detail des perturbations regroupees pour cette ligne.
+          items:
+            type: object
     Place:
       type: object
       required:
@@ -599,6 +685,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Place'
+        pagination:
+          type: object
+          nullable: true
+    DisruptionsResponse:
+      type: object
+      required:
+        - disruptions
+        - pagination
+      properties:
+        disruptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Disruption'
         pagination:
           type: object
           nullable: true
