@@ -34,6 +34,7 @@ import {
   isResolvedRecentPlace,
 } from './placeSearchUtils';
 import ActiveJourneyTracker from './ActiveJourneyTracker';
+import LegalFooter from '../LegalFooter/LegalFooter';
 import RouteDisruptionsPage from './RouteDisruptionsPage';
 import {
   getSortedRouteDisruptions,
@@ -1123,6 +1124,7 @@ export default function RoutePlanner({
   onBackToResults,
   onTrackedJourneyCompleteClose,
   onJourneySelect,
+  onLegalLinkClick,
   onLoginClick,
   onInputsInvalid,
   onPlan,
@@ -1372,6 +1374,10 @@ export default function RoutePlanner({
             />
           ) : null}
         </RouteDetails>
+        <LegalFooter
+          className="route-planner__legal-footer"
+          onLegalLinkClick={onLegalLinkClick}
+        />
       </aside>
     );
   }
@@ -1388,6 +1394,10 @@ export default function RoutePlanner({
           selectedDisruption={selectedDisruption}
           onBack={handleDisruptionsBack}
           onSelect={setSelectedDisruption}
+        />
+        <LegalFooter
+          className="route-planner__legal-footer"
+          onLegalLinkClick={onLegalLinkClick}
         />
       </aside>
     );
@@ -1520,6 +1530,10 @@ export default function RoutePlanner({
           ))}
         </div>
       ) : null}
+      <LegalFooter
+        className="route-planner__legal-footer"
+        onLegalLinkClick={onLegalLinkClick}
+      />
     </aside>
   );
 }

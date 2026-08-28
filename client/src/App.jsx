@@ -5,6 +5,8 @@ import AppNavigation from './components/AppNavigation/AppNavigation';
 import AuthPanel from './components/AuthPanel/AuthPanel';
 import CarbonPage from './components/CarbonPage/CarbonPage';
 import InteractiveMap from './components/InteractiveMap/InteractiveMap';
+import LegalFooter from './components/LegalFooter/LegalFooter';
+import LegalPage from './components/LegalPage/LegalPage';
 import MapActions from './components/MapActions/MapActions';
 import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
 import RoutePlanner from './components/RoutePlanner/RoutePlanner';
@@ -264,6 +266,7 @@ function App() {
   const [showAuthPanel, setShowAuthPanel] = useState(false);
   const [showAccountPage, setShowAccountPage] = useState(false);
   const [showCarbonPage, setShowCarbonPage] = useState(false);
+  const [activeLegalPage, setActiveLegalPage] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(getInitialIsDarkMode);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [isRoutePlannerCollapsed, setIsRoutePlannerCollapsed] = useState(false);
@@ -937,6 +940,7 @@ function App() {
     setShowAuthPanel(false);
     setShowAccountPage(false);
     setShowCarbonPage(false);
+    setActiveLegalPage(null);
     setIsRoutePlannerCollapsed(false);
     setJourneys([]);
     setSelectedJourney(null);
@@ -956,7 +960,16 @@ function App() {
   const handleCarbonPageOpen = useCallback(() => {
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setActiveLegalPage(null);
     setShowCarbonPage(true);
+  }, []);
+
+  const handleLegalPageOpen = useCallback((pageId) => {
+    setShowAuthPanel(false);
+    setShowAccountPage(false);
+    setShowCarbonPage(false);
+    setActiveLegalPage(pageId);
+    setIsRoutePlannerCollapsed(false);
   }, []);
 
   const handleCloseTrackedJourneyComplete = useCallback(() => {
@@ -1056,9 +1069,11 @@ function App() {
             setShowAuthPanel(false);
             setShowAccountPage(true);
             setShowCarbonPage(false);
+            setActiveLegalPage(null);
           } else {
             setShowAuthPanel(true);
             setShowCarbonPage(false);
+            setActiveLegalPage(null);
           }
         }}
         onBrandClick={handleRoutesHome}
@@ -1073,7 +1088,7 @@ function App() {
         onDismiss={() => setCacheMessage('')}
       />
 
-      {!showAccountPage && !showCarbonPage ? (
+      {!showAccountPage && !showCarbonPage && !activeLegalPage ? (
         <MapActions
           isDarkMode={isDarkMode}
           onInstallPwa={handleInstallPwa}
@@ -1081,9 +1096,17 @@ function App() {
         />
       ) : null}
 
-      {showCarbonPage ? (
+      {activeLegalPage ? (
+        <LegalPage
+          activeLegalPage={activeLegalPage}
+          isDarkMode={isDarkMode}
+          onLegalLinkClick={handleLegalPageOpen}
+          onToggleDarkMode={handleToggleDarkMode}
+        />
+      ) : showCarbonPage ? (
         <CarbonPage
           isDarkMode={isDarkMode}
+          onLegalLinkClick={handleLegalPageOpen}
           onToggleDarkMode={handleToggleDarkMode}
         />
       ) : showAccountPage && currentUser ? (
@@ -1092,6 +1115,7 @@ function App() {
           isDarkMode={isDarkMode}
           onDeleteAccount={handleDeleteAccount}
           onLogout={handleLogout}
+          onLegalLinkClick={handleLegalPageOpen}
           onSearchPlaces={handleSearchPlaces}
           onToggleDarkMode={handleToggleDarkMode}
         />
@@ -1143,6 +1167,7 @@ function App() {
               onBackToResults={() => setIsRouteDetailsVisible(false)}
               onTrackedJourneyCompleteClose={handleCloseTrackedJourneyComplete}
               onJourneySelect={handleJourneySelect}
+              onLegalLinkClick={handleLegalPageOpen}
               onLoginClick={() => setShowAuthPanel(true)}
               onInputsInvalid={handleJourneyInputsInvalid}
               onPlan={handlePlanJourney}
@@ -1194,6 +1219,10 @@ function App() {
               )
             ) : null}
           </section>
+          <LegalFooter
+            className="map-workspace__legal-footer"
+            onLegalLinkClick={handleLegalPageOpen}
+          />
         </section>
       )}
 

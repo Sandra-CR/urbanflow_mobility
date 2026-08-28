@@ -1,11 +1,12 @@
 .carbon-page {
   position: relative;
   grid-column: 1;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   min-height: 100svh;
   min-width: 0;
-  padding: 28px;
-  place-items: start center;
+  padding: 28px 0 0;
   overflow-y: auto;
   background: var(--color-card);
   color: var(--color-text);
@@ -16,7 +17,7 @@
   z-index: 1;
   display: grid;
   gap: 22px;
-  width: min(880px, 100%);
+  width: min(880px, calc(100% - 56px));
   padding: 28px;
   border: 1px solid color-mix(in srgb, var(--color-text-light) 16%, transparent);
   border-radius: var(--radius-ui);
@@ -275,6 +276,14 @@
     height: 100svh;
     min-height: 0;
   }
+
+  .carbon-page__panel {
+    margin-bottom: 24px;
+  }
+
+  .carbon-page > .legal-footer {
+    margin-top: auto;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -282,17 +291,17 @@
     height: calc(100svh - var(--app-navigation-mobile-height));
     min-height: calc(100svh - var(--app-navigation-mobile-height));
     padding: 0;
-    place-items: stretch;
-    overflow: hidden;
+    align-items: stretch;
+    overflow-y: auto;
     background: var(--color-background);
   }
 
   .carbon-page__panel {
+    flex: 1 0 auto;
     width: 100%;
-    max-height: 100%;
     min-height: 0;
     padding: 24px 18px;
-    overflow-y: auto;
+    overflow: visible;
     border: 0;
     border-radius: 0;
     background: var(--color-background);

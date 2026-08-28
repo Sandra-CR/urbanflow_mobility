@@ -1,10 +1,11 @@
 .account-page {
   position: relative;
   grid-column: 1;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   min-height: 100svh;
-  padding: 28px;
-  place-items: start center;
+  padding: 28px 0 0;
   background: var(--color-card);
   color: var(--color-text);
   overflow-y: auto;
@@ -15,7 +16,7 @@
   z-index: 1;
   display: grid;
   gap: 22px;
-  width: min(880px, 100%);
+  width: min(880px, calc(100% - 56px));
   padding: 28px;
   border: 1px solid color-mix(in srgb, var(--color-text-light) 16%, transparent);
   border-radius: var(--radius-ui);
@@ -342,20 +343,32 @@
   .account-page {
     grid-column: 2;
   }
+
+  .account-page__panel {
+    margin-bottom: 24px;
+  }
+
+  .account-page > .legal-footer {
+    margin-top: auto;
+  }
 }
 
 @media (max-width: 1024px) {
   .account-page {
-    min-height: 100svh;
+    height: calc(100svh - var(--app-navigation-mobile-height));
+    min-height: calc(100svh - var(--app-navigation-mobile-height));
     padding: 0;
-    place-items: stretch;
+    align-items: stretch;
+    overflow-y: auto;
     background: var(--color-background);
   }
 
   .account-page__panel {
+    flex: 1 0 auto;
     width: 100%;
-    min-height: 100svh;
-    padding: 24px 18px calc(24px + var(--app-navigation-mobile-height));
+    min-height: 0;
+    padding: 24px 18px;
+    overflow: visible;
     border: 0;
     border-radius: 0;
     background: var(--color-background);

@@ -3,6 +3,7 @@ import { ChartBar, Leaf, Moon, Sun, Tree } from '@phosphor-icons/react';
 import Chart from 'chart.js/auto';
 import { getCompletedJourneys } from '../../utils/completedJourneysDb';
 import DecorativePattern from '../DecorativePattern/DecorativePattern';
+import LegalFooter from '../LegalFooter/LegalFooter';
 import './CarbonPage.css';
 
 function formatCarbonAmount(value) {
@@ -346,10 +347,14 @@ function TransportTypesChart({ types }) {
  * dans IndexedDB : comparaison CO2 avec la voiture solo, moyenne par kilometre
  * et classement des types de transport preferes.
  *
- * @param {{isDarkMode: boolean, onToggleDarkMode: () => void}} props
+ * @param {{isDarkMode: boolean, onLegalLinkClick?: Function, onToggleDarkMode: () => void}} props
  * @returns {import('react').JSX.Element}
  */
-export default function CarbonPage({ isDarkMode, onToggleDarkMode }) {
+export default function CarbonPage({
+  isDarkMode,
+  onLegalLinkClick,
+  onToggleDarkMode,
+}) {
   const [completedJourneys, setCompletedJourneys] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -458,7 +463,9 @@ export default function CarbonPage({ isDarkMode, onToggleDarkMode }) {
             </div>
           )}
         </section>
+
       </div>
+      <LegalFooter onLegalLinkClick={onLegalLinkClick} />
     </section>
   );
 }
