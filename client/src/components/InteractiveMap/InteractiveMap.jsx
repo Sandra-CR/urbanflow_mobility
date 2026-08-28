@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { WifiSlash } from '@phosphor-icons/react';
 import * as maplibregl from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { TILE_URLS } from '../../utils/offlineMapTiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './InteractiveMap.css';
+
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 const LIGHT_STYLE = {
   version: 8,
@@ -433,6 +436,7 @@ function drawRouteWhenReady(map, route, { shouldFit = false } = {}) {
  * @param {Array<object>} [props.stations=[]] Marqueurs de stations à afficher.
  * @param {object | null} [props.selectedRoute=null] Itinéraire actuellement affiché.
  * @param {[number, number] | null} [props.userLocation=null] Position navigateur `[lon, lat]`.
+ * @param {boolean} [props.isJourneyComplete=false] Centre la carte sur la position à l'arrivée.
  * @param {string} [props.className=''] Classe CSS racine additionnelle.
  * @returns {JSX.Element} Carte interactive UrbanFlow.
  */
@@ -444,6 +448,7 @@ export default function InteractiveMap({
   selectedRoute = null,
   userLocation = null,
   focusedSection = null,
+  isJourneyComplete = false,
   onStationSelect,
   className = '',
 }) {
@@ -664,6 +669,21 @@ export default function InteractiveMap({
       essential: true,
     });
   }, [selectedRoute, userLocation]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map || !isJourneyComplete || !userLocation) {
+      return;
+    }
+
+    map.easeTo({
+      center: userLocation,
+      zoom: Math.max(map.getZoom(), 16),
+      duration: 650,
+      essential: true,
+    });
+  }, [isJourneyComplete, userLocation]);
 
   useEffect(() => {
     const map = mapRef.current;

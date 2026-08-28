@@ -29,8 +29,7 @@ function toCoordinatePair(coordinates) {
 function getPlanarPoint(coordinates, referenceLatitude) {
   const [longitude, latitude] = coordinates;
   const latitudeScale = 111320;
-  const longitudeScale =
-    111320 * Math.cos((referenceLatitude * Math.PI) / 180);
+  const longitudeScale = 111320 * Math.cos((referenceLatitude * Math.PI) / 180);
 
   return {
     x: longitude * longitudeScale,
@@ -43,9 +42,7 @@ function getStepTravelProgress(step, userLocation) {
     return null;
   }
 
-  const routeCoordinates = step.geometry
-    .map(toCoordinatePair)
-    .filter(Boolean);
+  const routeCoordinates = step.geometry.map(toCoordinatePair).filter(Boolean);
 
   if (routeCoordinates.length < 2) {
     return null;
@@ -121,6 +118,36 @@ function getStepTravelProgress(step, userLocation) {
   }
 
   return Math.max(0, Math.min(1, closestProjectionLength / totalLength));
+}
+
+function formatCarbonAmountParts(value) {
+  const carbonValue = Number(value);
+
+  if (!Number.isFinite(carbonValue)) {
+    return null;
+  }
+
+  if (carbonValue >= 1000) {
+    return {
+      quantity: (carbonValue / 1000).toFixed(carbonValue >= 10000 ? 0 : 1),
+      unit: 'kg',
+    };
+  }
+
+  return {
+    quantity: String(Math.round(carbonValue)),
+    unit: 'g',
+  };
+}
+
+function formatCarbonAmount(value) {
+  const amount = formatCarbonAmountParts(value);
+
+  if (!amount) {
+    return '-';
+  }
+
+  return `${amount.quantity} ${amount.unit}`;
 }
 
 function normalizeMode(mode = '') {
@@ -254,11 +281,7 @@ function getStepTimelineStops(step) {
   return stops;
 }
 
-function StepDetails({
-  step,
-  userLocation,
-  shouldShowProgressMarker = false,
-}) {
+function StepDetails({ step, userLocation, shouldShowProgressMarker = false }) {
   const timelineStops = getStepTimelineStops(step);
   const hasStops = timelineStops.length > 0;
   const travelProgress = getStepTravelProgress(step, userLocation);
@@ -318,8 +341,48 @@ function StepDetails({
   );
 }
 
+function JourneyCompleteMessage({ journey }) {
+  const carbonFootprint = journey?.carbonFootprint;
+  const journeyCarbon = formatCarbonAmount(carbonFootprint?.total_co2e);
+  const carJourneyCarbon = formatCarbonAmount(carbonFootprint?.car_solo_co2e);
+  const carCarbon = Number(carbonFootprint?.car_solo_co2e);
+  const consumedCarbon = Number(carbonFootprint?.total_co2e);
+  const rawSavings =
+    Number.isFinite(carCarbon) && Number.isFinite(consumedCarbon)
+      ? carCarbon - consumedCarbon
+      : carbonFootprint?.savings_vs_car_solo_co2e;
+  const savings = formatCarbonAmountParts(rawSavings);
+
+  return (
+    <section
+      className="active-journey-tracker__complete"
+      aria-label="Trajet termine"
+    >
+      <dl className="active-journey-tracker__carbon-list">
+        <div>
+          <dt>Votre trajet</dt>
+          <dd className="text-primary">{journeyCarbon}</dd>
+        </div>
+        <div>
+          <dt>Trajet en voiture</dt>
+          <dd className="text-primary">{carJourneyCarbon}</dd>
+        </div>
+      </dl>
+
+      <p className="active-journey-tracker__savings">
+        Bravo, vous avez économisé{' '}
+        <strong>
+          {savings?.quantity ?? '-'} {savings?.unit ?? ''}
+        </strong>{' '}
+        sur ce trajet !
+      </p>
+    </section>
+  );
+}
+
 export default function ActiveJourneyTracker({
   journey,
+  isJourneyComplete = false,
   currentTrackedStepIndex = 0,
   currentStepIndex = 0,
   userLocation = null,
@@ -333,6 +396,15 @@ export default function ActiveJourneyTracker({
       ),
     [journey]
   );
+
+  if (isJourneyComplete) {
+    return (
+      <div className="active-journey-tracker" aria-label="Suivi du trajet">
+        <JourneyCompleteMessage journey={journey} />
+      </div>
+    );
+  }
+
   if (steps.length === 0) {
     return null;
   }
