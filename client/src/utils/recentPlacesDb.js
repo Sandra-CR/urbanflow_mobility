@@ -1,5 +1,5 @@
 const DB_NAME = 'urbanflow_mobility';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'recent_place_searches';
 const MAX_RECENT_SEARCHES = 10;
 
@@ -29,6 +29,15 @@ function openRecentPlacesDb() {
         db.createObjectStore(STORE_NAME, {
           keyPath: 'label',
         });
+      }
+
+      if (!db.objectStoreNames.contains('completed_journeys')) {
+        const store = db.createObjectStore('completed_journeys', {
+          keyPath: 'id',
+        });
+
+        store.createIndex('completedAt', 'completedAt');
+        store.createIndex('type', 'type');
       }
     };
     request.onsuccess = () => resolve(request.result);

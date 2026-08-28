@@ -3,10 +3,12 @@ import { ArrowRight, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import AccountPage from './components/AccountPage/AccountPage';
 import AppNavigation from './components/AppNavigation/AppNavigation';
 import AuthPanel from './components/AuthPanel/AuthPanel';
+import CarbonPage from './components/CarbonPage/CarbonPage';
 import InteractiveMap from './components/InteractiveMap/InteractiveMap';
 import MapActions from './components/MapActions/MapActions';
 import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
 import RoutePlanner from './components/RoutePlanner/RoutePlanner';
+import { saveCompletedJourney } from './utils/completedJourneysDb';
 import {
   deleteCurrentUser,
   getCurrentUser,
@@ -38,6 +40,7 @@ const PARIS_TILE_BOUNDS = {
   north: 48.9022,
 };
 const START_PROXIMITY_THRESHOLD_METERS = 250;
+const DESTINATION_PROXIMITY_THRESHOLD_METERS = 80;
 const GEOLOCATION_WATCH_OPTIONS = {
   enableHighAccuracy: false,
   maximumAge: 0,
@@ -212,6 +215,32 @@ function getJourneyStartCoordinates(journey) {
   return firstSectionWithGeometry?.geometry?.[0] || null;
 }
 
+function getJourneyEndCoordinates(journey) {
+  if (Array.isArray(journey?.geometry)) {
+    const lastJourneyCoordinate = journey.geometry[journey.geometry.length - 1];
+
+    if (isValidCoordinatePair(lastJourneyCoordinate)) {
+      return lastJourneyCoordinate;
+    }
+  }
+
+  const sections = journey?.sections || [];
+
+  for (let index = sections.length - 1; index >= 0; index -= 1) {
+    const geometry = sections[index]?.geometry;
+
+    if (Array.isArray(geometry)) {
+      const lastSectionCoordinate = geometry[geometry.length - 1];
+
+      if (isValidCoordinatePair(lastSectionCoordinate)) {
+        return lastSectionCoordinate;
+      }
+    }
+  }
+
+  return null;
+}
+
 function getTrackableJourneySections(journey) {
   return (journey?.sections || []).filter((section) => {
     const mode = normalizeMode(section?.mode);
@@ -234,6 +263,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
   const [showAccountPage, setShowAccountPage] = useState(false);
+  const [showCarbonPage, setShowCarbonPage] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(getInitialIsDarkMode);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [isRoutePlannerCollapsed, setIsRoutePlannerCollapsed] = useState(false);
@@ -256,20 +286,58 @@ function App() {
   const [userLocationAddress, setUserLocationAddress] = useState(null);
   const [routeTrackingMessage, setRouteTrackingMessage] = useState('');
   const [trackingPopupMessage, setTrackingPopupMessage] = useState('');
+  const [hasTrackedJourneyCompleted, setHasTrackedJourneyCompleted] =
+    useState(false);
   const [trackedStepIndex, setTrackedStepIndex] = useState(0);
   const latestUserLocationRef = useRef(null);
+  const isRouteTrackingActiveRef = useRef(false);
+  const selectedJourneyEndCoordinatesRef = useRef(null);
+  const selectedJourneyRef = useRef(null);
+  const savedCompletedJourneyKeyRef = useRef(null);
   const hasStartedTileCacheRef = useRef(false);
   // const lastGeolocationUpdateAtRef = useRef(0);
 
-  const syncUserLocation = useCallback((position) => {
-    const nextCoordinates = [
-      position.coords.longitude,
-      position.coords.latitude,
-    ];
+  const saveCompletedJourneyOnce = useCallback((journey) => {
+    if (!journey) {
+      return;
+    }
 
-    latestUserLocationRef.current = nextCoordinates;
-    setUserLocation(nextCoordinates);
+    const completedJourneyKey = journey.id || JSON.stringify(journey.geometry);
+
+    if (savedCompletedJourneyKeyRef.current === completedJourneyKey) {
+      return;
+    }
+
+    savedCompletedJourneyKeyRef.current = completedJourneyKey;
+    saveCompletedJourney(journey).catch(() => {
+      savedCompletedJourneyKeyRef.current = null;
+    });
   }, []);
+
+  const syncUserLocation = useCallback(
+    (position) => {
+      const nextCoordinates = [
+        position.coords.longitude,
+        position.coords.latitude,
+      ];
+
+      latestUserLocationRef.current = nextCoordinates;
+      setUserLocation(nextCoordinates);
+
+      if (
+        isRouteTrackingActiveRef.current &&
+        isValidCoordinatePair(selectedJourneyEndCoordinatesRef.current) &&
+        getDistanceBetweenCoordinatesInMeters(
+          nextCoordinates,
+          selectedJourneyEndCoordinatesRef.current
+        ) <= DESTINATION_PROXIMITY_THRESHOLD_METERS
+      ) {
+        setHasTrackedJourneyCompleted(true);
+        saveCompletedJourneyOnce(selectedJourneyRef.current);
+      }
+    },
+    [saveCompletedJourneyOnce]
+  );
 
   const handleSearchPlaces = useCallback(async (query) => {
     const data = await searchPlaces({
@@ -570,12 +638,29 @@ function App() {
     () => getJourneyStartCoordinates(selectedJourney),
     [selectedJourney]
   );
+  const selectedJourneyEndCoordinates = useMemo(
+    () => getJourneyEndCoordinates(selectedJourney),
+    [selectedJourney]
+  );
   const isRouteTrackingActive = routeTrackingMessage === "C'est parti";
+  const isTrackedJourneyComplete = hasTrackedJourneyCompleted;
   const trackedJourneySections = useMemo(
     () => getTrackableJourneySections(selectedJourney),
     [selectedJourney]
   );
-  const activeTrackedSection = isRouteTrackingActive
+
+  useEffect(() => {
+    isRouteTrackingActiveRef.current = isRouteTrackingActive;
+  }, [isRouteTrackingActive]);
+
+  useEffect(() => {
+    selectedJourneyEndCoordinatesRef.current = selectedJourneyEndCoordinates;
+  }, [selectedJourneyEndCoordinates]);
+
+  useEffect(() => {
+    selectedJourneyRef.current = selectedJourney;
+  }, [selectedJourney]);
+  const activeTrackedSection = isRouteTrackingActive && !isTrackedJourneyComplete
     ? trackedJourneySections[
         Math.min(
           trackedStepIndex,
@@ -616,6 +701,7 @@ function App() {
     setCurrentUser(data.user);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowCarbonPage(false);
   }
 
   async function handleRegister(credentials) {
@@ -623,6 +709,7 @@ function App() {
     setCurrentUser(data.user);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowCarbonPage(false);
   }
 
   async function handleLogout() {
@@ -630,6 +717,7 @@ function App() {
     setCurrentUser(null);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowCarbonPage(false);
   }
 
   async function handleDeleteAccount() {
@@ -637,6 +725,7 @@ function App() {
     setCurrentUser(null);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowCarbonPage(false);
   }
 
   async function handlePlanJourney({ from, to }) {
@@ -650,6 +739,8 @@ function App() {
     setIsRouteDetailsVisible(false);
     setRouteTrackingMessage('');
     setTrackingPopupMessage('');
+    setHasTrackedJourneyCompleted(false);
+    savedCompletedJourneyKeyRef.current = null;
     setTrackedStepIndex(0);
 
     try {
@@ -706,6 +797,8 @@ function App() {
     setIsRouteDetailsVisible(false);
     setRouteTrackingMessage('');
     setTrackingPopupMessage('');
+    setHasTrackedJourneyCompleted(false);
+    savedCompletedJourneyKeyRef.current = null;
     setTrackedStepIndex(0);
   }, []);
 
@@ -831,6 +924,10 @@ function App() {
     setTrackingPopupMessage((currentMessage) =>
       currentMessage ? '' : currentMessage
     );
+    setHasTrackedJourneyCompleted((isComplete) =>
+      isComplete ? false : isComplete
+    );
+    savedCompletedJourneyKeyRef.current = null;
     setTrackedStepIndex((currentIndex) =>
       currentIndex !== 0 ? 0 : currentIndex
     );
@@ -839,6 +936,7 @@ function App() {
   const handleRoutesHome = useCallback(() => {
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowCarbonPage(false);
     setIsRoutePlannerCollapsed(false);
     setJourneys([]);
     setSelectedJourney(null);
@@ -849,9 +947,21 @@ function App() {
     setIsRouteDetailsVisible(false);
     setRouteTrackingMessage('');
     setTrackingPopupMessage('');
+    setHasTrackedJourneyCompleted(false);
+    savedCompletedJourneyKeyRef.current = null;
     setTrackedStepIndex(0);
     setRoutePlannerResetKey((currentValue) => currentValue + 1);
   }, [clearBikeStationFlow]);
+
+  const handleCarbonPageOpen = useCallback(() => {
+    setShowAuthPanel(false);
+    setShowAccountPage(false);
+    setShowCarbonPage(true);
+  }, []);
+
+  const handleCloseTrackedJourneyComplete = useCallback(() => {
+    handleRoutesHome();
+  }, [handleRoutesHome]);
 
   const requestCurrentPosition = useCallback(
     () =>
@@ -874,6 +984,7 @@ function App() {
   const handleStartRouteTracking = useCallback(async () => {
     setRouteTrackingMessage('');
     setTrackingPopupMessage('');
+    setHasTrackedJourneyCompleted(false);
 
     let currentCoordinates = userLocation;
 
@@ -910,7 +1021,25 @@ function App() {
 
     setRouteTrackingMessage("C'est parti");
     setTrackedStepIndex(0);
-  }, [requestCurrentPosition, selectedJourneyStartCoordinates, userLocation]);
+
+    if (
+      isValidCoordinatePair(selectedJourneyEndCoordinates) &&
+      getDistanceBetweenCoordinatesInMeters(
+        currentCoordinates,
+        selectedJourneyEndCoordinates
+      ) <= DESTINATION_PROXIMITY_THRESHOLD_METERS
+    ) {
+      setHasTrackedJourneyCompleted(true);
+      saveCompletedJourneyOnce(selectedJourney);
+    }
+  }, [
+    requestCurrentPosition,
+    saveCompletedJourneyOnce,
+    selectedJourney,
+    selectedJourneyEndCoordinates,
+    selectedJourneyStartCoordinates,
+    userLocation,
+  ]);
 
   return (
     <main
@@ -921,15 +1050,19 @@ function App() {
         currentUser={currentUser}
         isDarkMode={isDarkMode}
         isAuthPanelOpen={showAuthPanel || showAccountPage}
+        isCarbonPageOpen={showCarbonPage}
         onAccountClick={() => {
           if (currentUser) {
             setShowAuthPanel(false);
             setShowAccountPage(true);
+            setShowCarbonPage(false);
           } else {
             setShowAuthPanel(true);
+            setShowCarbonPage(false);
           }
         }}
         onBrandClick={handleRoutesHome}
+        onCarbonClick={handleCarbonPageOpen}
         onRoutesClick={handleRoutesHome}
       />
 
@@ -940,7 +1073,7 @@ function App() {
         onDismiss={() => setCacheMessage('')}
       />
 
-      {!showAccountPage ? (
+      {!showAccountPage && !showCarbonPage ? (
         <MapActions
           isDarkMode={isDarkMode}
           onInstallPwa={handleInstallPwa}
@@ -948,7 +1081,12 @@ function App() {
         />
       ) : null}
 
-      {showAccountPage && currentUser ? (
+      {showCarbonPage ? (
+        <CarbonPage
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={handleToggleDarkMode}
+        />
+      ) : showAccountPage && currentUser ? (
         <AccountPage
           currentUser={currentUser}
           isDarkMode={isDarkMode}
@@ -995,6 +1133,7 @@ function App() {
               selectedJourney={selectedJourney}
               isRouteDetailsVisible={isRouteDetailsVisible}
               isRouteTrackingActive={isRouteTrackingActive}
+              isTrackedJourneyComplete={isTrackedJourneyComplete}
               currentTrackedStepIndex={currentTrackedStepIndex}
               trackedStepIndex={trackedStepIndex}
               isLoading={isLoadingJourneys}
@@ -1002,6 +1141,7 @@ function App() {
               userLocation={userLocation}
               onTrackedStepChange={setTrackedStepIndex}
               onBackToResults={() => setIsRouteDetailsVisible(false)}
+              onTrackedJourneyCompleteClose={handleCloseTrackedJourneyComplete}
               onJourneySelect={handleJourneySelect}
               onLoginClick={() => setShowAuthPanel(true)}
               onInputsInvalid={handleJourneyInputsInvalid}
@@ -1018,6 +1158,7 @@ function App() {
               stations={bikeStationChoices}
               selectedRoute={selectedJourney}
               focusedSection={activeTrackedSection}
+              isJourneyComplete={isTrackedJourneyComplete}
               onStationSelect={handleBikeStationSelect}
               userLocation={userLocation}
             />

@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Bus,
   CaretDown,
+  X,
   HourglassMedium,
   Leaf,
   MapPin,
@@ -559,7 +560,26 @@ function RouteTimelineItem({ section, index, previousSection, nextSection }) {
   );
 }
 
-function RouteDetails({ journey, onBack, children = null }) {
+function getJourneyDestinationLabel(journey) {
+  const sections = journey?.sections || [];
+
+  for (let index = sections.length - 1; index >= 0; index -= 1) {
+    const destination = sections[index]?.to;
+
+    if (destination) {
+      return destination;
+    }
+  }
+
+  return journey?.to || journey?.arrival || 'Destination';
+}
+
+function RouteDetails({
+  journey,
+  onBack,
+  isJourneyComplete = false,
+  children = null,
+}) {
   if (!journey) {
     return null;
   }
@@ -571,16 +591,41 @@ function RouteDetails({ journey, onBack, children = null }) {
         (index === 0 || index === sections.length - 1)
       )
   );
+  const destinationLabel = isJourneyComplete
+    ? getJourneyDestinationLabel(journey)
+    : null;
 
   return (
     <div className="route-detail" aria-label="Fiche de route">
-      <header className="route-detail__header">
-        <button className="route-detail__back" type="button" onClick={onBack}>
-          <ArrowLeft size={16} weight="bold" aria-hidden="true" />
-          <span>Retour</span>
-        </button>
-        {/* <JourneySequence sections={journey.sections} /> */}
-        <strong>{formatDuration(journey.duration)}</strong>
+      <header
+        className="route-detail__header"
+        data-complete={isJourneyComplete}
+      >
+        {isJourneyComplete ? (
+          <>
+            <div className="route-detail__complete-title">
+              <h1>Vous êtes à destination</h1>
+              <p>{destinationLabel}</p>
+            </div>
+            <button
+              className="route-detail__close"
+              type="button"
+              onClick={onBack}
+              aria-label="Fermer le suivi du trajet"
+            >
+              <X size={18} weight="bold" aria-hidden="true" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="route-detail__back" type="button" onClick={onBack}>
+              <ArrowLeft size={16} weight="bold" aria-hidden="true" />
+              <span>Retour</span>
+            </button>
+            {/* <JourneySequence sections={journey.sections} /> */}
+            <strong>{formatDuration(journey.duration)}</strong>
+          </>
+        )}
       </header>
 
       {children ? (
@@ -1067,6 +1112,7 @@ export default function RoutePlanner({
   selectedJourney,
   isRouteDetailsVisible,
   isRouteTrackingActive = false,
+  isTrackedJourneyComplete = false,
   currentTrackedStepIndex = 0,
   trackedStepIndex = 0,
   isLoading,
@@ -1075,6 +1121,7 @@ export default function RoutePlanner({
   userLocationPlace,
   onTrackedStepChange,
   onBackToResults,
+  onTrackedJourneyCompleteClose,
   onJourneySelect,
   onLoginClick,
   onInputsInvalid,
@@ -1305,10 +1352,19 @@ export default function RoutePlanner({
         className="route-planner"
         aria-label="Fiche de route"
       >
-        <RouteDetails journey={selectedJourney} onBack={onBackToResults}>
+        <RouteDetails
+          journey={selectedJourney}
+          onBack={
+            isTrackedJourneyComplete
+              ? onTrackedJourneyCompleteClose
+              : onBackToResults
+          }
+          isJourneyComplete={isTrackedJourneyComplete}
+        >
           {isRouteTrackingActive ? (
             <ActiveJourneyTracker
               journey={selectedJourney}
+              isJourneyComplete={isTrackedJourneyComplete}
               currentTrackedStepIndex={currentTrackedStepIndex}
               currentStepIndex={trackedStepIndex}
               userLocation={userLocation}
