@@ -26,7 +26,7 @@ export default function LegalFooter({
       <small className="legal-footer__copyright">
         &copy; 2026 UrbanFlow Mobility
       </small>
-      <nav className="legal-footer__links" aria-label="Informations legales">
+      <nav className="legal-footer__links" aria-label="Informations légales">
         {LEGAL_LINKS.map((link, index) => (
           <span className="legal-footer__link-item" key={link.id}>
             {index > 0 ? <span aria-hidden="true">|</span> : null}

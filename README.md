@@ -20,6 +20,10 @@ Quand le suivi d'itinéraire détecte l'arrivée à destination, le client enreg
 - `client/README.md` : conventions visuelles, PWA, stockage local, assets et icônes.
 - `server/README.md` : configuration backend, migrations PostgreSQL, API HTTP, calcul carbone, fallback OSRM, bornes Vélib, tests et JSDoc.
 
+## Accessibilité
+
+Le frontend vise une conformité RGAA alignée sur WCAG 2.1 niveau AA. Les règles de base sont documentées dans `client/README.md` : structure sémantique, navigation clavier, intitulés accessibles, focus visible, alternatives aux contenus visuels, respect de `prefers-reduced-motion` et tests manuels attendus.
+
 ## Installation
 
 Depuis la racine du projet :

@@ -38,7 +38,7 @@ export function RecentPlacesPanel({ places, onDeletePlace, onPlaceSelect }) {
         places.length === 1 ? ' route-preference-panel--compact' : ''
       }`}
     >
-      <div className="route-suggestions" role="listbox">
+      <div className="route-suggestions">
         {places.map((place) => (
           <RoutePreferencePlaceButton
             key={place.id}
@@ -128,7 +128,11 @@ export function FavoritePlacesPanel({
       <div className="route-preference-panel">
         {panelHeader}
         <div className="route-preference-panel__center">
-          <span className="route-field__loader" aria-label="Chargement" />
+          <span
+            className="route-field__loader"
+            role="status"
+            aria-label="Chargement en cours"
+          />
         </div>
       </div>
     );
@@ -173,7 +177,7 @@ export function FavoritePlacesPanel({
       }`}
     >
       {panelHeader}
-      <div className="route-suggestions" role="listbox">
+      <div className="route-suggestions">
         {favoritePlaces.map((place) => (
           <RoutePreferencePlaceButton
             key={place.favoriteId || place.id}

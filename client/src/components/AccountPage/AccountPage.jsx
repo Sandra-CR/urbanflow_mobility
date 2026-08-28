@@ -337,7 +337,10 @@ export default function AccountPage({
               return (
                 <article className="account-address" key={config.category}>
                   <div className="account-address__field-row">
-                    <label className="account-route-field">
+                    <label
+                      className="account-route-field"
+                      htmlFor={`account-address-${config.category}`}
+                    >
                       <Icon
                         className="account-route-field__icon"
                         size={22}
@@ -345,12 +348,14 @@ export default function AccountPage({
                         aria-hidden="true"
                       />
                       <input
+                        id={`account-address-${config.category}`}
                         type={isEditing ? 'search' : 'text'}
                         value={
                           isEditing
                             ? addressDrafts[config.category]
                             : savedAddressLabel
                         }
+                        aria-label={config.title}
                         placeholder={config.placeholder}
                         readOnly={!isEditing}
                         onChange={(event) =>
@@ -370,27 +375,31 @@ export default function AccountPage({
                           }
                         }}
                       />
-                      <button
-                        className="account-field-action"
-                        type="button"
-                        aria-label={`Modifier ${config.title.toLowerCase()}`}
-                        title={`Modifier ${config.title.toLowerCase()}`}
-                        onClick={() => {
-                          setAddressDrafts((currentDrafts) => ({
-                            ...currentDrafts,
-                            [config.category]:
-                              savedPlace?.placeLabel || savedPlace?.label || '',
-                          }));
-                          setAddressResults((currentResults) => ({
-                            ...currentResults,
-                            [config.category]: [],
-                          }));
-                          setEditingAddress(config.category);
-                        }}
-                      >
-                        <PencilSimple size={18} weight="regular" />
-                      </button>
                     </label>
+                    <button
+                      className="account-field-action"
+                      type="button"
+                      aria-label={`Modifier ${config.title.toLowerCase()}`}
+                      title={`Modifier ${config.title.toLowerCase()}`}
+                      onClick={() => {
+                        setAddressDrafts((currentDrafts) => ({
+                          ...currentDrafts,
+                          [config.category]:
+                            savedPlace?.placeLabel || savedPlace?.label || '',
+                        }));
+                        setAddressResults((currentResults) => ({
+                          ...currentResults,
+                          [config.category]: [],
+                        }));
+                        setEditingAddress(config.category);
+                      }}
+                    >
+                      <PencilSimple
+                        size={18}
+                        weight="regular"
+                        aria-hidden="true"
+                      />
+                    </button>
                   </div>
 
                   {isEditing && addressResults[config.category].length > 0 ? (

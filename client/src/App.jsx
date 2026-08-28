@@ -54,6 +54,11 @@ const GEOLOCATION_REFRESH_OPTIONS = {
   timeout: 10000,
 };
 const THEME_STORAGE_KEY = 'urbanflow-theme';
+const LEGAL_PAGE_TITLES = {
+  'legal-notice': 'Mentions légales',
+  privacy: 'Confidentialité',
+  terms: 'Conditions générales d’utilisation',
+};
 
 function getInitialIsDarkMode() {
   if (typeof window === 'undefined') {
@@ -964,6 +969,18 @@ function App() {
     setShowCarbonPage(true);
   }, []);
 
+  useEffect(() => {
+    const viewTitle = activeLegalPage
+      ? LEGAL_PAGE_TITLES[activeLegalPage] || 'Informations légales'
+      : showCarbonPage
+        ? 'Mon carbone'
+        : showAccountPage && currentUser
+          ? 'Mon compte'
+          : 'Itinéraires';
+
+    document.title = `${viewTitle} - UrbanFlow Mobility`;
+  }, [activeLegalPage, currentUser, showAccountPage, showCarbonPage]);
+
   const handleLegalPageOpen = useCallback((pageId) => {
     setShowAuthPanel(false);
     setShowAccountPage(false);
@@ -1056,14 +1073,20 @@ function App() {
 
   return (
     <main
+      id="app-content"
       className="map-test-page app-surface"
       data-theme={isDarkMode ? 'dark' : 'light'}
+      tabIndex={-1}
     >
+      <a className="skip-link" href="#app-content">
+        Aller au contenu principal
+      </a>
       <AppNavigation
         currentUser={currentUser}
         isDarkMode={isDarkMode}
         isAuthPanelOpen={showAuthPanel || showAccountPage}
         isCarbonPageOpen={showCarbonPage}
+        isLegalPageOpen={Boolean(activeLegalPage)}
         onAccountClick={() => {
           if (currentUser) {
             setShowAuthPanel(false);

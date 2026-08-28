@@ -169,6 +169,11 @@ export default function AuthPanel({
                 value={password}
                 required
                 minLength={isRegisterMode ? 12 : undefined}
+                aria-describedby={
+                  isRegisterMode && isPasswordFocused
+                    ? 'auth-password-rules'
+                    : undefined
+                }
                 onBlur={() => setIsPasswordFocused(false)}
                 onFocus={() => setIsPasswordFocused(true)}
                 onInput={(event) => setPassword(event.currentTarget.value)}
@@ -193,12 +198,16 @@ export default function AuthPanel({
               </button>
             </div>
             {isRegisterMode && isPasswordFocused && (
-              <div className="auth-password-rules">
+              <ul
+                id="auth-password-rules"
+                className="auth-password-rules"
+                aria-live="polite"
+              >
                 {PASSWORD_RULES.map((rule) => {
                   const isValid = rule.validate(password);
 
                   return (
-                    <div
+                    <li
                       className="auth-password-rule"
                       data-valid={isValid}
                       key={rule.id}
@@ -213,10 +222,10 @@ export default function AuthPanel({
                         <XCircle size={18} weight="fill" aria-hidden="true" />
                       )}
                       <span>{rule.label}</span>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
           </label>
 
