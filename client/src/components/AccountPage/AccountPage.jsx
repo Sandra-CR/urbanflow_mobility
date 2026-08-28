@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import { getFavoritePlaces, saveFavoritePlace } from '../../utils/favoritesApi';
 import DecorativePattern from '../DecorativePattern/DecorativePattern';
+import LegalFooter from '../LegalFooter/LegalFooter';
 import '../MapActions/MapActions.css';
 import './AccountPage.css';
 
@@ -38,6 +39,7 @@ const ADDRESS_CONFIGS = [
  * @param {boolean} props.isDarkMode Theme courant.
  * @param {Function} props.onDeleteAccount Suppression du compte.
  * @param {Function} props.onLogout Deconnexion.
+ * @param {Function} props.onLegalLinkClick Ouverture d'une page legale.
  * @param {Function} props.onSearchPlaces Recherche de lieux.
  * @param {Function} props.onToggleDarkMode Changement de theme.
  * @returns {import('react').JSX.Element} Page compte.
@@ -47,6 +49,7 @@ export default function AccountPage({
   isDarkMode,
   onDeleteAccount,
   onLogout,
+  onLegalLinkClick,
   onSearchPlaces,
   onToggleDarkMode,
 }) {
@@ -443,7 +446,9 @@ export default function AccountPage({
             </button>
           </div>
         </section>
+
       </div>
+      <LegalFooter onLegalLinkClick={onLegalLinkClick} />
     </section>
   );
 }
