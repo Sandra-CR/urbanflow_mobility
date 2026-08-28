@@ -68,6 +68,18 @@ function getTransportTypeLabel(type) {
   return 'Autre';
 }
 
+/**
+ * Agrege les trajets termines pour construire les indicateurs du dashboard Mon carbone.
+ *
+ * @param {import('../../utils/completedJourneysDb').CompletedJourneyRecord[]} journeys
+ * @returns {{
+ *   totalCo2e: number,
+ *   carSoloCo2e: number,
+ *   distanceKm: number,
+ *   averageCo2ePerKm: number|null,
+ *   preferredTypes: Array<{label: string, count: number}>
+ * }}
+ */
 function buildCarbonStats(journeys) {
   const totals = journeys.reduce(
     (currentTotals, journey) => {
@@ -113,6 +125,12 @@ function buildCarbonStats(journeys) {
   };
 }
 
+/**
+ * Graphique Chart.js comparant les emissions reelles aux emissions estimees en voiture solo.
+ *
+ * @param {{totalCo2e: number, carSoloCo2e: number}} props
+ * @returns {import('react').JSX.Element}
+ */
 function CarbonComparisonChart({ totalCo2e, carSoloCo2e }) {
   const canvasRef = useRef(null);
 
@@ -218,6 +236,12 @@ function CarbonComparisonChart({ totalCo2e, carSoloCo2e }) {
   );
 }
 
+/**
+ * Graphique Chart.js horizontal des modes de transport les plus utilises.
+ *
+ * @param {{types: Array<{label: string, count: number}>}} props
+ * @returns {import('react').JSX.Element}
+ */
 function TransportTypesChart({ types }) {
   const canvasRef = useRef(null);
 
@@ -315,6 +339,16 @@ function TransportTypesChart({ types }) {
   );
 }
 
+/**
+ * Page Mon carbone.
+ *
+ * Affiche un tableau de bord local base sur les trajets termines enregistres
+ * dans IndexedDB : comparaison CO2 avec la voiture solo, moyenne par kilometre
+ * et classement des types de transport preferes.
+ *
+ * @param {{isDarkMode: boolean, onToggleDarkMode: () => void}} props
+ * @returns {import('react').JSX.Element}
+ */
 export default function CarbonPage({ isDarkMode, onToggleDarkMode }) {
   const [completedJourneys, setCompletedJourneys] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

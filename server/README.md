@@ -115,6 +115,8 @@ Calcul carbone local
 
 Ce comportement évite qu'une indisponibilité Supabase bloque le calcul d'itinéraire. Si un mode de transport n'a aucun facteur connu, l'itinéraire est quand même renvoyé et `carbonFootprintMessage` signale les modes manquants.
 
+La page client `Mon carbone` s'appuie sur ces valeurs carbone, mais elle ne dispose pas d'endpoint backend dédié : l'historique des trajets terminés est persisté localement dans IndexedDB côté navigateur. Le serveur reste responsable du calcul par itinéraire, notamment `total_co2e`, `car_solo_co2e` et `savings_vs_car_solo_co2e`, avant que le client n'enregistre le trajet terminé.
+
 ### Fallback OSRM marche/vélo
 
 La route `GET /api/idfm/journeys` demande des trajets marche, vélo et transports à IDF Mobilités. Si IDF Mobilités ne renvoie pas de trajet direct marche ou vélo, le serveur peut construire un trajet de secours avec OSRM via `ROUTING_API_BASE_URL`.
