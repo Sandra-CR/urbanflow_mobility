@@ -162,12 +162,14 @@
   gap: 7px;
   width: max-content;
   max-width: calc(100vw - 48px);
+  margin: 0;
   padding: 10px 15px;
   border: 1px solid #e5e7eb;
   border-radius: var(--radius-ui);
   background: var(--color-card);
   color: var(--color-text);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  list-style: none;
 }
 
 .auth-password-rule {

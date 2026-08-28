@@ -12,6 +12,7 @@ import './AppNavigation.css';
  * @param {object | null} props.currentUser Utilisateur connecté.
  * @param {boolean} props.isDarkMode Thème courant.
  * @param {boolean} props.isAuthPanelOpen Etat du panneau auth.
+ * @param {boolean} props.isLegalPageOpen Etat d'une page légale.
  * @param {Function} props.onAccountClick Ouverture compte/connexion.
  * @param {Function} props.onBrandClick Retour à l'accueil itinéraires vide.
  * @param {Function} props.onRoutesClick Ouverture du panneau itinéraire.
@@ -22,6 +23,7 @@ export default function AppNavigation({
   isDarkMode,
   isAuthPanelOpen,
   isCarbonPageOpen = false,
+  isLegalPageOpen = false,
   onAccountClick,
   onBrandClick,
   onCarbonClick,
@@ -33,7 +35,7 @@ export default function AppNavigation({
       id: 'routes',
       label: 'Itinéraires',
       Icon: MapTrifold,
-      isActive: !isAuthPanelOpen && !isCarbonPageOpen,
+      isActive: !isAuthPanelOpen && !isCarbonPageOpen && !isLegalPageOpen,
       onClick: onRoutesClick,
     },
     {
@@ -83,6 +85,7 @@ export default function AppNavigation({
               key={id}
               type="button"
               aria-current={isActive ? 'page' : undefined}
+              disabled={!onClick}
               onClick={onClick}
             >
               <Icon weight="regular" aria-hidden="true" />

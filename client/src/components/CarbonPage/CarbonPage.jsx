@@ -216,7 +216,16 @@ function CarbonComparisonChart({ totalCo2e, carSoloCo2e }) {
       <h2>Comparaison des consommations</h2>
       <div className="carbon-comparison-chart__body">
         <div className="carbon-comparison-chart__canvas">
-          <canvas ref={canvasRef} aria-label="Comparaison CO2" />
+          <canvas
+            ref={canvasRef}
+            role="img"
+            aria-label={`Comparaison CO2 : vos trajets ${formatCarbonAmount(
+              totalCo2e
+            )}, voiture ${formatCarbonAmount(carSoloCo2e)}.`}
+          >
+            Comparaison CO2 : vos trajets {formatCarbonAmount(totalCo2e)},
+            voiture {formatCarbonAmount(carSoloCo2e)}.
+          </canvas>
         </div>
         <dl className="carbon-comparison-chart__values">
           <div>
@@ -334,7 +343,16 @@ function TransportTypesChart({ types }) {
           '--transport-chart-height': `${Math.max(160, types.length * 58)}px`,
         }}
       >
-        <canvas ref={canvasRef} aria-label="Types de trajets preferes" />
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label={`Types de trajets préférés : ${types
+            .map((type) => `${type.label}, ${type.count}`)
+            .join('; ')}.`}
+        >
+          Types de trajets préférés :{' '}
+          {types.map((type) => `${type.label}, ${type.count}`).join('; ')}.
+        </canvas>
       </div>
     </article>
   );

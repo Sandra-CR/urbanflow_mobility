@@ -237,7 +237,8 @@
   overflow: visible;
 }
 
-.route-suggestions button {
+.route-suggestions > button,
+.route-suggestion--compound {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -254,8 +255,30 @@
   box-shadow: 0 2px 6px 0 var(--color-shadow);
 }
 
-.route-suggestions button:hover,
-.route-suggestions button:focus-visible {
+.route-suggestion--compound {
+  cursor: default;
+  padding: 0;
+}
+
+.route-suggestion__select {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 8px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.route-suggestions > button:hover,
+.route-suggestions > button:focus-visible,
+.route-suggestion__select:hover,
+.route-suggestion__select:focus-visible {
   outline: none;
 }
 
@@ -302,8 +325,12 @@
   width: 28px;
   height: 28px;
   flex: 0 0 auto;
+  margin-right: 10px;
+  border: 0;
   border-radius: 999px;
+  background: transparent;
   color: var(--color-text-light);
+  cursor: pointer;
 }
 
 .route-suggestion__remove:hover,
