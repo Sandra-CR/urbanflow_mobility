@@ -89,8 +89,8 @@
     top: 0;
     bottom: 0;
     left: 0;
-    position: sticky;
-    width: max-content;
+    position: fixed;
+    width: 96px;
     min-width: 96px;
     height: 100svh;
     flex-direction: column;

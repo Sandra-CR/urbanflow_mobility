@@ -267,6 +267,8 @@
 
   .map-test-page {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: 96px minmax(0, 1fr);
+    height: 100svh;
+    overflow: hidden;
   }
 }

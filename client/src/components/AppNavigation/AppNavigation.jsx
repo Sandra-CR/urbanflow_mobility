@@ -21,8 +21,10 @@ export default function AppNavigation({
   currentUser,
   isDarkMode,
   isAuthPanelOpen,
+  isCarbonPageOpen = false,
   onAccountClick,
   onBrandClick,
+  onCarbonClick,
   onRoutesClick,
 }) {
   const accountLabel = currentUser ? 'Mon compte' : 'Connexion';
@@ -31,14 +33,15 @@ export default function AppNavigation({
       id: 'routes',
       label: 'Itinéraires',
       Icon: MapTrifold,
-      isActive: !isAuthPanelOpen,
+      isActive: !isAuthPanelOpen && !isCarbonPageOpen,
       onClick: onRoutesClick,
     },
     {
       id: 'carbon',
       label: 'Mon carbone',
       Icon: Tree,
-      isActive: false,
+      isActive: isCarbonPageOpen,
+      onClick: onCarbonClick,
     },
     {
       id: 'achievements',
