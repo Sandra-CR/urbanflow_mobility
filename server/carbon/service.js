@@ -121,6 +121,10 @@ async function findCarbonFactorRows(modes, query) {
 /**
  * Calcule l'empreinte carbone d'un itineraire.
  *
+ * Les valeurs renvoyées sont utilisées par le client pour afficher la
+ * comparaison carbone des itinéraires et alimenter le dashboard local
+ * Mon carbone après validation d'un trajet terminé.
+ *
  * La colonne carbon_factors.co2_per_km est attendue dans l'unité affichée
  *
  * @param {object} itinerary Itinéraire à évaluer.

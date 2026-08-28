@@ -2,6 +2,25 @@ const DB_NAME = 'urbanflow_mobility';
 const DB_VERSION = 3;
 const STORE_NAME = 'completed_journeys';
 
+/**
+ * Représentation persistée d'un trajet terminé utilisée par la page Mon carbone.
+ *
+ * Les valeurs carbone sont stockées en grammes équivalent CO2 afin de pouvoir
+ * agréger les trajets sans conversion avant l'affichage du dashboard.
+ *
+ * @typedef {object} CompletedJourneyRecord
+ * @property {string} id Identifiant local unique du trajet enregistré.
+ * @property {string|null} journeyId Identifiant de l'itinéraire source quand il existe.
+ * @property {string} type Type de trajet ou combinaison de modes détectée.
+ * @property {string} completedAt Date ISO de fin du trajet.
+ * @property {number|null} distanceKm Distance totale parcourue en kilomètres.
+ * @property {object} carbonFootprint Empreinte carbone du trajet.
+ * @property {number} carbonFootprint.total_co2e Consommation réelle du trajet.
+ * @property {number} carbonFootprint.car_solo_co2e Consommation estimée en voiture solo.
+ * @property {number} carbonFootprint.savings_vs_car_solo_co2e Economie estimée face à la voiture solo.
+ * @property {string} carbonFootprint.unit Unité source de l'empreinte carbone.
+ */
+
 function getJourneyType(journey) {
   if (journey?.profile) {
     return journey.profile;
@@ -86,6 +105,15 @@ function withCompletedJourneysStore(mode, callback) {
   );
 }
 
+/**
+ * Persiste localement un trajet terminé pour alimenter la page Mon carbone.
+ *
+ * L'enregistrement est ignoré si l'empreinte carbone du trajet ou sa
+ * comparaison voiture solo ne sont pas disponibles.
+ *
+ * @param {object} journey Itinéraire normalisé selectionné par l'utilisateur.
+ * @returns {Promise<void>}
+ */
 export async function saveCompletedJourney(journey) {
   const carbonFootprint = journey?.carbonFootprint;
   const totalCo2e = Number(carbonFootprint?.total_co2e);
@@ -119,6 +147,11 @@ export async function saveCompletedJourney(journey) {
   });
 }
 
+/**
+ * Lit tous les trajets terminés persistés localement, tries du plus récent au plus ancien.
+ *
+ * @returns {Promise<CompletedJourneyRecord[]>}
+ */
 export async function getCompletedJourneys() {
   return withCompletedJourneysStore('readonly', (store) => {
     const request = store.getAll();

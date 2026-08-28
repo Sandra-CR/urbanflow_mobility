@@ -9,6 +9,12 @@ Le projet est organisé en monorepo avec une séparation claire entre le client 
 - `client` : application frontend React avec Vite, Tailwind CSS, MapLibre et configuration PWA.
 - `server` : API backend Node.js avec Express, PostgreSQL/Supabase, auth JWT, proxy IDF Mobilités et flux GBFS Vélib.
 
+## Mon carbone
+
+La page `Mon carbone` est un tableau de bord client qui met en avant les émissions de CO2 de l'utilisateur à partir des trajets terminés localement.
+
+Quand le suivi d'itinéraire détecte l'arrivée à destination, le client enregistre dans IndexedDB le type de trajet, la date de fin, la distance parcourue en kilomètres, la consommation CO2 du trajet et la consommation CO2 estimée pour un trajet équivalent en voiture solo. La page utilise ensuite ces données pour comparer la consommation totale réelle à celle de la voiture solo, calculer la moyenne de CO2 par kilomètre et classer les types de transport utilisés.
+
 ## Documentation
 
 - `client/README.md` : conventions visuelles, PWA, stockage local, assets et icônes.
