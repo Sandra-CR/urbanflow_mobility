@@ -123,6 +123,24 @@ Le préchargement automatique des tuiles utilise la Cache API via `src/utils/off
 
 Les recherches récentes du route planner sont stockées dans IndexedDB via `src/utils/recentPlacesDb.js`. La base s'appelle `urbanflow_mobility`, le store `recent_place_searches`, et seules les `10` dernières recherches sont affichées. Si IndexedDB est indisponible, le route planner reste utilisable sans historique.
 
+Les trajets terminés sont stockés dans la même base IndexedDB via `src/utils/completedJourneysDb.js`, dans le store `completed_journeys`. Ils alimentent la page `Mon carbone` sans limite applicative de nombre de trajets enregistrés. Chaque entrée contient :
+
+- `type` : profil ou combinaison de modes du trajet.
+- `completedAt` : date ISO de fin du trajet.
+- `distanceKm` : distance totale du trajet en kilomètres.
+- `carbonFootprint.total_co2e` : consommation CO2 du trajet.
+- `carbonFootprint.car_solo_co2e` : consommation CO2 estimée en voiture solo.
+- `carbonFootprint.savings_vs_car_solo_co2e` : economie estimée face à la voiture solo.
+
+La page `src/components/CarbonPage/CarbonPage.jsx` lit l'ensemble de ces entrées, compare les totaux et rend les graphiques avec Chart.js :
+
+- comparaison des consommations `Vos trajets` / `En voiture` ;
+- ratio de proportion, par exemple `3,2x moins` ;
+- moyenne de CO2 consomme par kilomètre ;
+- classement horizontal des types de transport préférés.
+
+Si IndexedDB est indisponible ou vide, la page reste accessible et affiche des états vides.
+
 ## Icônes
 
 Les icônes de l'interface doivent venir de `@phosphor-icons/react`.
@@ -140,6 +158,75 @@ Règles d'usage :
 - Préférer les composants Phosphor dans la mesure du possible.
 - Garder `aria-hidden="true"` pour les icônes purement décoratives ou déjà décrites par le bouton.
 - Utiliser `aria-label` sur le bouton ou le contrôle interactif, pas sur l'icône seule.
+
+## Accessibilité RGAA / WCAG 2.1 AA
+
+Le client vise les bonnes pratiques RGAA et WCAG 2.1 niveau AA. Cette documentation ne vaut pas audit de conformité, mais elle fixe les règles à respecter pour les composants React du projet.
+
+### Structure et navigation
+
+- Garder un seul contenu principal identifié par `#app-content`.
+- Conserver le lien d'évitement `Aller au contenu principal` au début de l'application.
+- Utiliser les éléments HTML natifs en priorité : `button` pour une action, `a` pour une navigation, `label` pour un champ.
+- Ne pas imbriquer de contrôles interactifs entre eux, par exemple un `button` dans un autre `button` ou dans un `label` qui contient déjà une action séparée.
+- Utiliser `aria-current="page"` uniquement sur l'entrée de navigation réellement active.
+- Désactiver les actions non disponibles avec `disabled` plutôt que de laisser un bouton sans comportement.
+
+### Clavier et focus
+
+- Toutes les actions doivent être utilisables au clavier.
+- Ne pas supprimer le focus visible sans le remplacer par une alternative claire.
+- Les styles globaux dans `App.css` renforcent `:focus-visible` sur les liens, boutons, champs et contrôles ARIA interactifs.
+- Les panneaux, modales et contenus scrollables doivent rester atteignables au clavier sans piège de focus.
+
+### Formulaires
+
+- Chaque champ doit avoir un nom accessible via `label`, `aria-label` ou `aria-labelledby`.
+- Le placeholder ne doit jamais être la seule information permettant de comprendre un champ.
+- Les messages d'erreur doivent utiliser `role="alert"` lorsqu'ils nécessitent une correction immédiate.
+- Les messages de chargement ou de résultat doivent utiliser `role="status"` et, si nécessaire, `aria-live="polite"`.
+- Les aides dynamiques, comme les règles de mot de passe, doivent être reliées au champ avec `aria-describedby` lorsqu'elles sont visibles.
+
+### Images, icônes, cartes et graphiques
+
+- Les icônes décoratives doivent rester en `aria-hidden="true"`.
+- Les boutons à icône seule doivent porter un `aria-label` explicite.
+- Les logos décoratifs peuvent avoir `alt=""`; les logos porteurs d'information doivent avoir un texte alternatif.
+- Les graphiques `canvas` doivent avoir `role="img"` et un texte alternatif résumant les valeurs importantes.
+- La carte interactive doit être accompagnée de contrôles et états textuels suffisants lorsque l'information ne peut pas être lue directement dans le canvas.
+
+### Couleurs, contraste et thème
+
+- Utiliser les variables CSS de `src/index.css` pour bénéficier des variantes clair/sombre.
+- Vérifier les contrastes du texte, des bordures utiles, des états hover/focus/disabled et des informations d'état.
+- Ne jamais transmettre une information uniquement par la couleur : ajouter du texte, un libellé ou un motif.
+- Les scrollbars et contrôles natifs suivent `color-scheme` selon le thème actif.
+
+### Mouvement et responsive
+
+- Respecter `prefers-reduced-motion: reduce` pour réduire animations et transitions.
+- Ne pas imposer une orientation d'écran.
+- Éviter le scroll horizontal global en mobile ; les scrolls horizontaux internes doivent être justifiés et contenus.
+- Tester les pages en mobile, tablette et desktop, en thème clair et sombre.
+
+### Checklist avant merge
+
+Avant de merger une modification UI :
+
+```bash
+npm run lint --prefix client
+npm run build --prefix client
+```
+
+Puis vérifier manuellement :
+
+- navigation complète au clavier avec `Tab`, `Shift+Tab`, `Enter` et `Espace` ;
+- focus visible sur chaque contrôle ;
+- intitulés compréhensibles pour les boutons à icône seule ;
+- messages d'erreur et de chargement annoncés correctement ;
+- contraste lisible en thème clair et sombre ;
+- absence de scroll horizontal global sur mobile ;
+- lecture cohérente des pages principales avec un lecteur d'écran ou un outil d'audit d'accessibilité.
 
 ## Logos et assets de marque
 

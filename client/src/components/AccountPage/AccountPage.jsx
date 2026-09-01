@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import { getFavoritePlaces, saveFavoritePlace } from '../../utils/favoritesApi';
 import DecorativePattern from '../DecorativePattern/DecorativePattern';
+import LegalFooter from '../LegalFooter/LegalFooter';
 import '../MapActions/MapActions.css';
 import './AccountPage.css';
 
@@ -38,6 +39,7 @@ const ADDRESS_CONFIGS = [
  * @param {boolean} props.isDarkMode Theme courant.
  * @param {Function} props.onDeleteAccount Suppression du compte.
  * @param {Function} props.onLogout Deconnexion.
+ * @param {Function} props.onLegalLinkClick Ouverture d'une page legale.
  * @param {Function} props.onSearchPlaces Recherche de lieux.
  * @param {Function} props.onToggleDarkMode Changement de theme.
  * @returns {import('react').JSX.Element} Page compte.
@@ -47,6 +49,7 @@ export default function AccountPage({
   isDarkMode,
   onDeleteAccount,
   onLogout,
+  onLegalLinkClick,
   onSearchPlaces,
   onToggleDarkMode,
 }) {
@@ -334,7 +337,10 @@ export default function AccountPage({
               return (
                 <article className="account-address" key={config.category}>
                   <div className="account-address__field-row">
-                    <label className="account-route-field">
+                    <label
+                      className="account-route-field"
+                      htmlFor={`account-address-${config.category}`}
+                    >
                       <Icon
                         className="account-route-field__icon"
                         size={22}
@@ -342,12 +348,14 @@ export default function AccountPage({
                         aria-hidden="true"
                       />
                       <input
+                        id={`account-address-${config.category}`}
                         type={isEditing ? 'search' : 'text'}
                         value={
                           isEditing
                             ? addressDrafts[config.category]
                             : savedAddressLabel
                         }
+                        aria-label={config.title}
                         placeholder={config.placeholder}
                         readOnly={!isEditing}
                         onChange={(event) =>
@@ -367,27 +375,31 @@ export default function AccountPage({
                           }
                         }}
                       />
-                      <button
-                        className="account-field-action"
-                        type="button"
-                        aria-label={`Modifier ${config.title.toLowerCase()}`}
-                        title={`Modifier ${config.title.toLowerCase()}`}
-                        onClick={() => {
-                          setAddressDrafts((currentDrafts) => ({
-                            ...currentDrafts,
-                            [config.category]:
-                              savedPlace?.placeLabel || savedPlace?.label || '',
-                          }));
-                          setAddressResults((currentResults) => ({
-                            ...currentResults,
-                            [config.category]: [],
-                          }));
-                          setEditingAddress(config.category);
-                        }}
-                      >
-                        <PencilSimple size={18} weight="regular" />
-                      </button>
                     </label>
+                    <button
+                      className="account-field-action"
+                      type="button"
+                      aria-label={`Modifier ${config.title.toLowerCase()}`}
+                      title={`Modifier ${config.title.toLowerCase()}`}
+                      onClick={() => {
+                        setAddressDrafts((currentDrafts) => ({
+                          ...currentDrafts,
+                          [config.category]:
+                            savedPlace?.placeLabel || savedPlace?.label || '',
+                        }));
+                        setAddressResults((currentResults) => ({
+                          ...currentResults,
+                          [config.category]: [],
+                        }));
+                        setEditingAddress(config.category);
+                      }}
+                    >
+                      <PencilSimple
+                        size={18}
+                        weight="regular"
+                        aria-hidden="true"
+                      />
+                    </button>
                   </div>
 
                   {isEditing && addressResults[config.category].length > 0 ? (
@@ -443,7 +455,9 @@ export default function AccountPage({
             </button>
           </div>
         </section>
+
       </div>
+      <LegalFooter onLegalLinkClick={onLegalLinkClick} />
     </section>
   );
 }

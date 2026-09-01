@@ -34,6 +34,7 @@ import {
   isResolvedRecentPlace,
 } from './placeSearchUtils';
 import ActiveJourneyTracker from './ActiveJourneyTracker';
+import LegalFooter from '../LegalFooter/LegalFooter';
 import RouteDisruptionsPage from './RouteDisruptionsPage';
 import {
   getSortedRouteDisruptions,
@@ -962,9 +963,14 @@ function PlaceSearchField({
           }}
           onChange={handleInputChange}
           onFocus={handleFocus}
+          aria-label={showInlineLabel ? undefined : label}
         />
         {isSearching ? (
-          <span className="route-field__loader" aria-label="Recherche" />
+          <span
+            className="route-field__loader"
+            role="status"
+            aria-label="Recherche en cours"
+          />
         ) : null}
       </div>
     </label>
@@ -977,13 +983,12 @@ function PlaceSuggestions({ suggestions }) {
   }
 
   return (
-    <div className="route-suggestions" role="listbox">
+    <div className="route-suggestions">
       {suggestions.places.map((place) => (
         <button
           className="route-suggestion"
           key={place.id}
           type="button"
-          role="option"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => suggestions.onSelect(place)}
         >
@@ -1123,6 +1128,7 @@ export default function RoutePlanner({
   onBackToResults,
   onTrackedJourneyCompleteClose,
   onJourneySelect,
+  onLegalLinkClick,
   onLoginClick,
   onInputsInvalid,
   onPlan,
@@ -1372,6 +1378,10 @@ export default function RoutePlanner({
             />
           ) : null}
         </RouteDetails>
+        <LegalFooter
+          className="route-planner__legal-footer"
+          onLegalLinkClick={onLegalLinkClick}
+        />
       </aside>
     );
   }
@@ -1388,6 +1398,10 @@ export default function RoutePlanner({
           selectedDisruption={selectedDisruption}
           onBack={handleDisruptionsBack}
           onSelect={setSelectedDisruption}
+        />
+        <LegalFooter
+          className="route-planner__legal-footer"
+          onLegalLinkClick={onLegalLinkClick}
         />
       </aside>
     );
@@ -1489,14 +1503,23 @@ export default function RoutePlanner({
         ) : null}
 
         {message ? (
-          <div className="route-planner__message" role="status">
+          <div
+            className="route-planner__message"
+            role="status"
+            aria-live="polite"
+          >
             {message}
           </div>
         ) : null}
       </form>
 
       {journeys.length > 0 ? (
-        <div className="route-results" aria-label="Itinéraires proposés">
+        <div
+          className="route-results"
+          aria-label={`${journeys.length} itinéraire${
+            journeys.length > 1 ? 's' : ''
+          } proposé${journeys.length > 1 ? 's' : ''}`}
+        >
           {journeys.map((journey, index) => (
             <button
               className="route-result"
@@ -1504,6 +1527,9 @@ export default function RoutePlanner({
               data-profile={journey.profile}
               key={`${journey.id}-${index}`}
               type="button"
+              aria-label={`${getDominantLabel(journey.profile)}, durée ${formatDuration(
+                journey.duration
+              )}`}
               onClick={() => onJourneySelect(journey)}
             >
               <span className="route-result__top">
@@ -1520,6 +1546,10 @@ export default function RoutePlanner({
           ))}
         </div>
       ) : null}
+      <LegalFooter
+        className="route-planner__legal-footer"
+        onLegalLinkClick={onLegalLinkClick}
+      />
     </aside>
   );
 }

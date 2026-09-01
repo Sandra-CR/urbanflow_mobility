@@ -1,7 +1,9 @@
 .decorative-pattern {
   position: absolute;
-  inset: 0;
+  inset: 0 0 auto;
   z-index: 0;
+  min-height: 100%;
+  height: var(--decorative-pattern-height);
   overflow: hidden;
   pointer-events: none;
 }

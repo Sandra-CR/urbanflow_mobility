@@ -30,70 +30,52 @@ export default function RoutePreferencePlaceButton({
   const ActionIcon = actionType === 'edit' ? PencilSimple : X;
   const resolvedActionLabel =
     actionLabel || (actionType === 'edit' ? `Modifier ${place.label}` : null);
+  const resolvedDeleteLabel = `Supprimer ${place.label}`;
+  const actionButton = canRunAction ? (
+    <button
+      className="route-suggestion__remove"
+      type="button"
+      aria-label={resolvedActionLabel}
+      title={actionType === 'edit' ? 'Modifier' : resolvedActionLabel}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => onAction(place)}
+    >
+      <ActionIcon
+        size={16}
+        weight={actionType === 'edit' ? 'regular' : 'bold'}
+        aria-hidden="true"
+      />
+    </button>
+  ) : canDelete ? (
+    <button
+      className="route-suggestion__remove"
+      type="button"
+      aria-label={resolvedDeleteLabel}
+      title="Supprimer"
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => onDelete(place)}
+    >
+      <X size={16} weight="bold" aria-hidden="true" />
+    </button>
+  ) : null;
 
   return (
-    <button
-      className="route-suggestion"
-      key={place.favoriteId || place.id}
-      type="button"
-      role="option"
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={() => onSelect(place)}
-    >
-      <span className="route-suggestion__icon route-suggestion__icon--favorite">
-        {icon || <Icon size={20} weight="regular" aria-hidden="true" />}
-      </span>
-      <span className="route-suggestion__content">
-        <span className="route-suggestion__label">{place.label}</span>
-        {secondaryLabel ? <small>{secondaryLabel}</small> : null}
-      </span>
-      {canRunAction ? (
-        <span
-          className="route-suggestion__remove"
-          role="button"
-          tabIndex={0}
-          aria-label={resolvedActionLabel}
-          title={actionType === 'edit' ? 'Modifier' : resolvedActionLabel}
-          onClick={(event) => {
-            event.stopPropagation();
-            onAction(place);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              event.stopPropagation();
-              onAction(place);
-            }
-          }}
-        >
-          <ActionIcon
-            size={16}
-            weight={actionType === 'edit' ? 'regular' : 'bold'}
-            aria-hidden="true"
-          />
+    <div className="route-suggestion route-suggestion--compound">
+      <button
+        className="route-suggestion__select"
+        type="button"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => onSelect(place)}
+      >
+        <span className="route-suggestion__icon route-suggestion__icon--favorite">
+          {icon || <Icon size={20} weight="regular" aria-hidden="true" />}
         </span>
-      ) : canDelete ? (
-        <span
-          className="route-suggestion__remove"
-          role="button"
-          tabIndex={0}
-          aria-label={`Supprimer ${place.label}`}
-          title="Supprimer"
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete(place);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              event.stopPropagation();
-              onDelete(place);
-            }
-          }}
-        >
-          <X size={16} weight="bold" aria-hidden="true" />
+        <span className="route-suggestion__content">
+          <span className="route-suggestion__label">{place.label}</span>
+          {secondaryLabel ? <small>{secondaryLabel}</small> : null}
         </span>
-      ) : null}
-    </button>
+      </button>
+      {actionButton}
+    </div>
   );
 }
