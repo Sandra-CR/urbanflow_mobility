@@ -61,6 +61,15 @@ function getOnlineStyle(isDarkMode) {
   return isDarkMode ? DARK_STYLE : LIGHT_STYLE;
 }
 
+function collapseAttributionControl(map) {
+  const attributionControl = map
+    .getContainer()
+    .querySelector('.maplibregl-ctrl-attrib.maplibregl-compact');
+
+  attributionControl?.removeAttribute('open');
+  attributionControl?.classList.remove('maplibregl-compact-show');
+}
+
 function createStationMarker(station) {
   const marker = document.createElement('button');
   marker.type = 'button';
@@ -498,7 +507,9 @@ export default function InteractiveMap({
       zoom: initialZoomRef.current,
       pitch: 0,
       bearing: 0,
-      attributionControl: true,
+      attributionControl: {
+        compact: true,
+      },
     });
     activeStyleRef.current = initialIsDarkModeRef.current ? 'dark' : 'light';
 
@@ -515,6 +526,9 @@ export default function InteractiveMap({
       }),
       'bottom-right'
     );
+
+    map.once('idle', () => collapseAttributionControl(map));
+    map.on('drag', () => collapseAttributionControl(map));
 
     map.on('error', (event) => {
       console.error('MapLibre error:', event.error);

@@ -580,6 +580,7 @@ function RouteDetails({
   onBack,
   isJourneyComplete = false,
   children = null,
+  footer = null,
 }) {
   if (!journey) {
     return null;
@@ -648,6 +649,7 @@ function RouteDetails({
           </ol>
         </>
       )}
+      {footer}
     </div>
   );
 }
@@ -1366,6 +1368,12 @@ export default function RoutePlanner({
               : onBackToResults
           }
           isJourneyComplete={isTrackedJourneyComplete}
+          footer={
+            <LegalFooter
+              className="route-planner__legal-footer"
+              onLegalLinkClick={onLegalLinkClick}
+            />
+          }
         >
           {isRouteTrackingActive ? (
             <ActiveJourneyTracker
@@ -1378,10 +1386,6 @@ export default function RoutePlanner({
             />
           ) : null}
         </RouteDetails>
-        <LegalFooter
-          className="route-planner__legal-footer"
-          onLegalLinkClick={onLegalLinkClick}
-        />
       </aside>
     );
   }

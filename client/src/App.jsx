@@ -1212,15 +1212,7 @@ function App() {
             />
             {selectedJourney && isRouteSheetCtaVisible ? (
               isRouteDetailsVisible ? (
-                routeTrackingMessage ? (
-                  <div
-                    className="map-route-cta map-route-status"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {routeTrackingMessage}
-                  </div>
-                ) : (
+                isRouteTrackingActive ? null : (
                   <button
                     className="btn-primary map-route-cta"
                     type="button"
