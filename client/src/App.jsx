@@ -8,6 +8,7 @@ import InteractiveMap from './components/InteractiveMap/InteractiveMap';
 import LegalFooter from './components/LegalFooter/LegalFooter';
 import LegalPage from './components/LegalPage/LegalPage';
 import MapActions from './components/MapActions/MapActions';
+import NotFoundPage from './components/NotFoundPage/NotFoundPage';
 import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
 import RoutePlanner from './components/RoutePlanner/RoutePlanner';
 import { saveCompletedJourney } from './utils/completedJourneysDb';
@@ -59,6 +60,32 @@ const LEGAL_PAGE_TITLES = {
   privacy: 'Confidentialité',
   terms: 'Conditions générales d’utilisation',
 };
+
+const KNOWN_APP_PATHS = new Set(['/', '/index.html']);
+
+/**
+ * Vérifie si le chemin courant correspond à une vue connue de la SPA.
+ *
+ * @param {string} pathname Chemin issu de `window.location.pathname`.
+ * @returns {boolean} `true` si l'application peut afficher une vue normale.
+ */
+function isKnownAppPath(pathname = '/') {
+  return KNOWN_APP_PATHS.has(pathname);
+}
+
+/**
+ * Remplace l'URL courante sans ajouter d'entrée dans l'historique navigateur.
+ *
+ * @param {string} pathname Chemin à afficher dans la barre d'adresse.
+ * @returns {void}
+ */
+function replaceBrowserPath(pathname) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.history.replaceState(null, '', pathname);
+}
 
 function getInitialIsDarkMode() {
   if (typeof window === 'undefined') {
@@ -272,6 +299,13 @@ function App() {
   const [showAccountPage, setShowAccountPage] = useState(false);
   const [showCarbonPage, setShowCarbonPage] = useState(false);
   const [activeLegalPage, setActiveLegalPage] = useState(null);
+  const [isNotFoundPage, setIsNotFoundPage] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return !isKnownAppPath(window.location.pathname);
+  });
   const [isDarkMode, setIsDarkMode] = useState(getInitialIsDarkMode);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [isRoutePlannerCollapsed, setIsRoutePlannerCollapsed] = useState(false);
@@ -411,6 +445,22 @@ function App() {
   useEffect(() => {
     refreshDisruptions();
   }, [refreshDisruptions]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    function handleBrowserNavigation() {
+      setIsNotFoundPage(!isKnownAppPath(window.location.pathname));
+    }
+
+    window.addEventListener('popstate', handleBrowserNavigation);
+
+    return () => {
+      window.removeEventListener('popstate', handleBrowserNavigation);
+    };
+  }, []);
 
   useEffect(
     () =>
@@ -668,14 +718,15 @@ function App() {
   useEffect(() => {
     selectedJourneyRef.current = selectedJourney;
   }, [selectedJourney]);
-  const activeTrackedSection = isRouteTrackingActive && !isTrackedJourneyComplete
-    ? trackedJourneySections[
-        Math.min(
-          trackedStepIndex,
-          Math.max(trackedJourneySections.length - 1, 0)
-        )
-      ] || null
-    : null;
+  const activeTrackedSection =
+    isRouteTrackingActive && !isTrackedJourneyComplete
+      ? trackedJourneySections[
+          Math.min(
+            trackedStepIndex,
+            Math.max(trackedJourneySections.length - 1, 0)
+          )
+        ] || null
+      : null;
   const currentTrackedStepIndex = useMemo(() => {
     if (
       !isRouteTrackingActive ||
@@ -707,6 +758,7 @@ function App() {
   async function handleLogin(credentials) {
     const data = await loginUser(credentials);
     setCurrentUser(data.user);
+    setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
     setShowCarbonPage(false);
@@ -715,6 +767,7 @@ function App() {
   async function handleRegister(credentials) {
     const data = await registerUser(credentials);
     setCurrentUser(data.user);
+    setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
     setShowCarbonPage(false);
@@ -723,6 +776,7 @@ function App() {
   async function handleLogout() {
     await logoutUser();
     setCurrentUser(null);
+    setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
     setShowCarbonPage(false);
@@ -731,6 +785,7 @@ function App() {
   async function handleDeleteAccount() {
     await deleteCurrentUser();
     setCurrentUser(null);
+    setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
     setShowCarbonPage(false);
@@ -761,9 +816,7 @@ function App() {
       });
       const nextJourneys = data.journeys || [];
       const nextSelectedJourney = wheelchairAccessible
-        ? nextJourneys.find(
-            (journey) => journey.profile !== 'bike'
-          ) || null
+        ? nextJourneys.find((journey) => journey.profile !== 'bike') || null
         : nextJourneys[0] || null;
 
       refreshDisruptions();
@@ -948,6 +1001,8 @@ function App() {
   }, [clearBikeStationFlow]);
 
   const handleRoutesHome = useCallback(() => {
+    replaceBrowserPath('/');
+    setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
     setShowCarbonPage(false);
@@ -969,6 +1024,8 @@ function App() {
   }, [clearBikeStationFlow]);
 
   const handleCarbonPageOpen = useCallback(() => {
+    replaceBrowserPath('/');
+    setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
     setActiveLegalPage(null);
@@ -984,10 +1041,20 @@ function App() {
           ? 'Mon compte'
           : 'Itinéraires';
 
-    document.title = `${viewTitle} - UrbanFlow Mobility`;
-  }, [activeLegalPage, currentUser, showAccountPage, showCarbonPage]);
+    const resolvedViewTitle = isNotFoundPage ? 'Page introuvable' : viewTitle;
+
+    document.title = `${resolvedViewTitle} - UrbanFlow Mobility`;
+  }, [
+    activeLegalPage,
+    currentUser,
+    isNotFoundPage,
+    showAccountPage,
+    showCarbonPage,
+  ]);
 
   const handleLegalPageOpen = useCallback((pageId) => {
+    replaceBrowserPath('/');
+    setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
     setShowCarbonPage(false);
@@ -1093,7 +1160,10 @@ function App() {
         isAuthPanelOpen={showAuthPanel || showAccountPage}
         isCarbonPageOpen={showCarbonPage}
         isLegalPageOpen={Boolean(activeLegalPage)}
+        isNotFoundPageOpen={isNotFoundPage}
         onAccountClick={() => {
+          replaceBrowserPath('/');
+          setIsNotFoundPage(false);
           if (currentUser) {
             setShowAuthPanel(false);
             setShowAccountPage(true);
@@ -1117,7 +1187,10 @@ function App() {
         onDismiss={() => setCacheMessage('')}
       />
 
-      {!showAccountPage && !showCarbonPage && !activeLegalPage ? (
+      {!showAccountPage &&
+      !showCarbonPage &&
+      !activeLegalPage &&
+      !isNotFoundPage ? (
         <MapActions
           isDarkMode={isDarkMode}
           onInstallPwa={handleInstallPwa}
@@ -1125,7 +1198,12 @@ function App() {
         />
       ) : null}
 
-      {activeLegalPage ? (
+      {isNotFoundPage ? (
+        <NotFoundPage
+          onHomeClick={handleRoutesHome}
+          onLegalLinkClick={handleLegalPageOpen}
+        />
+      ) : activeLegalPage ? (
         <LegalPage
           activeLegalPage={activeLegalPage}
           isDarkMode={isDarkMode}

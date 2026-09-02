@@ -1,0 +1,110 @@
+.not-found-page {
+  position: relative;
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100svh;
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--color-card);
+  color: var(--color-text);
+}
+
+.not-found-page__content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: 1 0 auto;
+  width: 100%;
+  min-height: 0;
+  place-items: center;
+  padding: 28px 0;
+}
+
+.not-found-page__panel {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(560px, calc(100% - 56px));
+  padding: 42px 28px 36px;
+  border: 1px solid color-mix(in srgb, var(--color-text-light) 16%, transparent);
+  border-radius: var(--radius-ui);
+  background: var(--color-background);
+  box-shadow: var(--shadow-ui);
+  text-align: center;
+}
+
+.not-found-page__code {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 104px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 0.82;
+}
+
+.not-found-page h1 {
+  max-width: 100%;
+}
+
+.not-found-page__message {
+  max-width: 390px;
+  margin: 0;
+  color: var(--color-text-light);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.not-found-page__button {
+  margin-top: 6px;
+}
+
+@media (min-width: 1025px) {
+  .not-found-page {
+    grid-column: 2;
+    height: 100svh;
+    min-height: 0;
+  }
+
+  .not-found-page > .legal-footer {
+    flex: 0 0 auto;
+  }
+
+  .not-found-page__code {
+    font-size: 136px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .not-found-page {
+    height: calc(100svh - var(--app-navigation-mobile-height));
+    min-height: calc(100svh - var(--app-navigation-mobile-height));
+    background: var(--color-background);
+  }
+
+  .not-found-page__content {
+    height: 100%;
+    padding: 0;
+  }
+
+  .not-found-page__panel {
+    width: 100%;
+    min-height: 100%;
+    align-content: center;
+    padding: 34px 18px 30px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .not-found-page__code {
+    font-size: 76px;
+  }
+
+  .not-found-page > .legal-footer {
+    display: none;
+  }
+}
