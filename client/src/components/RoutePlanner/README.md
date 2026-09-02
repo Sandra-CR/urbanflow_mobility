@@ -34,6 +34,13 @@ panneaux.
   préférence disparaissent.
 - Quand un itinéraire validé est affiché, les items de préférence ne se
   réaffichent pas automatiquement.
+- Les préférences de mobilité `Tri` et `Accès` sont visibles uniquement avec
+  des résultats d'itinéraire et partagent les mêmes clés `localStorage` que la
+  page `Mon compte`.
+- Les résultats gardent toujours l'ordre de groupes `A pied`, puis `A vélo`,
+  puis transports. Le tri CO2/temps s'applique à l'intérieur de ces groupes.
+- En mode `Accès` fauteuil, le trajet marche reste disponible avec l'icône
+  Phosphor `WheelchairMotion`, tandis que le trajet vélo est désactivé.
 - Le bouton perturbations ouvre une page interne qui remplace le contenu
   itinéraire. Un retour depuis le détail revient à la liste des perturbations ;
   un retour depuis la liste revient au planificateur.

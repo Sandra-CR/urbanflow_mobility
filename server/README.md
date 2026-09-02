@@ -75,6 +75,11 @@ Le contrat strict de l'API est décrit dans `server/openapi.yaml` au format Open
 - `GET /api/idfm/journeys`
 - `POST /api/idfm/bike-station-journey`
 
+`GET /api/idfm/journeys` accepte le paramètre optionnel
+`wheelchairAccessible=true`. Quand il est présent, le serveur transmet
+`wheelchair=true` à Navitia pour demander des itinéraires en transports
+compatibles avec un accès fauteuil roulant.
+
 L'API est exposée sur `http://localhost:3000` par défaut. Les routes d'authentification utilisent un cookie httpOnly nommé `urbanflow_auth`.
 
 Toutes les réponses d'erreur utilisent le format :
@@ -116,6 +121,17 @@ Calcul carbone local
 Ce comportement évite qu'une indisponibilité Supabase bloque le calcul d'itinéraire. Si un mode de transport n'a aucun facteur connu, l'itinéraire est quand même renvoyé et `carbonFootprintMessage` signale les modes manquants.
 
 La page client `Mon carbone` s'appuie sur ces valeurs carbone, mais elle ne dispose pas d'endpoint backend dédié : l'historique des trajets terminés est persisté localement dans IndexedDB côté navigateur. Le serveur reste responsable du calcul par itinéraire, notamment `total_co2e`, `car_solo_co2e` et `savings_vs_car_solo_co2e`, avant que le client n'enregistre le trajet terminé.
+
+### Accessibilité fauteuil roulant
+
+La route `GET /api/idfm/journeys` peut recevoir
+`wheelchairAccessible=true`. Ce paramètre est volontairement nommé côté API
+UrbanFlow, puis traduit en `wheelchair=true` dans l'appel Navitia.
+
+Cette option limite les propositions de transport public aux parcours annoncés
+accessibles par IDF Mobilités. Elle ne modifie pas le calcul carbone. Côté
+client, le trajet marche reste sélectionnable et représenté avec l'icône
+fauteuil roulant, tandis que le trajet vélo est désactivé dans ce mode.
 
 ### Fallback OSRM marche/vélo
 

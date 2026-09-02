@@ -104,6 +104,7 @@
 .route-planner-shell {
   position: relative;
   width: 100%;
+  max-width: var(--route-planner-width, 360px);
   height: 100%;
   min-height: 0;
   min-width: 0;

@@ -6,6 +6,7 @@ import {
   PersonSimpleBike,
   PersonSimpleWalk,
   Steps,
+  WheelchairMotion,
 } from '@phosphor-icons/react';
 import './ActiveJourneyTracker.css';
 
@@ -186,7 +187,7 @@ function getPersonalModeIcon(mode = '') {
   return 'walk';
 }
 
-function JourneyStepBadge({ step }) {
+function JourneyStepBadge({ step, useWheelchairWalkIcon = false }) {
   const isTransport = step?.type === 'public_transport';
   const icon = isTransport ? null : getPersonalModeIcon(step?.mode);
   const lineMode = normalizeMode(step?.line?.commercialMode || step?.mode);
@@ -212,7 +213,15 @@ function JourneyStepBadge({ step }) {
         <PersonSimpleBike size={24} weight="regular" aria-hidden="true" />
       ) : null}
       {icon === 'walk' ? (
-        <PersonSimpleWalk size={24} weight="regular" aria-hidden="true" />
+        useWheelchairWalkIcon ? (
+          <WheelchairMotion
+            size={24}
+            weight="regular"
+            aria-hidden="true"
+          />
+        ) : (
+          <PersonSimpleWalk size={24} weight="regular" aria-hidden="true" />
+        )
       ) : null}
       {icon === 'steps' ? (
         <Steps size={24} weight="regular" aria-hidden="true" />
@@ -385,6 +394,7 @@ export default function ActiveJourneyTracker({
   isJourneyComplete = false,
   currentTrackedStepIndex = 0,
   currentStepIndex = 0,
+  useWheelchairWalkIcon = false,
   userLocation = null,
   onStepChange,
 }) {
@@ -418,7 +428,10 @@ export default function ActiveJourneyTracker({
     <div className="active-journey-tracker" aria-label="Suivi du trajet">
       <section className="active-journey-tracker__card">
         <div className="active-journey-tracker__step">
-          <JourneyStepBadge step={activeStep} />
+          <JourneyStepBadge
+            step={activeStep}
+            useWheelchairWalkIcon={useWheelchairWalkIcon}
+          />
           <div className="active-journey-tracker__copy">
             <strong>{getStepLabel(activeStep)}</strong>
             <span>{getStepDirection(activeStep)}</span>
