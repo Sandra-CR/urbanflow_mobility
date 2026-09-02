@@ -736,7 +736,7 @@ function App() {
     setShowCarbonPage(false);
   }
 
-  async function handlePlanJourney({ from, to }) {
+  async function handlePlanJourney({ from, to, wheelchairAccessible = false }) {
     setIsLoadingJourneys(true);
     setJourneyMessage('');
     setJourneys([]);
@@ -757,12 +757,18 @@ function App() {
         to: to.id,
         fromCoordinates: from.coordinates,
         toCoordinates: to.coordinates,
+        wheelchairAccessible,
       });
       const nextJourneys = data.journeys || [];
+      const nextSelectedJourney = wheelchairAccessible
+        ? nextJourneys.find(
+            (journey) => journey.profile !== 'bike'
+          ) || null
+        : nextJourneys[0] || null;
 
       refreshDisruptions();
       setJourneys(nextJourneys);
-      setSelectedJourney(nextJourneys[0] || null);
+      setSelectedJourney(nextSelectedJourney);
 
       if (nextJourneys.length === 0) {
         setJourneyMessage('Aucun itinéraire trouvé.');

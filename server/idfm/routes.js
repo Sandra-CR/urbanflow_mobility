@@ -136,7 +136,7 @@ export function createIdfmRouter({
 
       if (error.name === 'AbortError') {
         return res.status(504).json({
-          error: "DÃ©lai dÃ©passÃ© pour l'API IDF MobilitÃ©s.",
+          error: "Délai dépassé pour l'API IDF Mobilités.",
         });
       }
 
@@ -245,11 +245,14 @@ export function createIdfmRouter({
 
   router.get('/journeys', async (req, res, next) => {
     try {
+      // `wheelchairAccessible` reste un paramètre UrbanFlow ; le client IDFM
+      // le traduit ensuite en `wheelchair=true` pour Navitia.
       const result = await fetchJourneys({
         from: req.query.from,
         to: req.query.to,
         fromCoordinates: [req.query.fromLon, req.query.fromLat],
         toCoordinates: [req.query.toLon, req.query.toLat],
+        wheelchairAccessible: req.query.wheelchairAccessible === 'true',
       });
       const { journeys, missingModes, carbonUnavailable } =
         await addCarbonFootprints(result.journeys, calculateCarbonFootprint);

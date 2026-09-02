@@ -175,7 +175,7 @@ paths:
   /api/idfm/disruptions:
     get:
       tags:
-        - IDF MobilitÃ©s
+        - IDF Mobilités
       summary: Rechercher les perturbations en cours.
       description: Renvoie les interruptions puis les perturbations sur metro, RER, lignes rapides et tram. Les bus sont exclus.
       parameters:
@@ -187,10 +187,10 @@ paths:
             default: 100
             minimum: 1
             maximum: 200
-          description: Nombre maximal de rapports trafic demandes a IDF Mobilites.
+          description: Nombre maximal de rapports trafic demandés à IDF Mobilités.
       responses:
         '200':
-          description: Perturbations trouvees.
+          description: Perturbations trouvées.
           content:
             application/json:
               schema:
@@ -204,7 +204,7 @@ paths:
   /api/idfm/bike-stations:
     get:
       tags:
-        - IDF MobilitÃ©s
+        - IDF Mobilités
       summary: Rechercher les bornes Vélib proches d'une coordonnée.
       parameters:
         - $ref: '#/components/parameters/Lon'
@@ -217,7 +217,7 @@ paths:
             default: 1500
             minimum: 100
             maximum: 5000
-          description: Rayon en metres.
+          description: Rayon en mètres.
         - name: count
           in: query
           required: false
@@ -327,6 +327,13 @@ paths:
           schema:
             type: number
           description: Latitude de l'arrivée pour les trajets directs.
+        - name: wheelchairAccessible
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Limite les itinéraires aux transports accessibles en fauteuil roulant quand la valeur vaut true.
       responses:
         '200':
           description: Itinéraires calculés.
@@ -351,7 +358,7 @@ paths:
   /api/idfm/bike-station-journey:
     post:
       tags:
-        - IDF MobilitÃ©s
+        - IDF Mobilités
       summary: Composer un itinéraire à vélo via des bornes Vélib.
       requestBody:
         required: true
@@ -361,7 +368,7 @@ paths:
               $ref: '#/components/schemas/BikeStationJourneyRequest'
       responses:
         '200':
-          description: Itineraire compose.
+          description: Itinéraire composé.
           content:
             application/json:
               schema:

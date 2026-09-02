@@ -22,6 +22,7 @@ import {
   Subway,
   TrainSimple,
   Tram,
+  WheelchairMotion,
   Warning,
 } from '@phosphor-icons/react';
 import {
@@ -41,6 +42,43 @@ import {
 } from './routeDisruptionsUtils';
 import TransportLineBadge from './TransportLineBadge';
 import './RoutePlanner.css';
+
+const ROUTE_SORT_STORAGE_KEY = 'urbanflow-route-sort';
+const ROUTE_SORT_MODES = {
+  co2: 'co2',
+  time: 'time',
+};
+const ROUTE_ACCESSIBILITY_STORAGE_KEY = 'urbanflow-route-accessibility';
+const ROUTE_ACCESSIBILITY_MODES = {
+  standard: 'standard',
+  wheelchair: 'wheelchair',
+};
+
+function getInitialRouteSortMode() {
+  if (typeof window === 'undefined') {
+    return ROUTE_SORT_MODES.co2;
+  }
+
+  const cachedSortMode = window.localStorage.getItem(ROUTE_SORT_STORAGE_KEY);
+
+  return Object.values(ROUTE_SORT_MODES).includes(cachedSortMode)
+    ? cachedSortMode
+    : ROUTE_SORT_MODES.co2;
+}
+
+function getInitialRouteAccessibilityMode() {
+  if (typeof window === 'undefined') {
+    return ROUTE_ACCESSIBILITY_MODES.standard;
+  }
+
+  const cachedMode = window.localStorage.getItem(
+    ROUTE_ACCESSIBILITY_STORAGE_KEY
+  );
+
+  return Object.values(ROUTE_ACCESSIBILITY_MODES).includes(cachedMode)
+    ? cachedMode
+    : ROUTE_ACCESSIBILITY_MODES.standard;
+}
 
 function normalizeMode(mode = '') {
   return String(mode || '')
@@ -311,6 +349,34 @@ function formatCarbonValue(carbonFootprint) {
   return `${Math.round(value)}g`;
 }
 
+function getJourneyCarbonValue(journey) {
+  const value = Number(journey?.carbonFootprint?.total_co2e);
+
+  return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
+}
+
+function getJourneyDurationValue(journey) {
+  const value = Number(journey?.duration);
+
+  return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
+}
+
+function getJourneyPinnedSortPriority(journey) {
+  if (journey?.profile === 'walking') {
+    return 0;
+  }
+
+  if (journey?.profile === 'bike') {
+    return 1;
+  }
+
+  return 2;
+}
+
+function isWheelchairDisabledJourneyProfile(profile) {
+  return profile === 'bike';
+}
+
 function formatCarbonAmount(value) {
   const carbonValue = Number(value);
 
@@ -501,7 +567,13 @@ function SectionStops({ section }) {
   );
 }
 
-function RouteTimelineItem({ section, index, previousSection, nextSection }) {
+function RouteTimelineItem({
+  section,
+  index,
+  previousSection,
+  nextSection,
+  useWheelchairWalkIcon = false,
+}) {
   const startTime = formatJourneyTime(section.departureDateTime);
   const endTime = formatJourneyTime(section.arrivalDateTime);
   const isPlatformChange = isPlatformChangeSection(section);
@@ -549,7 +621,10 @@ function RouteTimelineItem({ section, index, previousSection, nextSection }) {
       </div>
       <div className="route-step-card">
         <div className="route-step-card__header">
-          <JourneySectionBadge section={section} />
+          <JourneySectionBadge
+            section={section}
+            useWheelchairWalkIcon={useWheelchairWalkIcon}
+          />
           <div>
             <strong>{getSectionTitle(section)}</strong>
             {meta.length > 0 ? <small>{meta.join(' · ')}</small> : null}
@@ -579,6 +654,7 @@ function RouteDetails({
   journey,
   onBack,
   isJourneyComplete = false,
+  useWheelchairWalkIcon = false,
   children = null,
   footer = null,
 }) {
@@ -644,6 +720,7 @@ function RouteDetails({
                 index={index}
                 previousSection={timelineSections[index - 1]}
                 nextSection={timelineSections[index + 1]}
+                useWheelchairWalkIcon={useWheelchairWalkIcon}
               />
             ))}
           </ol>
@@ -1027,7 +1104,7 @@ function areSuggestionStatesEqual(firstSuggestions, secondSuggestions) {
   );
 }
 
-function JourneySectionBadge({ section }) {
+function JourneySectionBadge({ section, useWheelchairWalkIcon = false }) {
   const isTransport = section.type === 'public_transport';
   const icon = isTransport ? null : getPersonalModeIcon(section.mode);
   const lineMode = normalizeMode(section.line?.commercialMode || section.mode);
@@ -1051,7 +1128,15 @@ function JourneySectionBadge({ section }) {
         <PersonSimpleBike size={24} weight="regular" aria-hidden="true" />
       ) : null}
       {icon === 'walk' ? (
-        <PersonSimpleWalk size={24} weight="regular" aria-hidden="true" />
+        useWheelchairWalkIcon ? (
+          <WheelchairMotion
+            size={24}
+            weight="regular"
+            aria-hidden="true"
+          />
+        ) : (
+          <PersonSimpleWalk size={24} weight="regular" aria-hidden="true" />
+        )
       ) : null}
       {icon === 'steps' ? (
         <Steps size={24} weight="regular" aria-hidden="true" />
@@ -1064,7 +1149,7 @@ function JourneySectionBadge({ section }) {
   );
 }
 
-function JourneySequence({ sections }) {
+function JourneySequence({ sections, useWheelchairWalkIcon = false }) {
   const relevantSections = sections
     .filter(
       (section) =>
@@ -1093,7 +1178,10 @@ function JourneySequence({ sections }) {
           key={`${section.id || section.label}-${index}`}
         >
           {index > 0 ? <span className="route-sequence__dot" /> : null}
-          <JourneySectionBadge section={section} />
+          <JourneySectionBadge
+            section={section}
+            useWheelchairWalkIcon={useWheelchairWalkIcon}
+          />
         </span>
       ))}
     </span>
@@ -1155,6 +1243,12 @@ export default function RoutePlanner({
   const [isDisruptionsOpen, setIsDisruptionsOpen] = useState(false);
   const [selectedDisruption, setSelectedDisruption] = useState(null);
   const [recentPlaces, setRecentPlaces] = useState([]);
+  const [routeSortMode, setRouteSortMode] = useState(getInitialRouteSortMode);
+  const [routeAccessibilityMode, setRouteAccessibilityMode] = useState(
+    getInitialRouteAccessibilityMode
+  );
+  const isWheelchairAccessibilityEnabled =
+    routeAccessibilityMode === ROUTE_ACCESSIBILITY_MODES.wheelchair;
   const hasValidatedRoute = Boolean(fromPlace?.id && toPlace?.id);
   const isUserLocationAlreadySelected =
     (userLocationPlace?.id &&
@@ -1185,9 +1279,57 @@ export default function RoutePlanner({
     () => getSortedRouteDisruptions(journeys, disruptions),
     [disruptions, journeys]
   );
+  const sortedJourneys = useMemo(
+    () =>
+      journeys
+        .map((journey, index) => ({ journey, index }))
+        .sort((firstItem, secondItem) => {
+          const firstPriority = getJourneyPinnedSortPriority(firstItem.journey);
+          const secondPriority = getJourneyPinnedSortPriority(
+            secondItem.journey
+          );
+
+          if (firstPriority !== secondPriority) {
+            return firstPriority - secondPriority;
+          }
+
+          const firstValue =
+            routeSortMode === ROUTE_SORT_MODES.time
+              ? getJourneyDurationValue(firstItem.journey)
+              : getJourneyCarbonValue(firstItem.journey);
+          const secondValue =
+            routeSortMode === ROUTE_SORT_MODES.time
+              ? getJourneyDurationValue(secondItem.journey)
+              : getJourneyCarbonValue(secondItem.journey);
+
+          if (firstValue !== secondValue) {
+            return firstValue - secondValue;
+          }
+
+          return firstItem.index - secondItem.index;
+        })
+        .map(({ journey }) => journey),
+    [journeys, routeSortMode]
+  );
   const handleDisruptionsBack = useCallback(() => {
     setSelectedDisruption(null);
     setIsDisruptionsOpen(false);
+  }, []);
+
+  const handleRouteSortChange = useCallback((nextSortMode) => {
+    setRouteSortMode(nextSortMode);
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(ROUTE_SORT_STORAGE_KEY, nextSortMode);
+    }
+  }, []);
+
+  const handleRouteAccessibilityChange = useCallback((nextMode) => {
+    setRouteAccessibilityMode(nextMode);
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(ROUTE_ACCESSIBILITY_STORAGE_KEY, nextMode);
+    }
   }, []);
 
   function handleSubmit(event) {
@@ -1288,15 +1430,27 @@ export default function RoutePlanner({
       return;
     }
 
-    const planKey = `${fromPlace.id}->${toPlace.id}`;
+    const planKey = `${fromPlace.id}->${toPlace.id}:${routeAccessibilityMode}`;
 
     if (latestPlanKeyRef.current === planKey) {
       return;
     }
 
     latestPlanKeyRef.current = planKey;
-    onPlan({ from: fromPlace, to: toPlace });
-  }, [fromPlace, isLoading, onInputsInvalid, onPlan, toPlace]);
+    onPlan({
+      from: fromPlace,
+      to: toPlace,
+      wheelchairAccessible: isWheelchairAccessibilityEnabled,
+    });
+  }, [
+    fromPlace,
+    isWheelchairAccessibilityEnabled,
+    isLoading,
+    onInputsInvalid,
+    onPlan,
+    routeAccessibilityMode,
+    toPlace,
+  ]);
 
   function handleSwapPlaces() {
     const nextFromPlace = toPlace;
@@ -1368,6 +1522,7 @@ export default function RoutePlanner({
               : onBackToResults
           }
           isJourneyComplete={isTrackedJourneyComplete}
+          useWheelchairWalkIcon={isWheelchairAccessibilityEnabled}
           footer={
             <LegalFooter
               className="route-planner__legal-footer"
@@ -1381,6 +1536,7 @@ export default function RoutePlanner({
               isJourneyComplete={isTrackedJourneyComplete}
               currentTrackedStepIndex={currentTrackedStepIndex}
               currentStepIndex={trackedStepIndex}
+              useWheelchairWalkIcon={isWheelchairAccessibilityEnabled}
               userLocation={userLocation}
               onStepChange={onTrackedStepChange}
             />
@@ -1487,6 +1643,48 @@ export default function RoutePlanner({
             preferredPlace={destinationSuggestion}
           />
         </div>
+        {hasVisibleRouteResults ? (
+          <div className="route-options" aria-label="Options d'itinéraires">
+            <div className="route-option-field">
+              <label
+                className="route-option-field__label"
+                htmlFor="route-sort-select"
+              >
+                Tri
+              </label>
+              <select
+                id="route-sort-select"
+                className="route-option-field__select"
+                value={routeSortMode}
+                onChange={(event) => handleRouteSortChange(event.target.value)}
+              >
+                <option value={ROUTE_SORT_MODES.co2}>CO2</option>
+                <option value={ROUTE_SORT_MODES.time}>Temps</option>
+              </select>
+            </div>
+            <div className="route-option-field">
+              <label
+                className="route-option-field__label"
+                htmlFor="route-accessibility-select"
+              >
+                Accès
+              </label>
+              <select
+                id="route-accessibility-select"
+                className="route-option-field__select"
+                value={routeAccessibilityMode}
+                onChange={(event) =>
+                  handleRouteAccessibilityChange(event.target.value)
+                }
+              >
+                <option value={ROUTE_ACCESSIBILITY_MODES.standard}>Tous</option>
+                <option value={ROUTE_ACCESSIBILITY_MODES.wheelchair}>
+                  Fauteuil
+                </option>
+              </select>
+            </div>
+          </div>
+        ) : null}
         {shouldShowPreferences ? (
           <RoutePreferenceMenu
             activeSuggestions={destinationActiveSuggestions}
@@ -1517,37 +1715,58 @@ export default function RoutePlanner({
         ) : null}
       </form>
 
-      {journeys.length > 0 ? (
+      {sortedJourneys.length > 0 ? (
         <div
           className="route-results"
-          aria-label={`${journeys.length} itinéraire${
-            journeys.length > 1 ? 's' : ''
-          } proposé${journeys.length > 1 ? 's' : ''}`}
+          aria-label={`${sortedJourneys.length} itinéraire${
+            sortedJourneys.length > 1 ? 's' : ''
+          } proposé${sortedJourneys.length > 1 ? 's' : ''}`}
         >
-          {journeys.map((journey, index) => (
-            <button
-              className="route-result"
-              data-active={journey === selectedJourney}
-              data-profile={journey.profile}
-              key={`${journey.id}-${index}`}
-              type="button"
-              aria-label={`${getDominantLabel(journey.profile)}, durée ${formatDuration(
-                journey.duration
-              )}`}
-              onClick={() => onJourneySelect(journey)}
-            >
-              <span className="route-result__top">
-                <JourneySequence sections={journey.sections} />
-                <strong>{formatDuration(journey.duration)}</strong>
-              </span>
-              <span className="route-result__meta">
-                <span>{getDominantLabel(journey.profile)}</span>
-                <CarbonFootprintBadge
-                  carbonFootprint={journey.carbonFootprint}
-                />
-              </span>
-            </button>
-          ))}
+          {sortedJourneys.map((journey, index) => {
+            const isAccessibilityDisabled =
+              isWheelchairAccessibilityEnabled &&
+              isWheelchairDisabledJourneyProfile(journey.profile);
+            const journeyLabel = getDominantLabel(journey.profile);
+
+            return (
+              <button
+                className="route-result"
+                data-active={journey === selectedJourney}
+                data-accessibility-disabled={isAccessibilityDisabled}
+                data-profile={journey.profile}
+                key={`${journey.id}-${index}`}
+                type="button"
+                disabled={isAccessibilityDisabled}
+                aria-label={`${journeyLabel}, durée ${formatDuration(
+                  journey.duration
+                )}${
+                  isAccessibilityDisabled
+                    ? ', indisponible en mode handicap'
+                    : ''
+                }`}
+                title={
+                  isAccessibilityDisabled
+                    ? 'Indisponible en mode handicap'
+                    : undefined
+                }
+                onClick={() => onJourneySelect(journey)}
+              >
+                <span className="route-result__top">
+                  <JourneySequence
+                    sections={journey.sections}
+                    useWheelchairWalkIcon={isWheelchairAccessibilityEnabled}
+                  />
+                  <strong>{formatDuration(journey.duration)}</strong>
+                </span>
+                <span className="route-result__meta">
+                  <span>{journeyLabel}</span>
+                  <CarbonFootprintBadge
+                    carbonFootprint={journey.carbonFootprint}
+                  />
+                </span>
+              </button>
+            );
+          })}
         </div>
       ) : null}
       <LegalFooter

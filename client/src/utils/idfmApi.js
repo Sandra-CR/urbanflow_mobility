@@ -105,7 +105,13 @@ export function getPlaceFromCoordinates({ lon, lat }) {
   return requestIdfm(`/api/idfm/place-from-coordinates?${params.toString()}`);
 }
 
-export function getJourneys({ from, to, fromCoordinates, toCoordinates }) {
+export function getJourneys({
+  from,
+  to,
+  fromCoordinates,
+  toCoordinates,
+  wheelchairAccessible = false,
+}) {
   const params = new URLSearchParams({
     from,
     to,
@@ -119,6 +125,10 @@ export function getJourneys({ from, to, fromCoordinates, toCoordinates }) {
   if (toCoordinates?.length >= 2) {
     params.set('toLon', String(toCoordinates[0]));
     params.set('toLat', String(toCoordinates[1]));
+  }
+
+  if (wheelchairAccessible) {
+    params.set('wheelchairAccessible', 'true');
   }
 
   return requestIdfm(`/api/idfm/journeys?${params.toString()}`);

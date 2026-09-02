@@ -123,6 +123,14 @@ Le préchargement automatique des tuiles utilise la Cache API via `src/utils/off
 
 Les recherches récentes du route planner sont stockées dans IndexedDB via `src/utils/recentPlacesDb.js`. La base s'appelle `urbanflow_mobility`, le store `recent_place_searches`, et seules les `10` dernières recherches sont affichées. Si IndexedDB est indisponible, le route planner reste utilisable sans historique.
 
+
+Les préférences de mobilité du route planner sont stockées dans
+`localStorage`, comme le thème visuel. `urbanflow-route-sort` mémorise le tri
+des itinéraires (`co2` par défaut, ou `time`) et
+`urbanflow-route-accessibility` mémorise l'accès (`standard` par défaut, ou
+`wheelchair`). La page `Mon compte` permet de modifier ces valeurs hors calcul
+d'itinéraire.
+
 Les trajets terminés sont stockés dans la même base IndexedDB via `src/utils/completedJourneysDb.js`, dans le store `completed_journeys`. Ils alimentent la page `Mon carbone` sans limite applicative de nombre de trajets enregistrés. Chaque entrée contient :
 
 - `type` : profil ou combinaison de modes du trajet.
@@ -130,13 +138,13 @@ Les trajets terminés sont stockés dans la même base IndexedDB via `src/utils/
 - `distanceKm` : distance totale du trajet en kilomètres.
 - `carbonFootprint.total_co2e` : consommation CO2 du trajet.
 - `carbonFootprint.car_solo_co2e` : consommation CO2 estimée en voiture solo.
-- `carbonFootprint.savings_vs_car_solo_co2e` : economie estimée face à la voiture solo.
+- `carbonFootprint.savings_vs_car_solo_co2e` : économie estimée face à la voiture solo.
 
 La page `src/components/CarbonPage/CarbonPage.jsx` lit l'ensemble de ces entrées, compare les totaux et rend les graphiques avec Chart.js :
 
 - comparaison des consommations `Vos trajets` / `En voiture` ;
 - ratio de proportion, par exemple `3,2x moins` ;
-- moyenne de CO2 consomme par kilomètre ;
+- moyenne de CO2 consommé par kilomètre ;
 - classement horizontal des types de transport préférés.
 
 Si IndexedDB est indisponible ou vide, la page reste accessible et affiche des états vides.
