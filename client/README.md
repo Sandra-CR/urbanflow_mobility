@@ -33,6 +33,12 @@ Le client lit ses variables depuis `client/.env`. Copier `client/.env.example` v
 
 Chaque composant partagé vit dans son propre dossier sous `src/components`. Le fichier JSX et son CSS restent côte à côte, par exemple `src/components/RoutePlanner/RoutePlanner.jsx` et `src/components/RoutePlanner/RoutePlanner.css`.
 
+### Page 404
+
+La page `src/components/NotFoundPage/NotFoundPage.jsx` est affichée lorsque `App.jsx` détecte une URL inconnue au chargement ou lors d'une navigation navigateur. Les chemins explicitement reconnus sont centralisés dans `KNOWN_APP_PATHS`.
+
+Le bouton `Retour aux itinéraires` remet l'URL sur `/`, réinitialise les états de vue et ramène l'utilisateur vers le planificateur. En mobile, la card occupe tout l'écran utile, sans marge, bordure, rayon ni ombre, afin de se comporter comme le fond principal de la page.
+
 ## Thème visuel
 
 Les couleurs, typographies, rayons et ombres partagés sont centralisés dans `src/index.css` sous forme de variables CSS. Les tokens principaux sont exposés dans `tailwind.config.js` pour être réutilisables avec Tailwind.
@@ -122,7 +128,6 @@ Les tuiles Carto sont mises en cache avec une stratégie `CacheFirst` dans le ca
 Le préchargement automatique des tuiles utilise la Cache API via `src/utils/offlineMapTiles.js`. Il précharge silencieusement les tuiles clair/sombre autour de Paris, du zoom `11` au zoom `15`.
 
 Les recherches récentes du route planner sont stockées dans IndexedDB via `src/utils/recentPlacesDb.js`. La base s'appelle `urbanflow_mobility`, le store `recent_place_searches`, et seules les `10` dernières recherches sont affichées. Si IndexedDB est indisponible, le route planner reste utilisable sans historique.
-
 
 Les préférences de mobilité du route planner sont stockées dans
 `localStorage`, comme le thème visuel. `urbanflow-route-sort` mémorise le tri

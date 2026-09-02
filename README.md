@@ -15,6 +15,10 @@ La page `Mon carbone` est un tableau de bord client qui met en avant les émissi
 
 Quand le suivi d'itinéraire détecte l'arrivée à destination, le client enregistre dans IndexedDB le type de trajet, la date de fin, la distance parcourue en kilomètres, la consommation CO2 du trajet et la consommation CO2 estimée pour un trajet équivalent en voiture solo. La page utilise ensuite ces données pour comparer la consommation totale réelle à celle de la voiture solo, calculer la moyenne de CO2 par kilomètre et classer les types de transport utilisés.
 
+## Page introuvable
+
+Le client affiche une page `404` lorsque l'utilisateur ouvre une URL qui ne correspond pas aux chemins connus de l'application. Cette page conserve la navigation UrbanFlow Mobility, centre le message d'erreur sur desktop et occupe tout l'écran utile sur mobile pour garder une expérience cohérente avec le reste de la PWA.
+
 ## Documentation
 
 - `client/README.md` : conventions visuelles, PWA, stockage local, assets et icônes.
