@@ -70,7 +70,7 @@ function getTransportTypeLabel(type) {
 }
 
 /**
- * Agrege les trajets termines pour construire les indicateurs du dashboard Mon carbone.
+ * Agrège les trajets terminés pour construire les indicateurs du dashboard Mon carbone.
  *
  * @param {import('../../utils/completedJourneysDb').CompletedJourneyRecord[]} journeys
  * @returns {{
@@ -127,7 +127,7 @@ function buildCarbonStats(journeys) {
 }
 
 /**
- * Graphique Chart.js comparant les emissions reelles aux emissions estimees en voiture solo.
+ * Graphique Chart.js comparant les émissions réelles aux émissions estimées en voiture solo.
  *
  * @param {{totalCo2e: number, carSoloCo2e: number}} props
  * @returns {import('react').JSX.Element}
@@ -247,7 +247,7 @@ function CarbonComparisonChart({ totalCo2e, carSoloCo2e }) {
 }
 
 /**
- * Graphique Chart.js horizontal des modes de transport les plus utilises.
+ * Graphique Chart.js horizontal des modes de transport les plus utilisés.
  *
  * @param {{types: Array<{label: string, count: number}>}} props
  * @returns {import('react').JSX.Element}
@@ -361,9 +361,9 @@ function TransportTypesChart({ types }) {
 /**
  * Page Mon carbone.
  *
- * Affiche un tableau de bord local base sur les trajets termines enregistres
- * dans IndexedDB : comparaison CO2 avec la voiture solo, moyenne par kilometre
- * et classement des types de transport preferes.
+ * Affiche un tableau de bord local base sur les trajets terminés enregistrés
+ * dans IndexedDB : comparaison CO2 avec la voiture solo, moyenne par kilomètre
+ * et classement des types de transport préférés.
  *
  * @param {{isDarkMode: boolean, onLegalLinkClick?: Function, onToggleDarkMode: () => void}} props
  * @returns {import('react').JSX.Element}
@@ -477,7 +477,7 @@ export default function CarbonPage({
           ) : (
             <div className="carbon-empty">
               <ChartBar size={26} weight="regular" aria-hidden="true" />
-              <p>Aucun trajet termine enregistre pour le moment.</p>
+              <p>Aucun trajet terminé enregistré pour le moment.</p>
             </div>
           )}
         </section>

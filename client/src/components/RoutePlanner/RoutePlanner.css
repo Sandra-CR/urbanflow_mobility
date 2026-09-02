@@ -923,7 +923,19 @@
 }
 
 .route-planner__legal-footer {
-  width: 100%;
+  position: static;
+  width: calc(100% + 36px);
+  margin: 8px -18px -18px;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0;
+}
+
+@media (min-width: 1025px) {
+  .route-planner__legal-footer {
+    display: none;
+  }
 }
 
 .route-result {
@@ -1190,8 +1202,3 @@
   }
 }
 
-@media (min-width: 1025px) {
-  .route-planner__legal-footer {
-    display: none;
-  }
-}
