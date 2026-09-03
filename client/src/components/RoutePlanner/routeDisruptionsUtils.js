@@ -1,9 +1,4 @@
-function normalizeMode(mode = '') {
-  return String(mode || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
+import { normalizeMode } from '../../utils/text';
 
 function getLineModeText(line) {
   return [line.commercialMode, line.physicalMode, line.label, line.code]
@@ -148,10 +143,7 @@ function getDisruptionLineKey(disruption) {
   const line = disruption.line || {};
 
   return (
-    line.id ||
-    line.code ||
-    line.label ||
-    getDisruptionLineLabel(disruption)
+    line.id || line.code || line.label || getDisruptionLineLabel(disruption)
   );
 }
 
@@ -233,7 +225,10 @@ export function getSortedRouteDisruptions(journeys, routeDisruptions = []) {
         : currentGroup),
       count: nextDisruptions.length,
       disruptions: nextDisruptions,
-      severityRank: Math.min(currentGroup.severityRank, disruption.severityRank),
+      severityRank: Math.min(
+        currentGroup.severityRank,
+        disruption.severityRank
+      ),
     });
   });
 

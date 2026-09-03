@@ -34,12 +34,11 @@ import {
   getRecentSuggestions,
   isResolvedRecentPlace,
 } from './placeSearchUtils';
+import { normalizeMode } from '../../utils/text';
 import ActiveJourneyTracker from './ActiveJourneyTracker';
 import LegalFooter from '../LegalFooter/LegalFooter';
 import RouteDisruptionsPage from './RouteDisruptionsPage';
-import {
-  getSortedRouteDisruptions,
-} from './routeDisruptionsUtils';
+import { getSortedRouteDisruptions } from './routeDisruptionsUtils';
 import TransportLineBadge from './TransportLineBadge';
 import './RoutePlanner.css';
 
@@ -78,13 +77,6 @@ function getInitialRouteAccessibilityMode() {
   return Object.values(ROUTE_ACCESSIBILITY_MODES).includes(cachedMode)
     ? cachedMode
     : ROUTE_ACCESSIBILITY_MODES.standard;
-}
-
-function normalizeMode(mode = '') {
-  return String(mode || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
 }
 
 function getPersonalModeIcon(mode = '') {
@@ -696,7 +688,11 @@ function RouteDetails({
           </>
         ) : (
           <>
-            <button className="route-detail__back" type="button" onClick={onBack}>
+            <button
+              className="route-detail__back"
+              type="button"
+              onClick={onBack}
+            >
               <ArrowLeft size={16} weight="bold" aria-hidden="true" />
               <span>Retour</span>
             </button>
@@ -1129,11 +1125,7 @@ function JourneySectionBadge({ section, useWheelchairWalkIcon = false }) {
       ) : null}
       {icon === 'walk' ? (
         useWheelchairWalkIcon ? (
-          <WheelchairMotion
-            size={24}
-            weight="regular"
-            aria-hidden="true"
-          />
+          <WheelchairMotion size={24} weight="regular" aria-hidden="true" />
         ) : (
           <PersonSimpleWalk size={24} weight="regular" aria-hidden="true" />
         )

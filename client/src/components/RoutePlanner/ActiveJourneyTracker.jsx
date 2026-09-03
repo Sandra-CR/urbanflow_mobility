@@ -8,35 +8,13 @@ import {
   Steps,
   WheelchairMotion,
 } from '@phosphor-icons/react';
+import {
+  getPlanarPoint,
+  isValidCoordinatePair,
+  toCoordinatePair,
+} from '../../utils/geo';
+import { normalizeMode } from '../../utils/text';
 import './ActiveJourneyTracker.css';
-
-function isValidCoordinatePair(coordinates) {
-  return (
-    Array.isArray(coordinates) &&
-    coordinates.length >= 2 &&
-    Number.isFinite(Number(coordinates[0])) &&
-    Number.isFinite(Number(coordinates[1]))
-  );
-}
-
-function toCoordinatePair(coordinates) {
-  if (!isValidCoordinatePair(coordinates)) {
-    return null;
-  }
-
-  return [Number(coordinates[0]), Number(coordinates[1])];
-}
-
-function getPlanarPoint(coordinates, referenceLatitude) {
-  const [longitude, latitude] = coordinates;
-  const latitudeScale = 111320;
-  const longitudeScale = 111320 * Math.cos((referenceLatitude * Math.PI) / 180);
-
-  return {
-    x: longitude * longitudeScale,
-    y: latitude * latitudeScale,
-  };
-}
 
 function getStepTravelProgress(step, userLocation) {
   if (!isValidCoordinatePair(userLocation) || !Array.isArray(step?.geometry)) {
@@ -151,13 +129,6 @@ function formatCarbonAmount(value) {
   return `${amount.quantity} ${amount.unit}`;
 }
 
-function normalizeMode(mode = '') {
-  return String(mode || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
-
 function isPlatformChangeSection(section) {
   return normalizeMode(section?.mode) === 'platform_change';
 }
@@ -214,11 +185,7 @@ function JourneyStepBadge({ step, useWheelchairWalkIcon = false }) {
       ) : null}
       {icon === 'walk' ? (
         useWheelchairWalkIcon ? (
-          <WheelchairMotion
-            size={24}
-            weight="regular"
-            aria-hidden="true"
-          />
+          <WheelchairMotion size={24} weight="regular" aria-hidden="true" />
         ) : (
           <PersonSimpleWalk size={24} weight="regular" aria-hidden="true" />
         )

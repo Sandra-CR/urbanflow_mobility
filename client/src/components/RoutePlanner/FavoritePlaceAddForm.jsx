@@ -82,7 +82,11 @@ export default function FavoritePlaceAddForm({
       <PlaceSuggestions suggestions={favoriteSuggestions} />
 
       {message ? (
-        <div className="route-planner__message" role="status" aria-live="polite">
+        <div
+          className="route-planner__message"
+          role="status"
+          aria-live="polite"
+        >
           {message}
         </div>
       ) : null}

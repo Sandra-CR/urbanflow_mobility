@@ -563,7 +563,6 @@ export default function AccountPage({
             </button>
           </div>
         </section>
-
       </div>
       <LegalFooter onLegalLinkClick={onLegalLinkClick} />
     </section>

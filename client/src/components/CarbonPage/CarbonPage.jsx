@@ -369,6 +369,7 @@ function TransportTypesChart({ types }) {
  * @returns {import('react').JSX.Element}
  */
 export default function CarbonPage({
+  currentUser = null,
   isDarkMode,
   onLegalLinkClick,
   onToggleDarkMode,
@@ -379,7 +380,9 @@ export default function CarbonPage({
   useEffect(() => {
     let isMounted = true;
 
-    getCompletedJourneys()
+    getCompletedJourneys({
+      syncRemote: Boolean(currentUser),
+    })
       .then((journeys) => {
         if (isMounted) {
           setCompletedJourneys(journeys);
@@ -394,7 +397,7 @@ export default function CarbonPage({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentUser]);
 
   const stats = useMemo(
     () => buildCarbonStats(completedJourneys),
@@ -481,7 +484,6 @@ export default function CarbonPage({
             </div>
           )}
         </section>
-
       </div>
       <LegalFooter onLegalLinkClick={onLegalLinkClick} />
     </section>
