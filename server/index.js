@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { fileURLToPath } from 'node:url';
 import { createAuthRouter } from './auth/routes.js';
+import { createCarbonRouter } from './carbon/routes.js';
 import { createFavoritesRouter } from './favorites/routes.js';
 import { createIdfmRouter } from './idfm/routes.js';
 
@@ -139,6 +140,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', createAuthRouter());
+app.use('/api/carbon', createCarbonRouter());
 app.use('/api/favorites', createFavoritesRouter());
 app.use('/api/idfm', createIdfmRouter());
 

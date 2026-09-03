@@ -43,6 +43,8 @@ Les migrations SQL sont dans `server/migrations` et doivent être appliquées da
 
 1. `001_create_users.sql` crée la table `users`, son index email et active l'extension PostgreSQL `pgcrypto` nécessaire à `gen_random_uuid()`.
 2. `002_create_carbon_factors.sql` crée la table `carbon_factors` et insère les facteurs carbone de référence.
+3. `003_create_user_favorite_places.sql` crée les lieux favoris utilisateur.
+4. `004_create_user_completed_journeys.sql` crée l'historique carbone synchronisé des trajets terminés.
 
 Avec `psql`, depuis la racine du projet :
 
@@ -50,11 +52,28 @@ Avec `psql`, depuis la racine du projet :
 psql "$DATABASE_URL" -f server/migrations/001_create_users.sql
 psql "$DATABASE_URL" -f server/migrations/002_create_carbon_factors.sql
 psql "$DATABASE_URL" -f server/migrations/003_create_user_favorite_places.sql
+psql "$DATABASE_URL" -f server/migrations/004_create_user_completed_journeys.sql
 ```
 
 La migration `003_create_user_favorite_places.sql` crée `user_favorite_places`, active PostGIS et stocke les catégories `favorite`, `home` et `work` par utilisateur.
 
 Sur Supabase, les mêmes fichiers peuvent être exécutés dans le SQL Editor, dans le même ordre. `DATABASE_URL` doit pointer vers la base PostgreSQL utilisée par le serveur.
+
+### Schéma de données
+
+Tables principales :
+
+- `users` : comptes applicatifs. L’adresse e-mail est unique et le mot de passe est stocké sous forme de hash.
+- `carbon_factors` : facteurs d’émission CO2 par mode de transport, utilisés par le calcul carbone.
+- `user_favorite_places` : lieux favoris rattachés à un utilisateur. Les catégories fonctionnelles sont `favorite`, `home` et `work`.
+- `user_completed_journeys` : trajets terminés rattachés à un utilisateur, avec distance, date de fin et comparaison CO2 face à la voiture solo.
+
+Extensions attendues :
+
+- `pgcrypto` pour générer des UUID avec `gen_random_uuid()`.
+- `postgis` pour stocker et manipuler les coordonnées des lieux favoris.
+
+La clé primaire de `user_completed_journeys` est composée de `user_id` et `id`. Le client peut donc synchroniser plusieurs fois le même trajet local sans créer de doublon pour un même utilisateur.
 
 ## API HTTP
 
@@ -66,6 +85,8 @@ Le contrat strict de l'API est décrit dans `server/openapi.yaml` au format Open
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 - `DELETE /api/auth/me`
+- `GET /api/carbon/completed-journeys`
+- `POST /api/carbon/completed-journeys`
 - `GET /api/favorites`
 - `POST /api/favorites`
 - `GET /api/idfm/disruptions`
@@ -92,6 +113,12 @@ Toutes les réponses d'erreur utilisent le format :
 
 Certaines validations peuvent ajouter un champ `details`.
 
+### Contrat et évolution
+
+Toute nouvelle route publique doit être ajoutée dans `server/openapi.yaml`, couverte par `npm run openapi:check` et documentée dans ce README si elle introduit un nouveau domaine fonctionnel. Les erreurs doivent rester lisibles par le client et conserver le champ `error`.
+
+Les routes qui dépendent d’un utilisateur connecté doivent utiliser le middleware JWT et ne jamais lire directement un identifiant utilisateur depuis le corps de requête.
+
 ## Fonctionnalités clés
 
 ### Géolocalisation
@@ -108,6 +135,16 @@ Les routes `/api/favorites` sont protégées par JWT et renvoient les favoris au
 
 Les favoris sont stockés dans `user_favorite_places`, créée par la migration `003_create_user_favorite_places.sql`. Un favori peut référencer une station via `station_id` ou une adresse libre via `geom`.
 
+### Historique Mon carbone
+
+Les routes `/api/carbon/completed-journeys` sont protégées par JWT. Elles permettent à un utilisateur connecté de retrouver son historique `Mon carbone` sur plusieurs sessions ou appareils.
+
+`GET /api/carbon/completed-journeys` renvoie les trajets terminés du compte, triés du plus récent au plus ancien.
+
+`POST /api/carbon/completed-journeys` enregistre ou met à jour un trajet terminé. Le serveur vérifie la présence d'un identifiant, d'un type, d'une date valide, d'une consommation CO2 réelle et d'une estimation voiture solo. L'économie CO2 est recalculée si le client ne l'envoie pas.
+
+Le client continue d'utiliser IndexedDB comme cache local et comme secours hors ligne. Si le serveur est indisponible, l'application reste utilisable et la page `Mon carbone` affiche les données locales.
+
 ### Calcul carbone local
 
 Le calcul carbone utilise d'abord la table PostgreSQL `carbon_factors`. Si la requête SQL échoue, le serveur bascule sur des facteurs locaux définis dans le service carbone pour garder l'itinéraire exploitable.
@@ -120,7 +157,7 @@ Calcul carbone local
 
 Ce comportement évite qu'une indisponibilité Supabase bloque le calcul d'itinéraire. Si un mode de transport n'a aucun facteur connu, l'itinéraire est quand même renvoyé et `carbonFootprintMessage` signale les modes manquants.
 
-La page client `Mon carbone` s'appuie sur ces valeurs carbone, mais elle ne dispose pas d'endpoint backend dédié : l'historique des trajets terminés est persisté localement dans IndexedDB côté navigateur. Le serveur reste responsable du calcul par itinéraire, notamment `total_co2e`, `car_solo_co2e` et `savings_vs_car_solo_co2e`, avant que le client n'enregistre le trajet terminé.
+La page client `Mon carbone` s'appuie sur ces valeurs carbone. Le serveur reste responsable du calcul par itinéraire, notamment `total_co2e`, `car_solo_co2e` et `savings_vs_car_solo_co2e`, avant que le client n'enregistre le trajet terminé localement et, si possible, dans `user_completed_journeys`.
 
 ### Accessibilité fauteuil roulant
 
@@ -170,6 +207,39 @@ npm run docs
 ```
 
 La documentation générée est placée dans `server/docs` et n'est pas versionnée.
+
+## Déploiement serveur
+
+Préparer l’environnement de production :
+
+```bash
+npm ci --prefix server
+npm run lint --prefix server
+npm run test --prefix server
+```
+
+Variables minimales en production :
+
+- `NODE_ENV=production`
+- `PORT`
+- `CLIENT_ORIGIN`
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `IDFM_API_KEY`
+
+Appliquer les migrations SQL avant le premier démarrage, puis lancer :
+
+```bash
+npm run start --prefix server
+```
+
+Le serveur doit être exposé en HTTPS derrière le fournisseur d’hébergement ou un reverse proxy. `CLIENT_ORIGIN` doit contenir l’origine exacte du client public pour que les cookies httpOnly et CORS fonctionnent correctement.
+
+## Observabilité et erreurs
+
+Le middleware d’erreur renvoie un `errorId` lorsque le serveur rencontre une erreur inattendue ou une erreur de base de données. Cet identifiant doit être conservé dans les journaux d’hébergement pour faciliter le diagnostic.
+
+Les erreurs de configuration de base de données courantes sont transformées en réponses lisibles : base inaccessible, identifiants invalides, schéma incomplet, droits insuffisants ou URL invalide.
 
 ## Tests base de données
 

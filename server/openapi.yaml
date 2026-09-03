@@ -11,6 +11,8 @@ tags:
     description: État de l'API
   - name: Auth
     description: Authentification par cookie httpOnly
+  - name: Carbon
+    description: Historique carbone des trajets terminés
   - name: IDF Mobilités
     description: Recherche de lieux et calcul d'itinéraires
 paths:
@@ -127,6 +129,49 @@ paths:
       responses:
         '204':
           description: Compte supprimé et session fermée.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /api/carbon/completed-journeys:
+    get:
+      tags:
+        - Carbon
+      summary: Lire les trajets terminés du compte connecté.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Trajets terminés synchronisés.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletedJourneysResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags:
+        - Carbon
+      summary: Enregistrer ou mettre à jour un trajet terminé.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletedJourney'
+      responses:
+        '201':
+          description: Trajet terminé enregistré.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletedJourneyResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -771,6 +816,47 @@ components:
           type: number
         savings_vs_car_solo_co2e:
           type: number
+    CompletedJourney:
+      type: object
+      required:
+        - id
+        - type
+        - completedAt
+        - carbonFootprint
+      properties:
+        id:
+          type: string
+          maxLength: 120
+        journeyId:
+          type: string
+          nullable: true
+        type:
+          type: string
+          maxLength: 100
+        completedAt:
+          type: string
+          format: date-time
+        distanceKm:
+          type: number
+          nullable: true
+        carbonFootprint:
+          $ref: '#/components/schemas/CarbonFootprint'
+    CompletedJourneyResponse:
+      type: object
+      required:
+        - journey
+      properties:
+        journey:
+          $ref: '#/components/schemas/CompletedJourney'
+    CompletedJourneysResponse:
+      type: object
+      required:
+        - journeys
+      properties:
+        journeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompletedJourney'
     Journey:
       type: object
       properties:
