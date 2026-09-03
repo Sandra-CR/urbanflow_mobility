@@ -13,7 +13,7 @@ const ROUTE_SOURCE_ID = 'selected-route';
 const ROUTE_TRANSPORT_LAYER_ID = 'selected-route-transport-line';
 const ROUTE_WALK_LAYER_ID = 'selected-route-walk-line';
 const ROUTE_BIKE_LAYER_ID = 'selected-route-bike-line';
-const MAP_RESTORE_DELAYS_MS = [0, 80, 250, 700];
+const MAP_RESTORE_DELAYS_MS = [0, 250];
 const TILE_RELOAD_DEBOUNCE_MS = 900;
 const MAX_TILE_RELOAD_ATTEMPTS = 3;
 const CARTO_ATTRIBUTION =
@@ -458,6 +458,7 @@ export default function InteractiveMap({
   const latestSelectedRouteRef = useRef(selectedRoute);
   const latestUserLocationRef = useRef(userLocation);
   const resizeTimeoutsRef = useRef([]);
+  const resizeFrameRef = useRef(null);
   const tileReloadTimeoutRef = useRef(null);
   const tileReloadAttemptsRef = useRef(0);
   const lastUserLocationKeyRef = useRef(null);
@@ -610,7 +611,12 @@ export default function InteractiveMap({
 
     // Garde la carte nette quand son parent change de taille.
     const resizeObserver = new ResizeObserver(() => {
-      map.resize();
+      window.cancelAnimationFrame(resizeFrameRef.current);
+      resizeFrameRef.current = window.requestAnimationFrame(() => {
+        if (mapRef.current === map) {
+          map.resize();
+        }
+      });
     });
     resizeObserver.observe(mapContainerRef.current);
 
@@ -619,6 +625,7 @@ export default function InteractiveMap({
 
     return () => {
       window.clearTimeout(tileReloadTimeoutRef.current);
+      window.cancelAnimationFrame(resizeFrameRef.current);
       clearRestoreTimeouts();
       resizeObserver.disconnect();
       markersRef.current.forEach((marker) => marker.remove());

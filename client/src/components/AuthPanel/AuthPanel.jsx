@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CheckCircle, Eye, EyeClosed, X, XCircle } from '@phosphor-icons/react';
 import DecorativePattern from '../DecorativePattern/DecorativePattern';
 import UrbanflowBrand from '../UrbanflowBrand/UrbanflowBrand';
+import { useModalFocusTrap } from '../../hooks/useModalFocusTrap';
 import './AuthPanel.css';
 
 const PASSWORD_RULES = [
@@ -55,6 +56,7 @@ export default function AuthPanel({
   onLogin,
   onRegister,
 }) {
+  const panelRef = useRef(null);
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,6 +68,12 @@ export default function AuthPanel({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const isRegisterMode = mode === 'register';
+
+  useModalFocusTrap({
+    isOpen: isOverlay,
+    dialogRef: panelRef,
+    onClose,
+  });
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -112,7 +120,14 @@ export default function AuthPanel({
       }
     >
       <DecorativePattern />
-      <section className="auth-panel app-card-bg" aria-labelledby="auth-title">
+      <section
+        ref={panelRef}
+        className="auth-panel app-card-bg"
+        role={isOverlay ? 'dialog' : undefined}
+        aria-modal={isOverlay ? 'true' : undefined}
+        aria-labelledby="auth-title"
+        tabIndex={isOverlay ? -1 : undefined}
+      >
         {isOverlay ? (
           <button
             className="auth-close"
@@ -223,6 +238,7 @@ export default function AuthPanel({
             )}
           </label>
 
+          {/* TODO: réactiver le lien quand le flux de réinitialisation sera disponible. */}
           {isRegisterMode ? (
             <label className="auth-field">
               <span className="form-field-label">
@@ -261,13 +277,7 @@ export default function AuthPanel({
                 </button>
               </div>
             </label>
-          ) : (
-            <div className="auth-password-row">
-              <button className="auth-link" type="button">
-                Mot de passe oublié ?
-              </button>
-            </div>
-          )}
+          ) : null}
 
           {error && (
             <div className="auth-error" role="alert">

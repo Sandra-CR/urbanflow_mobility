@@ -53,6 +53,22 @@ const ROUTE_ACCESSIBILITY_MODES = {
   wheelchair: 'wheelchair',
 };
 
+function scheduleAfterInitialRender(callback, timeout = 1200) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  if ('requestIdleCallback' in window) {
+    const idleId = window.requestIdleCallback(callback, { timeout });
+
+    return () => window.cancelIdleCallback(idleId);
+  }
+
+  const timeoutId = window.setTimeout(callback, timeout);
+
+  return () => window.clearTimeout(timeoutId);
+}
+
 function getInitialRouteSortMode() {
   if (typeof window === 'undefined') {
     return ROUTE_SORT_MODES.co2;
@@ -1210,6 +1226,7 @@ export default function RoutePlanner({
   onBackToResults,
   onTrackedJourneyCompleteClose,
   onJourneySelect,
+  onDisruptionsOpen,
   onLegalLinkClick,
   onLoginClick,
   onInputsInvalid,
@@ -1395,7 +1412,7 @@ export default function RoutePlanner({
   }, []);
 
   useEffect(() => {
-    refreshRecentPlaces();
+    return scheduleAfterInitialRender(refreshRecentPlaces);
   }, [refreshRecentPlaces]);
 
   useEffect(() => {
@@ -1577,7 +1594,10 @@ export default function RoutePlanner({
             aria-label={`Afficher les perturbations (${sortedDisruptions.length})`}
             aria-expanded={isDisruptionsOpen}
             title="Afficher les perturbations"
-            onClick={() => setIsDisruptionsOpen(true)}
+            onClick={() => {
+              onDisruptionsOpen?.();
+              setIsDisruptionsOpen(true);
+            }}
           >
             <Warning size={22} weight="fill" aria-hidden="true" />
             <span>{sortedDisruptions.length}</span>
