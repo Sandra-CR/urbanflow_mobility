@@ -29,16 +29,35 @@ const app = express();
  */
 const PORT = process.env.PORT || 3000;
 
-const clientOrigins = process.env.CLIENT_ORIGIN
-  ? process.env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim())
-  : true;
+export function getConfiguredClientOrigins(env = process.env) {
+  const configuredOrigins = String(env.CLIENT_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
-function isAllowedOrigin(origin) {
-  if (!origin || clientOrigins === true) {
+  if (configuredOrigins.length > 0) {
+    return configuredOrigins;
+  }
+
+  if (env.NODE_ENV === 'production') {
+    throw new Error('CLIENT_ORIGIN is required in production.');
+  }
+
+  return true;
+}
+
+const clientOrigins = getConfiguredClientOrigins();
+
+export function isAllowedOrigin(origin, allowedOrigins = clientOrigins) {
+  if (!origin) {
     return true;
   }
 
-  if (clientOrigins.includes(origin)) {
+  if (allowedOrigins === true) {
+    return true;
+  }
+
+  if (allowedOrigins.includes(origin)) {
     return true;
   }
 
