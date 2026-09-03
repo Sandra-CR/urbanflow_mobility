@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChartBar, Leaf, Moon, Sun, Tree } from '@phosphor-icons/react';
-import Chart from 'chart.js/auto';
 import { getCompletedJourneys } from '../../utils/completedJourneysDb';
 import DecorativePattern from '../DecorativePattern/DecorativePattern';
 import LegalFooter from '../LegalFooter/LegalFooter';
@@ -142,72 +141,83 @@ function CarbonComparisonChart({ totalCo2e, carSoloCo2e }) {
       return undefined;
     }
 
+    let chart = null;
+    let isCancelled = false;
+
     const styles = getComputedStyle(document.documentElement);
     const primaryColor = styles.getPropertyValue('--color-primary').trim();
     const labelColor = styles.getPropertyValue('--color-primary').trim();
     const textLightColor = styles.getPropertyValue('--color-text-light').trim();
-    const chart = new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: ['Vos trajets', 'En voiture'],
-        datasets: [
-          {
-            label: 'CO2',
-            data: [totalCo2e, carSoloCo2e],
-            borderRadius: 8,
-            backgroundColor: [
-              primaryColor || '#486c3a',
-              'rgba(90, 101, 86, 0.34)',
-            ],
-            borderColor: [primaryColor || '#486c3a', textLightColor],
-            borderWidth: 1,
-            maxBarThickness: 74,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: {
-          legend: {
-            display: false,
-          },
-          tooltip: {
-            callbacks: {
-              label: (context) => formatCarbonAmount(context.parsed.y),
+
+    import('chart.js/auto').then(({ default: Chart }) => {
+      if (isCancelled) {
+        return;
+      }
+
+      chart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: ['Vos trajets', 'En voiture'],
+          datasets: [
+            {
+              label: 'CO2',
+              data: [totalCo2e, carSoloCo2e],
+              borderRadius: 8,
+              backgroundColor: [
+                primaryColor || '#486c3a',
+                'rgba(90, 101, 86, 0.34)',
+              ],
+              borderColor: [primaryColor || '#486c3a', textLightColor],
+              borderWidth: 1,
+              maxBarThickness: 74,
             },
-          },
+          ],
         },
-        scales: {
-          x: {
-            grid: {
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: {
               display: false,
             },
-            ticks: {
-              color: labelColor || '#486c3a',
-              font: {
-                family: 'Inter, system-ui, sans-serif',
-                weight: 700,
+            tooltip: {
+              callbacks: {
+                label: (context) => formatCarbonAmount(context.parsed.y),
               },
             },
           },
-          y: {
-            beginAtZero: true,
-            grid: {
-              color: 'rgba(90, 101, 86, 0.16)',
+          scales: {
+            x: {
+              grid: {
+                display: false,
+              },
+              ticks: {
+                color: labelColor || '#486c3a',
+                font: {
+                  family: 'Inter, system-ui, sans-serif',
+                  weight: 700,
+                },
+              },
             },
-            ticks: {
-              color: textLightColor,
-              callback: (value) => formatCarbonAmount(value),
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: 'rgba(90, 101, 86, 0.16)',
+              },
+              ticks: {
+                color: textLightColor,
+                callback: (value) => formatCarbonAmount(value),
+              },
             },
           },
         },
-      },
+      });
     });
 
     return () => {
-      chart.destroy();
+      isCancelled = true;
+      chart?.destroy();
     };
   }, [carSoloCo2e, totalCo2e]);
 
@@ -262,75 +272,86 @@ function TransportTypesChart({ types }) {
       return undefined;
     }
 
+    let chart = null;
+    let isCancelled = false;
+
     const styles = getComputedStyle(document.documentElement);
     const primaryColor = styles.getPropertyValue('--color-primary').trim();
     const labelColor = styles.getPropertyValue('--color-primary').trim();
     const textLightColor = styles.getPropertyValue('--color-text-light').trim();
-    const chart = new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: types.map((type) => type.label),
-        datasets: [
-          {
-            label: 'Trajets',
-            data: types.map((type) => type.count),
-            borderRadius: 8,
-            backgroundColor: primaryColor || '#486c3a',
-            borderColor: primaryColor || '#486c3a',
-            borderWidth: 1,
-            maxBarThickness: 28,
-          },
-        ],
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: {
-          legend: {
-            display: false,
-          },
-          tooltip: {
-            callbacks: {
-              label: (context) => {
-                const count = context.parsed.x;
 
-                return `${count} trajet${count > 1 ? 's' : ''}`;
-              },
+    import('chart.js/auto').then(({ default: Chart }) => {
+      if (isCancelled) {
+        return;
+      }
+
+      chart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: types.map((type) => type.label),
+          datasets: [
+            {
+              label: 'Trajets',
+              data: types.map((type) => type.count),
+              borderRadius: 8,
+              backgroundColor: primaryColor || '#486c3a',
+              borderColor: primaryColor || '#486c3a',
+              borderWidth: 1,
+              maxBarThickness: 28,
             },
-          },
+          ],
         },
-        scales: {
-          x: {
-            beginAtZero: true,
-            ticks: {
-              color: textLightColor,
-              precision: 0,
-              stepSize: 1,
-            },
-            grid: {
-              color: 'rgba(90, 101, 86, 0.16)',
-            },
-          },
-          y: {
-            grid: {
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: {
               display: false,
             },
-            ticks: {
-              color: labelColor || '#486c3a',
-              font: {
-                family: 'Inter, system-ui, sans-serif',
-                weight: 700,
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const count = context.parsed.x;
+
+                  return `${count} trajet${count > 1 ? 's' : ''}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                color: textLightColor,
+                precision: 0,
+                stepSize: 1,
+              },
+              grid: {
+                color: 'rgba(90, 101, 86, 0.16)',
+              },
+            },
+            y: {
+              grid: {
+                display: false,
+              },
+              ticks: {
+                color: labelColor || '#486c3a',
+                font: {
+                  family: 'Inter, system-ui, sans-serif',
+                  weight: 700,
+                },
               },
             },
           },
         },
-      },
+      });
     });
 
     return () => {
-      chart.destroy();
+      isCancelled = true;
+      chart?.destroy();
     };
   }, [types]);
 

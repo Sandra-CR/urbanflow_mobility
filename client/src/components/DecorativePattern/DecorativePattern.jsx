@@ -63,6 +63,7 @@ export default function DecorativePattern() {
   useEffect(() => {
     const patternElement = patternRef.current;
     const containerElement = patternElement?.parentElement;
+    let layoutFrameId = null;
 
     if (!containerElement) {
       return undefined;
@@ -89,10 +90,14 @@ export default function DecorativePattern() {
         return { height, repeats, tileHeight };
       });
     };
+    const schedulePatternLayoutUpdate = () => {
+      window.cancelAnimationFrame(layoutFrameId);
+      layoutFrameId = window.requestAnimationFrame(updatePatternLayout);
+    };
 
     updatePatternLayout();
 
-    const resizeObserver = new ResizeObserver(updatePatternLayout);
+    const resizeObserver = new ResizeObserver(schedulePatternLayoutUpdate);
     resizeObserver.observe(containerElement);
 
     Array.from(containerElement.children).forEach((child) => {
@@ -101,18 +106,19 @@ export default function DecorativePattern() {
       }
     });
 
-    const mutationObserver = new MutationObserver(updatePatternLayout);
+    const mutationObserver = new MutationObserver(schedulePatternLayoutUpdate);
     mutationObserver.observe(containerElement, {
       childList: true,
       subtree: true,
     });
 
-    window.addEventListener('resize', updatePatternLayout);
+    window.addEventListener('resize', schedulePatternLayoutUpdate);
 
     return () => {
+      window.cancelAnimationFrame(layoutFrameId);
       resizeObserver.disconnect();
       mutationObserver.disconnect();
-      window.removeEventListener('resize', updatePatternLayout);
+      window.removeEventListener('resize', schedulePatternLayoutUpdate);
     };
   }, []);
 

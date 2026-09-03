@@ -1,5 +1,6 @@
 import { MapTrifold, Tree, Trophy, User } from '@phosphor-icons/react';
-import UrbanflowBrand from '../UrbanflowBrand/UrbanflowBrand';
+import darkLogoOnPrimary from '../../assets/brand/dark/urbanflow-logo-onprimary.svg';
+import lightLogoOnPrimary from '../../assets/brand/light/urbanflow-logo-onprimary.svg';
 import './AppNavigation.css';
 
 /**
@@ -32,6 +33,7 @@ export default function AppNavigation({
   onRoutesClick,
 }) {
   const accountLabel = currentUser ? 'Mon compte' : 'Connexion';
+  const brandLogoSrc = isDarkMode ? darkLogoOnPrimary : lightLogoOnPrimary;
   const primaryNavigationItems = [
     {
       id: 'routes',
@@ -73,12 +75,7 @@ export default function AppNavigation({
           aria-label="Retour aux itinéraires"
           onClick={onBrandClick}
         >
-          <UrbanflowBrand
-            kind="logo"
-            variant="onPrimary"
-            isDarkMode={isDarkMode}
-            alt=""
-          />
+          <img src={brandLogoSrc} alt="" />
         </button>
         {primaryNavigationItems.map(
           ({ id, label, Icon, isActive, onClick }) => (

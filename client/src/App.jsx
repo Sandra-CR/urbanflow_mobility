@@ -3,6 +3,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useDeferredValue,
   useMemo,
   useRef,
   useState,
@@ -14,24 +15,8 @@ import MapActions from './components/MapActions/MapActions';
 import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
 import { useCurrentLocation } from './hooks/useCurrentLocation';
 import { useModalFocusTrap } from './hooks/useModalFocusTrap';
-import { useOfflineTileCache } from './hooks/useOfflineTileCache';
 import { usePwaInstall } from './hooks/usePwaInstall';
 import { useTheme } from './hooks/useTheme';
-import { saveCompletedJourney } from './utils/completedJourneysDb';
-import {
-  deleteCurrentUser,
-  getCurrentUser,
-  loginUser,
-  logoutUser,
-  registerUser,
-} from './utils/authApi';
-import {
-  getBikeStationJourney,
-  getBikeStations,
-  getDisruptions,
-  getJourneys,
-  searchPlaces,
-} from './utils/idfmApi';
 import {
   getDistanceBetweenCoordinatesInMeters,
   getDistanceToSectionInMeters,
@@ -60,12 +45,6 @@ const RoutePlanner = lazy(
 );
 
 const PARIS_CENTER = [2.3522, 48.8566];
-const PARIS_TILE_BOUNDS = {
-  west: 2.2241,
-  south: 48.8156,
-  east: 2.4699,
-  north: 48.9022,
-};
 const START_PROXIMITY_THRESHOLD_METERS = 250;
 const DESTINATION_PROXIMITY_THRESHOLD_METERS = 80;
 const LEGAL_PAGE_TITLES = {
@@ -75,6 +54,22 @@ const LEGAL_PAGE_TITLES = {
 };
 
 const KNOWN_APP_PATHS = new Set(['/', '/index.html']);
+
+function scheduleAfterInitialRender(callback, timeout = 1500) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  if ('requestIdleCallback' in window) {
+    const idleId = window.requestIdleCallback(callback, { timeout });
+
+    return () => window.cancelIdleCallback(idleId);
+  }
+
+  const timeoutId = window.setTimeout(callback, timeout);
+
+  return () => window.clearTimeout(timeoutId);
+}
 
 /**
  * Vérifie si le chemin courant correspond à une vue connue de la SPA.
@@ -98,6 +93,31 @@ function replaceBrowserPath(pathname) {
   }
 
   window.history.replaceState(null, '', pathname);
+}
+
+function MapHydrationPlaceholder() {
+  return (
+    <div className="map-hydration-placeholder" aria-hidden="true">
+      <div className="map-hydration-placeholder__grid" />
+      <span className="map-hydration-placeholder__pin" />
+    </div>
+  );
+}
+
+function RoutePlannerLoadingSkeleton() {
+  return (
+    <aside className="route-planner route-planner-skeleton" aria-hidden="true">
+      <div className="route-planner-skeleton__header" />
+      <div className="route-planner-skeleton__field" />
+      <div className="route-planner-skeleton__field" />
+      <div className="route-planner-skeleton__tabs" />
+      <div className="route-planner-skeleton__list">
+        <span />
+        <span />
+        <span />
+      </div>
+    </aside>
+  );
 }
 
 /**
@@ -144,6 +164,7 @@ function App() {
   const [isRouteDetailsVisible, setIsRouteDetailsVisible] = useState(false);
   const [isLoadingJourneys, setIsLoadingJourneys] = useState(false);
   const [journeyMessage, setJourneyMessage] = useState('');
+  const [isMapReadyForHydration, setIsMapReadyForHydration] = useState(false);
   const [routeTrackingMessage, setRouteTrackingMessage] = useState('');
   const [trackingPopupMessage, setTrackingPopupMessage] = useState('');
   const [hasTrackedJourneyCompleted, setHasTrackedJourneyCompleted] =
@@ -170,11 +191,15 @@ function App() {
       }
 
       savedCompletedJourneyKeyRef.current = completedJourneyKey;
-      saveCompletedJourney(journey, {
-        syncRemote: Boolean(currentUser),
-      }).catch(() => {
-        savedCompletedJourneyKeyRef.current = null;
-      });
+      import('./utils/completedJourneysDb')
+        .then(({ saveCompletedJourney }) =>
+          saveCompletedJourney(journey, {
+            syncRemote: Boolean(currentUser),
+          })
+        )
+        .catch(() => {
+          savedCompletedJourneyKeyRef.current = null;
+        });
     },
     [currentUser]
   );
@@ -227,19 +252,11 @@ function App() {
     onPositionChange: handleUserPositionChange,
   });
 
-  const offlineTileCacheOptions = useMemo(
-    () => ({
-      bounds: PARIS_TILE_BOUNDS,
-      minZoom: 11,
-      maxZoom: 15,
-      includeDarkMode: true,
-    }),
-    []
-  );
-
-  useOfflineTileCache(offlineTileCacheOptions);
+  const deferredSelectedJourney = useDeferredValue(selectedJourney);
+  const deferredBikeStationChoices = useDeferredValue(bikeStationChoices);
 
   const handleSearchPlaces = useCallback(async (query) => {
+    const { searchPlaces } = await import('./utils/idfmApi');
     const data = await searchPlaces({
       query,
       count: 8,
@@ -248,8 +265,9 @@ function App() {
     return data.places || [];
   }, []);
 
-  const refreshDisruptions = useCallback(() => {
-    getDisruptions({ count: 100 })
+  const refreshDisruptions = useCallback(({ count = 30 } = {}) => {
+    import('./utils/idfmApi')
+      .then(({ getDisruptions }) => getDisruptions({ count }))
       .then((data) => {
         setDisruptions(data.disruptions || []);
       })
@@ -267,27 +285,32 @@ function App() {
 
   useEffect(() => {
     let isMounted = true;
-
-    getCurrentUser()
-      .then((data) => {
-        if (isMounted) {
-          setCurrentUser(data.user);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setCurrentUser(null);
-        }
-      });
+    const cancelAuthRefresh = scheduleAfterInitialRender(() => {
+      import('./utils/authApi')
+        .then(({ getCurrentUser }) => getCurrentUser())
+        .then((data) => {
+          if (isMounted) {
+            setCurrentUser(data.user);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setCurrentUser(null);
+          }
+        });
+    });
 
     return () => {
       isMounted = false;
+      cancelAuthRefresh();
     };
   }, []);
 
   useEffect(() => {
-    refreshDisruptions();
-  }, [refreshDisruptions]);
+    return scheduleAfterInitialRender(() => {
+      setIsMapReadyForHydration(true);
+    }, 1200);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -369,6 +392,7 @@ function App() {
   }, [isRouteTrackingActive, trackedJourneySections, userLocation]);
 
   async function handleLogin(credentials) {
+    const { loginUser } = await import('./utils/authApi');
     const data = await loginUser(credentials);
     setCurrentUser(data.user);
     setIsNotFoundPage(false);
@@ -378,6 +402,7 @@ function App() {
   }
 
   async function handleRegister(credentials) {
+    const { registerUser } = await import('./utils/authApi');
     const data = await registerUser(credentials);
     setCurrentUser(data.user);
     setIsNotFoundPage(false);
@@ -387,6 +412,7 @@ function App() {
   }
 
   async function handleLogout() {
+    const { logoutUser } = await import('./utils/authApi');
     await logoutUser();
     setCurrentUser(null);
     setIsNotFoundPage(false);
@@ -396,6 +422,7 @@ function App() {
   }
 
   async function handleDeleteAccount() {
+    const { deleteCurrentUser } = await import('./utils/authApi');
     await deleteCurrentUser();
     setCurrentUser(null);
     setIsNotFoundPage(false);
@@ -420,6 +447,7 @@ function App() {
     setTrackedStepIndex(0);
 
     try {
+      const { getJourneys } = await import('./utils/idfmApi');
       const data = await getJourneys({
         from: from.id,
         to: to.id,
@@ -477,6 +505,7 @@ function App() {
     setBikeStationMessage('');
 
     try {
+      const { getBikeStations } = await import('./utils/idfmApi');
       const [lon, lat] = latestRoutePlaces.from.coordinates;
       const data = await getBikeStations({
         lon,
@@ -513,6 +542,7 @@ function App() {
       setBikeStationMessage('');
 
       try {
+        const { getBikeStationJourney } = await import('./utils/idfmApi');
         const data = await getBikeStationJourney({
           fromCoordinates: latestRoutePlaces.from.coordinates,
           toCoordinates: latestRoutePlaces.to.coordinates,
@@ -621,6 +651,12 @@ function App() {
     setActiveLegalPage(null);
     setShowCarbonPage(true);
   }, []);
+
+  const handleDisruptionsOpen = useCallback(() => {
+    if (disruptions.length === 0) {
+      refreshDisruptions();
+    }
+  }, [disruptions.length, refreshDisruptions]);
 
   useEffect(() => {
     const viewTitle = activeLegalPage
@@ -833,46 +869,55 @@ function App() {
                   <CaretLeft size={18} weight="bold" aria-hidden="true" />
                 )}
               </button>
-              <RoutePlanner
-                key={routePlannerResetKey}
-                currentUser={currentUser}
-                disruptions={disruptions}
-                journeys={journeys}
-                selectedJourney={selectedJourney}
-                isRouteDetailsVisible={isRouteDetailsVisible}
-                isRouteTrackingActive={isRouteTrackingActive}
-                isTrackedJourneyComplete={isTrackedJourneyComplete}
-                currentTrackedStepIndex={currentTrackedStepIndex}
-                trackedStepIndex={trackedStepIndex}
-                isLoading={isLoadingJourneys}
-                message={journeyMessage}
-                userLocation={userLocation}
-                onTrackedStepChange={setTrackedStepIndex}
-                onBackToResults={() => setIsRouteDetailsVisible(false)}
-                onTrackedJourneyCompleteClose={
-                  handleCloseTrackedJourneyComplete
-                }
-                onJourneySelect={handleJourneySelect}
-                onLegalLinkClick={handleLegalPageOpen}
-                onLoginClick={() => setShowAuthPanel(true)}
-                onInputsInvalid={handleJourneyInputsInvalid}
-                onPlan={handlePlanJourney}
-                onSearchPlaces={handleSearchPlaces}
-                userLocationPlace={userLocationPlace}
-              />
+              <Suspense fallback={<RoutePlannerLoadingSkeleton />}>
+                <RoutePlanner
+                  key={routePlannerResetKey}
+                  currentUser={currentUser}
+                  disruptions={disruptions}
+                  journeys={journeys}
+                  selectedJourney={selectedJourney}
+                  isRouteDetailsVisible={isRouteDetailsVisible}
+                  isRouteTrackingActive={isRouteTrackingActive}
+                  isTrackedJourneyComplete={isTrackedJourneyComplete}
+                  currentTrackedStepIndex={currentTrackedStepIndex}
+                  trackedStepIndex={trackedStepIndex}
+                  isLoading={isLoadingJourneys}
+                  message={journeyMessage}
+                  userLocation={userLocation}
+                  onTrackedStepChange={setTrackedStepIndex}
+                  onBackToResults={() => setIsRouteDetailsVisible(false)}
+                  onTrackedJourneyCompleteClose={
+                    handleCloseTrackedJourneyComplete
+                  }
+                  onJourneySelect={handleJourneySelect}
+                  onDisruptionsOpen={handleDisruptionsOpen}
+                  onLegalLinkClick={handleLegalPageOpen}
+                  onLoginClick={() => setShowAuthPanel(true)}
+                  onInputsInvalid={handleJourneyInputsInvalid}
+                  onPlan={handlePlanJourney}
+                  onSearchPlaces={handleSearchPlaces}
+                  userLocationPlace={userLocationPlace}
+                />
+              </Suspense>
             </div>
             <section className="map-shell" aria-label="Carte">
-              <InteractiveMap
-                center={PARIS_CENTER}
-                zoom={13}
-                isDarkMode={isDarkMode}
-                stations={bikeStationChoices}
-                selectedRoute={selectedJourney}
-                focusedSection={activeTrackedSection}
-                isJourneyComplete={isTrackedJourneyComplete}
-                onStationSelect={handleBikeStationSelect}
-                userLocation={userLocation}
-              />
+              {isMapReadyForHydration ? (
+                <Suspense fallback={<MapHydrationPlaceholder />}>
+                  <InteractiveMap
+                    center={PARIS_CENTER}
+                    zoom={13}
+                    isDarkMode={isDarkMode}
+                    stations={deferredBikeStationChoices}
+                    selectedRoute={deferredSelectedJourney}
+                    focusedSection={activeTrackedSection}
+                    isJourneyComplete={isTrackedJourneyComplete}
+                    onStationSelect={handleBikeStationSelect}
+                    userLocation={userLocation}
+                  />
+                </Suspense>
+              ) : (
+                <MapHydrationPlaceholder />
+              )}
               {selectedJourney && isRouteSheetCtaVisible ? (
                 isRouteDetailsVisible ? (
                   isRouteTrackingActive ? null : (

@@ -9,12 +9,48 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      injectRegister: 'script-defer',
       registerType: 'autoUpdate',
       devOptions: {
         enabled: true,
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        globIgnores: [
+          '**/AccountPage-*.js',
+          '**/AccountPage-*.css',
+          '**/AuthPanel-*.js',
+          '**/AuthPanel-*.css',
+          '**/CarbonPage-*.js',
+          '**/CarbonPage-*.css',
+          '**/DecorativePattern-*.js',
+          '**/DecorativePattern-*.css',
+          '**/InteractiveMap-*.js',
+          '**/InteractiveMap-*.css',
+          '**/LegalPage-*.js',
+          '**/LegalPage-*.css',
+          '**/NotFoundPage-*.js',
+          '**/NotFoundPage-*.css',
+          '**/MapPin.es-*.js',
+          '**/maplibre-gl-worker-*.js',
+          '**/auto-*.js',
+          '**/authApi-*.js',
+          '**/completedJourneysDb-*.js',
+          '**/favoritesApi-*.js',
+          '**/idfmApi-*.js',
+        ],
         runtimeCaching: [
+          {
+            urlPattern: /\/assets\/.*\.(?:js|css)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'urbanflow-lazy-assets',
+              expiration: {
+                maxEntries: 80,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
           {
             urlPattern:
               /^https:\/\/basemaps\.cartocdn\.com\/.*\.(?:png|jpg|webp)(?:\?.*)?$/,
