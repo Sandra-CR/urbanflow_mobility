@@ -1,6 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { getConfiguredClientOrigins, isAllowedOrigin } from '../index.js';
+import app, { getConfiguredClientOrigins, isAllowedOrigin } from '../index.js';
+
+function listen(appToListen) {
+  return new Promise((resolve) => {
+    const server = appToListen.listen(0, () => {
+      const { port } = server.address();
+      resolve({
+        server,
+        baseUrl: `http://127.0.0.1:${port}`,
+      });
+    });
+  });
+}
 
 test('le serveur est prêt à démarrer', () => {
   const isReady = true;
@@ -42,4 +54,26 @@ test('autorise localhost en developpement meme sans CLIENT_ORIGIN', () => {
   assert.strictEqual(origins, true);
   assert.strictEqual(isAllowedOrigin('http://localhost:5173', []), true);
   assert.strictEqual(isAllowedOrigin('http://127.0.0.1:5173', []), true);
+});
+
+test('ajoute les en-tetes HTTP de securite', async () => {
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/health`);
+
+    assert.strictEqual(response.status, 200);
+    assert.strictEqual(
+      response.headers.get('x-content-type-options'),
+      'nosniff'
+    );
+    assert.strictEqual(response.headers.get('x-frame-options'), 'SAMEORIGIN');
+    assert.strictEqual(response.headers.get('referrer-policy'), 'no-referrer');
+    assert.match(
+      response.headers.get('content-security-policy'),
+      /default-src 'self'/
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });

@@ -110,6 +110,8 @@ Les routes `POST /api/auth/register` et `POST /api/auth/login` sont limitées pa
 
 Les requêtes HTTP mutatrices qui utilisent les cookies applicatifs doivent fournir une protection CSRF. Le client commence par appeler `GET /api/auth/csrf`, puis renvoie le jeton obtenu dans l'en-tête `x-csrf-token`. Le même jeton signé est aussi posé dans le cookie lisible `urbanflow_csrf`, selon le modèle double-submit. Si le jeton est absent, altéré ou invalide, l'API répond avec le code HTTP `403`.
 
+Le serveur applique aussi des en-têtes HTTP de sécurité via `helmet`, dont `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options` et `Referrer-Policy`. La politique `Cross-Origin-Resource-Policy` reste configurée en `cross-origin` afin de préserver les appels autorisés depuis le frontend déployé sur un domaine séparé.
+
 Toutes les réponses d'erreur utilisent le format :
 
 ```json
