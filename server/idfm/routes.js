@@ -99,9 +99,7 @@ async function addCarbonFootprints(journeys, calculateCarbonFootprint) {
  * @returns {object} Routeur Express configuré
  */
 export function createIdfmRouter({
-  fetchDisruptions = createFetchDisruptionsWithTimeout(
-    defaultFetchDisruptions
-  ),
+  fetchDisruptions = createFetchDisruptionsWithTimeout(defaultFetchDisruptions),
   fetchPlaceFromCoordinates = createFetchPlaceFromCoordinatesWithTimeout(
     defaultFetchPlaceFromCoordinates
   ),

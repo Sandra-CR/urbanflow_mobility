@@ -6,10 +6,10 @@ const MAX_RECENT_SEARCHES = 10;
 function isValidRecentPlace(place) {
   return Boolean(
     place &&
-      place.id &&
-      place.label &&
-      String(place.label).trim() &&
-      place.type !== 'recent'
+    place.id &&
+    place.label &&
+    String(place.label).trim() &&
+    place.type !== 'recent'
   );
 }
 
