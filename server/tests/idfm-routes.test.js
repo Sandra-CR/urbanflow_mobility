@@ -192,6 +192,48 @@ test('la route journeys expose les messages de service des itineraires', async (
   }
 });
 
+test('la route journeys transmet le mode fauteuil roulant', async () => {
+  const app = express();
+  const journey = {
+    id: 'journey-1',
+    duration: 600,
+    profile: 'transit',
+    sections: [{ mode: 'metro', distanceKm: 2 }],
+  };
+  let receivedParams = null;
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      fetchJourneys: async (params) => {
+        receivedParams = params;
+
+        return { journeys: [journey] };
+      },
+      calculateCarbonFootprint: async () => ({
+        total_co2e: 0,
+        unit: 'g',
+        segments: [],
+      }),
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/idfm/journeys?from=from-id&to=to-id&wheelchairAccessible=true`
+    );
+
+    await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(receivedParams.wheelchairAccessible, true);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('la route disruptions renvoie les perturbations normalisees', async () => {
   const app = express();
 

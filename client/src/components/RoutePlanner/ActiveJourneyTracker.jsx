@@ -6,36 +6,15 @@ import {
   PersonSimpleBike,
   PersonSimpleWalk,
   Steps,
+  WheelchairMotion,
 } from '@phosphor-icons/react';
+import {
+  getPlanarPoint,
+  isValidCoordinatePair,
+  toCoordinatePair,
+} from '../../utils/geo';
+import { normalizeMode } from '../../utils/text';
 import './ActiveJourneyTracker.css';
-
-function isValidCoordinatePair(coordinates) {
-  return (
-    Array.isArray(coordinates) &&
-    coordinates.length >= 2 &&
-    Number.isFinite(Number(coordinates[0])) &&
-    Number.isFinite(Number(coordinates[1]))
-  );
-}
-
-function toCoordinatePair(coordinates) {
-  if (!isValidCoordinatePair(coordinates)) {
-    return null;
-  }
-
-  return [Number(coordinates[0]), Number(coordinates[1])];
-}
-
-function getPlanarPoint(coordinates, referenceLatitude) {
-  const [longitude, latitude] = coordinates;
-  const latitudeScale = 111320;
-  const longitudeScale = 111320 * Math.cos((referenceLatitude * Math.PI) / 180);
-
-  return {
-    x: longitude * longitudeScale,
-    y: latitude * latitudeScale,
-  };
-}
 
 function getStepTravelProgress(step, userLocation) {
   if (!isValidCoordinatePair(userLocation) || !Array.isArray(step?.geometry)) {
@@ -150,13 +129,6 @@ function formatCarbonAmount(value) {
   return `${amount.quantity} ${amount.unit}`;
 }
 
-function normalizeMode(mode = '') {
-  return String(mode || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
-
 function isPlatformChangeSection(section) {
   return normalizeMode(section?.mode) === 'platform_change';
 }
@@ -186,7 +158,7 @@ function getPersonalModeIcon(mode = '') {
   return 'walk';
 }
 
-function JourneyStepBadge({ step }) {
+function JourneyStepBadge({ step, useWheelchairWalkIcon = false }) {
   const isTransport = step?.type === 'public_transport';
   const icon = isTransport ? null : getPersonalModeIcon(step?.mode);
   const lineMode = normalizeMode(step?.line?.commercialMode || step?.mode);
@@ -212,7 +184,11 @@ function JourneyStepBadge({ step }) {
         <PersonSimpleBike size={24} weight="regular" aria-hidden="true" />
       ) : null}
       {icon === 'walk' ? (
-        <PersonSimpleWalk size={24} weight="regular" aria-hidden="true" />
+        useWheelchairWalkIcon ? (
+          <WheelchairMotion size={24} weight="regular" aria-hidden="true" />
+        ) : (
+          <PersonSimpleWalk size={24} weight="regular" aria-hidden="true" />
+        )
       ) : null}
       {icon === 'steps' ? (
         <Steps size={24} weight="regular" aria-hidden="true" />
@@ -385,6 +361,7 @@ export default function ActiveJourneyTracker({
   isJourneyComplete = false,
   currentTrackedStepIndex = 0,
   currentStepIndex = 0,
+  useWheelchairWalkIcon = false,
   userLocation = null,
   onStepChange,
 }) {
@@ -418,7 +395,10 @@ export default function ActiveJourneyTracker({
     <div className="active-journey-tracker" aria-label="Suivi du trajet">
       <section className="active-journey-tracker__card">
         <div className="active-journey-tracker__step">
-          <JourneyStepBadge step={activeStep} />
+          <JourneyStepBadge
+            step={activeStep}
+            useWheelchairWalkIcon={useWheelchairWalkIcon}
+          />
           <div className="active-journey-tracker__copy">
             <strong>{getStepLabel(activeStep)}</strong>
             <span>{getStepDirection(activeStep)}</span>

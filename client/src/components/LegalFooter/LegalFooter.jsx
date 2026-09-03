@@ -15,10 +15,7 @@ const LEGAL_LINKS = [
   },
 ];
 
-export default function LegalFooter({
-  className = '',
-  onLegalLinkClick,
-}) {
+export default function LegalFooter({ className = '', onLegalLinkClick }) {
   const footerClassName = ['legal-footer', className].filter(Boolean).join(' ');
 
   return (

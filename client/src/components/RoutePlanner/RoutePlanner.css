@@ -1,10 +1,16 @@
 .route-planner {
   display: grid;
   align-content: start;
+  box-sizing: border-box;
+  contain: inline-size;
   width: 100%;
+  max-width: 100%;
   height: 100%;
+  min-width: 0;
   min-height: 0;
-  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   border-right: 1px solid
     color-mix(in srgb, var(--color-text-light) 18%, transparent);
   background: var(--color-background);
@@ -16,6 +22,9 @@
 .route-planner__form {
   display: grid;
   gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   padding: 18px;
 }
 
@@ -171,6 +180,53 @@
 .route-preferences__button:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+.route-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.route-option-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.route-option-field__label {
+  flex: 0 0 auto;
+  color: var(--color-text-light);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.route-option-field__select {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 28px 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--color-text-light) 24%, transparent);
+  border-radius: var(--radius-ui);
+  background: var(--color-card);
+  color: var(--color-text-light);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  box-shadow: 0 2px 6px 0 var(--color-shadow);
+}
+
+.route-option-field__select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-color: var(--color-primary);
 }
 
 .route-planner__divider {
@@ -526,6 +582,7 @@
 }
 
 .route-planner__message {
+  min-width: 0;
   padding: 9px 10px;
   border: 1px solid var(--color-warning-border);
   border-radius: var(--radius-ui);
@@ -534,6 +591,7 @@
   font-size: 13px;
   font-weight: 700;
   line-height: 18px;
+  overflow-wrap: anywhere;
 }
 
 .route-detail {
@@ -919,11 +977,26 @@
   display: grid;
   gap: 10px;
   grid-template-columns: 1fr 1fr;
+  min-width: 0;
   padding: 0 16px 16px;
 }
 
 .route-planner__legal-footer {
+  position: static;
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
+  margin: 8px 0 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0;
+}
+
+@media (min-width: 1025px) {
+  .route-planner__legal-footer {
+    display: none;
+  }
 }
 
 .route-result {
@@ -947,6 +1020,20 @@
 .route-result[data-active='true'] {
   border: 1px solid var(--color-primary);
   background: var(--color-card);
+}
+
+.route-result[data-accessibility-disabled='true'] {
+  border-color: color-mix(in srgb, var(--color-text-light) 14%, transparent);
+  background: color-mix(in srgb, var(--color-card) 56%, transparent);
+  color: var(--color-text-light);
+  cursor: not-allowed;
+  opacity: 0.52;
+  box-shadow: none;
+}
+
+.route-result[data-accessibility-disabled='true'] .route-line-badge,
+.route-result[data-accessibility-disabled='true'] .route-result__carbon {
+  filter: grayscale(1);
 }
 
 .route-result:hover,
@@ -1187,11 +1274,5 @@
 
   .route-result[data-profile='transit'] {
     min-width: 0;
-  }
-}
-
-@media (min-width: 1025px) {
-  .route-planner__legal-footer {
-    display: none;
   }
 }

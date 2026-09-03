@@ -86,6 +86,49 @@ test('fetchJourneys utilise les coordonnees pour les transports quand elles exis
   }
 });
 
+test('fetchJourneys transmet le mode fauteuil roulant a Navitia', async () => {
+  const previousApiKey = process.env.IDFM_API_KEY;
+  process.env.IDFM_API_KEY = 'test-api-key';
+  const journeyUrls = [];
+
+  const fetchImpl = async (url) => {
+    const parsedUrl = new URL(url);
+
+    if (parsedUrl.pathname.endsWith('/journeys')) {
+      journeyUrls.push(parsedUrl);
+    }
+
+    return {
+      ok: true,
+      json: async () => ({ journeys: [] }),
+    };
+  };
+
+  try {
+    await fetchJourneys(
+      {
+        from: 'from-id',
+        to: 'to-id',
+        fromCoordinates: [2.3522, 48.8566],
+        toCoordinates: [2.295, 48.8738],
+        wheelchairAccessible: true,
+      },
+      { fetchImpl }
+    );
+
+    assert.ok(journeyUrls.length > 0);
+    assert.ok(
+      journeyUrls.every((url) => url.searchParams.get('wheelchair') === 'true')
+    );
+  } finally {
+    if (previousApiKey) {
+      process.env.IDFM_API_KEY = previousApiKey;
+    } else {
+      delete process.env.IDFM_API_KEY;
+    }
+  }
+});
+
 test('fetchJourneys affiche toujours marche puis velo avant les transports', async () => {
   const previousApiKey = process.env.IDFM_API_KEY;
   process.env.IDFM_API_KEY = 'test-api-key';
@@ -530,7 +573,13 @@ test('fetchDisruptions trie les interruptions puis perturbations hors bus', asyn
     assert.equal(requestedUrls[0].searchParams.get('until'), '20260827T100000');
     assert.deepEqual(
       result.disruptions.map((disruption) => disruption.id),
-      ['line:metro:1', 'line:rer:C', 'line:rer:B', 'line:rer:D', 'line:tram:T3A']
+      [
+        'line:metro:1',
+        'line:rer:C',
+        'line:rer:B',
+        'line:rer:D',
+        'line:tram:T3A',
+      ]
     );
     assert.deepEqual(
       result.disruptions.map((disruption) => disruption.type),

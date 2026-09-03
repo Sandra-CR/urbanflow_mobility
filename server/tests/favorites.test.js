@@ -101,7 +101,7 @@ test('liste les favoris de la categorie demandee', async () => {
   }
 });
 
-test('supprime un favori de l\'utilisateur connecte', async () => {
+test("supprime un favori de l'utilisateur connecte", async () => {
   const queries = [];
   const userId = 'user-1';
   const token = signAuthToken({
@@ -137,7 +137,7 @@ test('supprime un favori de l\'utilisateur connecte', async () => {
   }
 });
 
-test('remplace le domicile existant lors d\'un nouvel enregistrement', async () => {
+test("remplace le domicile existant lors d'un nouvel enregistrement", async () => {
   const queries = [];
   const userId = 'user-1';
   const token = signAuthToken({

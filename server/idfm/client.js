@@ -648,10 +648,7 @@ function hasCurrentDateInExplicitMessageDates(message, now = new Date()) {
   const dateMatches = [
     ...normalizedMessage.matchAll(/\b(\d{1,2})-(\d{1,2})\/(\d{1,2})\b/g),
     ...normalizedMessage
-      .replace(
-        /\b\d{1,2}\/\d{1,2}\s*-\s*\d{1,2}\/\d{1,2}\b/g,
-        ''
-      )
+      .replace(/\b\d{1,2}\/\d{1,2}\s*-\s*\d{1,2}\/\d{1,2}\b/g, '')
       .matchAll(/\b(\d{1,2})\/(\d{1,2})\b/g),
   ];
 
@@ -885,7 +882,9 @@ function normalizeTrafficReports(data, { now = new Date() } = {}) {
     });
   });
 
-  return sortDisruptions(groupDisruptionsByLine([...normalizedDisruptions.values()]));
+  return sortDisruptions(
+    groupDisruptionsByLine([...normalizedDisruptions.values()])
+  );
 }
 
 function getPlaceLines(embeddedObject) {
@@ -1008,6 +1007,25 @@ function createPlacesUrl({ query, count }, baseUrl) {
   return url;
 }
 
+/**
+ * Construit l'URL Navitia d'un calcul d'itinéraire pour un profil donné.
+ *
+ * Quand `wheelchairAccessible` est actif, le paramètre Navitia
+ * `wheelchair=true` est ajouté afin de demander des parcours en transports
+ * compatibles avec un accès fauteuil roulant.
+ *
+ * @param {object} params Paramètres de requête Navitia.
+ * @param {string} params.from Identifiant ou coordonnées du départ.
+ * @param {string} params.to Identifiant ou coordonnées de l'arrivée.
+ * @param {string} params.directPath Stratégie Navitia de trajet direct.
+ * @param {string[]} [params.directPathModes=[]] Modes autorisés en trajet direct.
+ * @param {string[]} [params.firstSectionModes=['walking']] Modes de rabattement.
+ * @param {string[]} [params.lastSectionModes=['walking']] Modes de fin de parcours.
+ * @param {number} params.count Nombre d'itinéraires demandés.
+ * @param {boolean} [params.wheelchairAccessible=false] Demande les itinéraires accessibles fauteuil roulant.
+ * @param {string} baseUrl Base URL Navitia IDF Mobilités.
+ * @returns {URL} URL Navitia prête à appeler.
+ */
 function createJourneyUrl(
   {
     from,
@@ -1017,6 +1035,7 @@ function createJourneyUrl(
     firstSectionModes = ['walking'],
     lastSectionModes = ['walking'],
     count,
+    wheelchairAccessible = false,
   },
   baseUrl
 ) {
@@ -1031,6 +1050,10 @@ function createJourneyUrl(
   url.searchParams.set('min_nb_journeys', String(count));
   appendArrayParams(url, 'first_section_mode', firstSectionModes);
   appendArrayParams(url, 'last_section_mode', lastSectionModes);
+
+  if (wheelchairAccessible) {
+    url.searchParams.set('wheelchair', 'true');
+  }
 
   if (directPathModes.length > 0) {
     appendArrayParams(url, 'direct_path_mode', directPathModes);
@@ -1984,25 +2007,25 @@ export async function fetchNearbyStations(
 }
 
 /**
- * Recupere les perturbations transports IDF Mobilites applicables maintenant.
+ * Récupère les perturbations transports IDF Mobilités applicables maintenant.
  *
- * La route Navitia `traffic_reports` est interrogee avec `since` et `until`
- * positionnes sur l'instant courant. Les disruptions sont ensuite rattachees
- * aux lignes via deux sources : les liens exposes dans `traffic_reports.lines`
- * et les `impacted_objects` portes par chaque disruption. Les bus sont exclus,
- * les doublons par ligne/message sont fusionnes, et les resultats sont tries par
- * gravite puis par mode : interruptions, perturbations, puis metro, RER, ligne
+ * La route Navitia `traffic_reports` est interrogée avec `since` et `until`
+ * positionnés sur l'instant courant. Les disruptions sont ensuite rattachées
+ * aux lignes via deux sources : les liens exposés dans `traffic_reports.lines`
+ * et les `impacted_objects` portés par chaque disruption. Les bus sont exclus,
+ * les doublons par ligne/message sont fusionnés, et les résultats sont triés par
+ * gravité puis par mode : interruptions, perturbations, puis métro, RER, ligne
  * rapide et tram.
  *
- * @param {object} [params] Parametres de recherche.
- * @param {number | string} [params.count=100] Nombre de rapports demandes.
- * @param {object} [dependencies] Dependances injectables.
- * @param {Function} [dependencies.fetchImpl] Implementation compatible fetch.
+ * @param {object} [params] Paramètres de recherche.
+ * @param {number | string} [params.count=100] Nombre de rapports demandés.
+ * @param {object} [dependencies] Dépendances injectables.
+ * @param {Function} [dependencies.fetchImpl] Implémentation compatible fetch.
  * @param {AbortSignal} [dependencies.signal] Signal d'annulation.
- * @param {Date} [dependencies.now=new Date()] Instant de reference pour la requete et les filtres.
+ * @param {Date} [dependencies.now=new Date()] Instant de référence pour la requête et les filtres.
  * @returns {Promise<{disruptions: NormalizedDisruption[], pagination: object | null}>}
  * @throws {Error} 503 si `IDFM_API_KEY` est absent.
- * @throws {Error} 502/504 si l'API IDF Mobilites echoue ou expire.
+ * @throws {Error} 502/504 si l'API IDF Mobilités échoue ou expire.
  */
 export async function fetchDisruptions(
   { count = 100 } = {},
@@ -2150,6 +2173,7 @@ export async function fetchPlaceFromCoordinates(
  * @param {string} params.to Identifiant IDF Mobilités de l'arrivée.
  * @param {number[] | string[]} [params.fromCoordinates] Coordonnées `[longitude, latitude]` du départ.
  * @param {number[] | string[]} [params.toCoordinates] Coordonnées `[longitude, latitude]` de l'arrivée.
+ * @param {boolean} [params.wheelchairAccessible=false] Ajoute `wheelchair=true` aux requêtes Navitia pour demander des transports accessibles fauteuil roulant.
  * @param {object} [dependencies] Dépendances injectables.
  * @param {Function} [dependencies.fetchImpl] Implémentation compatible fetch.
  * @param {AbortSignal} [dependencies.signal] Signal d'annulation.
@@ -2160,7 +2184,7 @@ export async function fetchPlaceFromCoordinates(
  * @throws {Error} 502/504 si l'API IDF Mobilités échoue ou expire.
  */
 export async function fetchJourneys(
-  { from, to, fromCoordinates, toCoordinates },
+  { from, to, fromCoordinates, toCoordinates, wheelchairAccessible = false },
   { fetchImpl = fetch, signal } = {}
 ) {
   const safeFrom = String(from || '').trim();
@@ -2224,6 +2248,7 @@ export async function fetchJourneys(
         firstSectionModes: request.firstSectionModes,
         lastSectionModes: request.lastSectionModes,
         count: request.count,
+        wheelchairAccessible,
       },
       baseUrl
     ),

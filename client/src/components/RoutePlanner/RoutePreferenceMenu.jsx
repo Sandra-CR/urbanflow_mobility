@@ -151,7 +151,9 @@ export default function RoutePreferenceMenu({
   const recentPreferencePlaces = useMemo(() => {
     const suggestions = filteredExcludedPlaces.reduce(
       (currentSuggestions, excludedPlace) =>
-        currentSuggestions.filter((place) => !isSamePlace(place, excludedPlace)),
+        currentSuggestions.filter(
+          (place) => !isSamePlace(place, excludedPlace)
+        ),
       getRecentSuggestions(recentPlaces, null)
     );
 
@@ -202,7 +204,9 @@ export default function RoutePreferenceMenu({
           ? activeFavoriteConfig.defaultLabel || ''
           : place?.label || ''
       );
-      setFavoriteDraftPlace(place ? createSelectableFavoritePlace(place) : null);
+      setFavoriteDraftPlace(
+        place ? createSelectableFavoritePlace(place) : null
+      );
       setIsAddingFavorite(true);
     },
     [activeFavoriteConfig, resetFavoriteDraft]

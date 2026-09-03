@@ -70,7 +70,9 @@ export default function DecorativePattern() {
 
     const updatePatternLayout = () => {
       const viewportHeight =
-        containerElement.clientHeight || window.innerHeight || PATTERN_TILE_MIN_HEIGHT;
+        containerElement.clientHeight ||
+        window.innerHeight ||
+        PATTERN_TILE_MIN_HEIGHT;
       const tileHeight = Math.max(viewportHeight, PATTERN_TILE_MIN_HEIGHT);
       const height = Math.max(containerElement.scrollHeight, viewportHeight);
       const repeats = Math.max(1, Math.ceil(height / tileHeight));
@@ -132,7 +134,8 @@ export default function DecorativePattern() {
               '--decorative-pattern-left': left,
               '--decorative-pattern-rotate': `${rotate}deg`,
               '--decorative-pattern-top': `${
-                repeatIndex * layout.tileHeight + (top / 100) * layout.tileHeight
+                repeatIndex * layout.tileHeight +
+                (top / 100) * layout.tileHeight
               }px`,
             }}
           />

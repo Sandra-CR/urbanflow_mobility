@@ -31,6 +31,43 @@ const ADDRESS_CONFIGS = [
   },
 ];
 
+const ROUTE_SORT_STORAGE_KEY = 'urbanflow-route-sort';
+const ROUTE_SORT_MODES = {
+  co2: 'co2',
+  time: 'time',
+};
+const ROUTE_ACCESSIBILITY_STORAGE_KEY = 'urbanflow-route-accessibility';
+const ROUTE_ACCESSIBILITY_MODES = {
+  standard: 'standard',
+  wheelchair: 'wheelchair',
+};
+
+function getInitialRouteSortMode() {
+  if (typeof window === 'undefined') {
+    return ROUTE_SORT_MODES.co2;
+  }
+
+  const cachedSortMode = window.localStorage.getItem(ROUTE_SORT_STORAGE_KEY);
+
+  return Object.values(ROUTE_SORT_MODES).includes(cachedSortMode)
+    ? cachedSortMode
+    : ROUTE_SORT_MODES.co2;
+}
+
+function getInitialRouteAccessibilityMode() {
+  if (typeof window === 'undefined') {
+    return ROUTE_ACCESSIBILITY_MODES.standard;
+  }
+
+  const cachedMode = window.localStorage.getItem(
+    ROUTE_ACCESSIBILITY_STORAGE_KEY
+  );
+
+  return Object.values(ROUTE_ACCESSIBILITY_MODES).includes(cachedMode)
+    ? cachedMode
+    : ROUTE_ACCESSIBILITY_MODES.standard;
+}
+
 /**
  * Page de gestion du compte utilisateur.
  *
@@ -75,6 +112,10 @@ export default function AccountPage({
   const [savingCategory, setSavingCategory] = useState(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [routeSortMode, setRouteSortMode] = useState(getInitialRouteSortMode);
+  const [routeAccessibilityMode, setRouteAccessibilityMode] = useState(
+    getInitialRouteAccessibilityMode
+  );
   const addressSearchTimeoutRef = useRef(null);
 
   function clearAddressSearchTimeout() {
@@ -238,6 +279,22 @@ export default function AccountPage({
     } catch (deleteError) {
       setError(deleteError.message);
       setIsDeletingAccount(false);
+    }
+  }
+
+  function handleRouteSortChange(nextSortMode) {
+    setRouteSortMode(nextSortMode);
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(ROUTE_SORT_STORAGE_KEY, nextSortMode);
+    }
+  }
+
+  function handleRouteAccessibilityChange(nextMode) {
+    setRouteAccessibilityMode(nextMode);
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(ROUTE_ACCESSIBILITY_STORAGE_KEY, nextMode);
     }
   }
 
@@ -427,6 +484,57 @@ export default function AccountPage({
           </div>
         </section>
 
+        <section
+          className="account-section"
+          aria-labelledby="mobility-preferences-title"
+        >
+          <div className="account-section__header">
+            <h2 id="mobility-preferences-title">Préférences de mobilité</h2>
+          </div>
+
+          <div className="account-mobility-preferences">
+            <div className="account-mobility-field">
+              <label
+                className="account-mobility-field__label"
+                htmlFor="account-route-sort"
+              >
+                Tri
+              </label>
+              <select
+                id="account-route-sort"
+                className="account-mobility-field__select"
+                value={routeSortMode}
+                onChange={(event) => handleRouteSortChange(event.target.value)}
+              >
+                <option value={ROUTE_SORT_MODES.co2}>CO2</option>
+                <option value={ROUTE_SORT_MODES.time}>Temps</option>
+              </select>
+            </div>
+
+            <div className="account-mobility-field">
+              <label
+                className="account-mobility-field__label"
+                htmlFor="account-route-accessibility"
+              >
+                Accès
+              </label>
+              <select
+                id="account-route-accessibility"
+                className="account-mobility-field__select"
+                value={routeAccessibilityMode}
+                onChange={(event) =>
+                  handleRouteAccessibilityChange(event.target.value)
+                }
+              >
+                <option value={ROUTE_ACCESSIBILITY_MODES.standard}>Tous</option>
+                <option value={ROUTE_ACCESSIBILITY_MODES.wheelchair}>
+                  Fauteuil
+                </option>
+              </select>
+            </div>
+          </div>
+        </section>
+
         <section className="account-section account-section--danger">
           <div className="account-section__header">
             <h2>Session et compte</h2>
@@ -455,7 +563,6 @@ export default function AccountPage({
             </button>
           </div>
         </section>
-
       </div>
       <LegalFooter onLegalLinkClick={onLegalLinkClick} />
     </section>
