@@ -34,6 +34,8 @@ Le serveur lit ses variables depuis `server/.env`. Copier `server/.env.example` 
 | `JWT_EXPIRES_IN`            | Non                    | `7d`                              | Durée de validité des sessions JWT.                                              |
 | `AUTH_RATE_LIMIT_MAX`       | Non                    | `10`                              | Nombre maximal de tentatives sur les routes publiques d'authentification.        |
 | `AUTH_RATE_LIMIT_WINDOW_MS` | Non                    | `900000`                          | Fenêtre de limitation des tentatives d'authentification, en millisecondes.       |
+| `IDFM_RATE_LIMIT_MAX`       | Non                    | `120`                             | Nombre maximal de requêtes vers les endpoints IDF Mobilités par fenêtre.         |
+| `IDFM_RATE_LIMIT_WINDOW_MS` | Non                    | `60000`                           | Fenêtre de limitation des endpoints IDF Mobilités publics, en millisecondes.     |
 | `IDFM_API_KEY`              | Oui pour IDF Mobilités | Aucune                            | Clé API PRIM Ile-de-France Mobilités.                                            |
 | `IDFM_API_BASE_URL`         | Non                    | API Navitia IDFM production       | Base URL de l'API IDF Mobilités.                                                 |
 | `ROUTING_API_BASE_URL`      | Non                    | `https://router.project-osrm.org` | Base URL OSRM pour les trajets directs marche/vélo de secours.                   |
@@ -107,6 +109,8 @@ compatibles avec un accès fauteuil roulant.
 L'API est exposée sur `http://localhost:3000` par défaut. Les routes d'authentification utilisent un cookie httpOnly nommé `urbanflow_auth`.
 
 Les routes `POST /api/auth/register` et `POST /api/auth/login` sont limitées par adresse IP afin de réduire les risques de brute force et de création abusive de comptes. Au-delà du seuil configuré, l'API répond avec le code HTTP `429`.
+
+Les endpoints publics `/api/idfm/*` sont aussi limités par adresse IP afin de protéger les quotas IDF Mobilités, Vélib et OSRM. Au-delà du seuil configuré, l'API répond avec le code HTTP `429`.
 
 Les requêtes HTTP mutatrices qui utilisent les cookies applicatifs doivent fournir une protection CSRF. Le client commence par appeler `GET /api/auth/csrf`, puis renvoie le jeton obtenu dans l'en-tête `x-csrf-token`. Le même jeton signé est aussi posé dans le cookie lisible `urbanflow_csrf`, selon le modèle double-submit. Si le jeton est absent, altéré ou invalide, l'API répond avec le code HTTP `403`.
 

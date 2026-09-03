@@ -1,4 +1,5 @@
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import {
   createFetchDisruptionsWithTimeout,
   createFetchPlaceFromCoordinatesWithTimeout,
@@ -16,6 +17,44 @@ import {
   searchPlaces as defaultSearchPlaces,
 } from './client.js';
 import { calculateCarbonFootprint as defaultCalculateCarbonFootprint } from '../carbon/service.js';
+
+const DEFAULT_IDFM_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const DEFAULT_IDFM_RATE_LIMIT_MAX_REQUESTS = 120;
+
+function toPositiveInteger(value, fallbackValue) {
+  const number = Number(value);
+
+  return Number.isInteger(number) && number > 0 ? number : fallbackValue;
+}
+
+/**
+ * Crée le limiteur de requêtes pour les endpoints IDF Mobilités publics.
+ *
+ * @param {object} [options] Options de limitation.
+ * @param {number} [options.windowMs] Fenêtre de limitation en millisecondes.
+ * @param {number} [options.max] Nombre maximal de requêtes pendant la fenêtre.
+ * @returns {Function} Middleware Express de rate limiting.
+ */
+export function createIdfmRateLimiter({
+  windowMs = toPositiveInteger(
+    process.env.IDFM_RATE_LIMIT_WINDOW_MS,
+    DEFAULT_IDFM_RATE_LIMIT_WINDOW_MS
+  ),
+  max = toPositiveInteger(
+    process.env.IDFM_RATE_LIMIT_MAX,
+    DEFAULT_IDFM_RATE_LIMIT_MAX_REQUESTS
+  ),
+} = {}) {
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: {
+      error: 'Trop de requêtes vers les services de mobilité.',
+    },
+  });
+}
 
 function toCarbonLeg(section) {
   return {
@@ -96,6 +135,7 @@ async function addCarbonFootprints(journeys, calculateCarbonFootprint) {
  * @param {Function} [options.searchPlaces] Recherche les lieux IDF Mobilités.
  * @param {Function} [options.fetchJourneys] Calcule les itinéraires.
  * @param {Function} [options.calculateCarbonFootprint] Calcule l'empreinte carbone.
+ * @param {Function} [options.idfmRateLimiter] Middleware de limitation des routes IDFM.
  * @returns {object} Routeur Express configuré
  */
 export function createIdfmRouter({
@@ -115,8 +155,11 @@ export function createIdfmRouter({
   searchPlaces = createSearchPlacesWithTimeout(defaultSearchPlaces),
   fetchJourneys = createFetchJourneysWithTimeout(defaultFetchJourneys),
   calculateCarbonFootprint = defaultCalculateCarbonFootprint,
+  idfmRateLimiter = createIdfmRateLimiter(),
 } = {}) {
   const router = express.Router();
+
+  router.use(idfmRateLimiter);
 
   router.get('/disruptions', async (req, res, next) => {
     try {

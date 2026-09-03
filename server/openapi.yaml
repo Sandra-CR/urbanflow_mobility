@@ -255,6 +255,8 @@ paths:
                 $ref: '#/components/schemas/NearbyStationsResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '503':
@@ -284,6 +286,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DisruptionsResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '503':
@@ -335,6 +339,8 @@ paths:
                 $ref: '#/components/schemas/BikeStationsResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '504':
@@ -367,6 +373,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlacesResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '503':
@@ -438,6 +446,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '503':
@@ -470,6 +480,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '504':
@@ -523,7 +535,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     TooManyRequests:
-      description: Trop de tentatives sur la fenêtre de limitation.
+      description: Trop de requêtes sur la fenêtre de limitation.
       content:
         application/json:
           schema:
