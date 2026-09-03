@@ -23,19 +23,21 @@ Depuis la racine, les scripts backend sont aussi appelés par `npm run test`, `n
 
 Le serveur lit ses variables depuis `server/.env`. Copier `server/.env.example` vers `server/.env`, puis remplacer les valeurs sensibles.
 
-| Variable               | Obligatoire            | Valeur par défaut                 | Description                                                                      |
-| ---------------------- | ---------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
-| `PORT`                 | Non                    | `3000`                            | Port HTTP de l'API Express.                                                      |
-| `NODE_ENV`             | Non                    | `development`                     | Active les cookies `secure` en `production`.                                     |
-| `CLIENT_ORIGIN`        | Non                    | Tous les origins locaux           | Origins autorisés par CORS, séparés par des virgules.                            |
-| `DATABASE_URL`         | Oui pour auth/DB       | Aucune                            | URL PostgreSQL Supabase utilisée par l'authentification et les facteurs carbone. |
-| `RUN_DB_TESTS`         | Non                    | `false`                           | Mettre `true` pour lancer le test d'intégration PostgreSQL.                      |
-| `JWT_SECRET`           | Oui pour auth          | Aucune                            | Secret de signature JWT. Utiliser une valeur longue et aléatoire.                |
-| `JWT_EXPIRES_IN`       | Non                    | `7d`                              | Durée de validité des sessions JWT.                                              |
-| `IDFM_API_KEY`         | Oui pour IDF Mobilités | Aucune                            | Clé API PRIM Ile-de-France Mobilités.                                            |
-| `IDFM_API_BASE_URL`    | Non                    | API Navitia IDFM production       | Base URL de l'API IDF Mobilités.                                                 |
-| `ROUTING_API_BASE_URL` | Non                    | `https://router.project-osrm.org` | Base URL OSRM pour les trajets directs marche/vélo de secours.                   |
-| `VELIB_API_BASE_URL`   | Non                    | Flux GBFS Vélib Métropole         | Base URL des flux `station_information` et `station_status` Vélib.               |
+| Variable                    | Obligatoire            | Valeur par défaut                 | Description                                                                      |
+| --------------------------- | ---------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
+| `PORT`                      | Non                    | `3000`                            | Port HTTP de l'API Express.                                                      |
+| `NODE_ENV`                  | Non                    | `development`                     | Active les cookies `secure` en `production`.                                     |
+| `CLIENT_ORIGIN`             | Non                    | Tous les origins locaux           | Origins autorisés par CORS, séparés par des virgules.                            |
+| `DATABASE_URL`              | Oui pour auth/DB       | Aucune                            | URL PostgreSQL Supabase utilisée par l'authentification et les facteurs carbone. |
+| `RUN_DB_TESTS`              | Non                    | `false`                           | Mettre `true` pour lancer le test d'intégration PostgreSQL.                      |
+| `JWT_SECRET`                | Oui pour auth          | Aucune                            | Secret de signature JWT. Utiliser une valeur longue et aléatoire.                |
+| `JWT_EXPIRES_IN`            | Non                    | `7d`                              | Durée de validité des sessions JWT.                                              |
+| `AUTH_RATE_LIMIT_MAX`       | Non                    | `10`                              | Nombre maximal de tentatives sur les routes publiques d'authentification.        |
+| `AUTH_RATE_LIMIT_WINDOW_MS` | Non                    | `900000`                          | Fenêtre de limitation des tentatives d'authentification, en millisecondes.       |
+| `IDFM_API_KEY`              | Oui pour IDF Mobilités | Aucune                            | Clé API PRIM Ile-de-France Mobilités.                                            |
+| `IDFM_API_BASE_URL`         | Non                    | API Navitia IDFM production       | Base URL de l'API IDF Mobilités.                                                 |
+| `ROUTING_API_BASE_URL`      | Non                    | `https://router.project-osrm.org` | Base URL OSRM pour les trajets directs marche/vélo de secours.                   |
+| `VELIB_API_BASE_URL`        | Non                    | Flux GBFS Vélib Métropole         | Base URL des flux `station_information` et `station_status` Vélib.               |
 
 ## Migrations PostgreSQL
 
@@ -83,6 +85,7 @@ Le contrat strict de l'API est décrit dans `server/openapi.yaml` au format Open
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
+- `GET /api/auth/csrf`
 - `GET /api/auth/me`
 - `DELETE /api/auth/me`
 - `GET /api/carbon/completed-journeys`
@@ -102,6 +105,10 @@ Le contrat strict de l'API est décrit dans `server/openapi.yaml` au format Open
 compatibles avec un accès fauteuil roulant.
 
 L'API est exposée sur `http://localhost:3000` par défaut. Les routes d'authentification utilisent un cookie httpOnly nommé `urbanflow_auth`.
+
+Les routes `POST /api/auth/register` et `POST /api/auth/login` sont limitées par adresse IP afin de réduire les risques de brute force et de création abusive de comptes. Au-delà du seuil configuré, l'API répond avec le code HTTP `429`.
+
+Les requêtes HTTP mutatrices qui utilisent les cookies applicatifs doivent fournir une protection CSRF. Le client commence par appeler `GET /api/auth/csrf`, puis renvoie le jeton obtenu dans l'en-tête `x-csrf-token`. Le même jeton signé est aussi posé dans le cookie lisible `urbanflow_csrf`, selon le modèle double-submit. Si le jeton est absent, altéré ou invalide, l'API répond avec le code HTTP `403`.
 
 Toutes les réponses d'erreur utilisent le format :
 
