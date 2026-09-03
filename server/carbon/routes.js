@@ -1,6 +1,7 @@
 import express from 'express';
 import { query as defaultQuery } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
+import { requireCsrfProtection } from '../auth/csrf.js';
 
 function toFiniteNumber(value) {
   const number = Number(value);
@@ -80,7 +81,10 @@ function toCompletedJourney(row) {
   };
 }
 
-export function createCarbonRouter({ query = defaultQuery } = {}) {
+export function createCarbonRouter({
+  query = defaultQuery,
+  csrfProtection = requireCsrfProtection,
+} = {}) {
   const router = express.Router();
 
   router.use(requireAuth);
@@ -111,7 +115,7 @@ export function createCarbonRouter({ query = defaultQuery } = {}) {
     }
   });
 
-  router.post('/completed-journeys', async (req, res, next) => {
+  router.post('/completed-journeys', csrfProtection, async (req, res, next) => {
     const journey = normalizeCompletedJourneyPayload(req.body);
 
     if (!journey) {

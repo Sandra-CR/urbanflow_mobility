@@ -1,3 +1,5 @@
+import { getCsrfHeaders } from './csrfApi';
+
 const API_BASE_URL =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:3000';
 
@@ -11,6 +13,7 @@ const API_BASE_URL =
  */
 async function requestFavorites(path, options = {}) {
   let response;
+  const csrfHeaders = await getCsrfHeaders(options.method);
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
@@ -19,6 +22,7 @@ async function requestFavorites(path, options = {}) {
       headers: {
         accept: 'application/json',
         'content-type': 'application/json',
+        ...csrfHeaders,
         ...options.headers,
       },
     });

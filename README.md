@@ -13,7 +13,7 @@ Le projet est organisé en monorepo avec une séparation claire entre le client 
 
 Le client porte l’expérience utilisateur : carte, planification d’itinéraire, suivi du trajet, préférences de mobilité, installation PWA, cache de tuiles et tableau de bord carbone local. Les composants lourds sont chargés à la demande avec `React.lazy` afin de garder le bundle initial plus léger.
 
-Le serveur centralise les accès externes et les règles métier partagées : authentification, favoris, appels IDF Mobilités, flux Vélib, fallback OSRM et calcul d’empreinte carbone. Le client ne contacte pas directement ces services métier, ce qui évite d’exposer les clés API et garde un format de réponse homogène.
+Le serveur centralise les accès externes et les règles métier partagées : authentification, favoris, appels IDF Mobilités, flux Vélib, fallback OSRM et calcul d’empreinte carbone. Le client ne contacte pas directement ces services métier, ce qui évite d’exposer les clés API et garde un format de réponse homogène. Les requêtes mutatrices utilisent un jeton CSRF obtenu via `GET /api/auth/csrf` et renvoyé dans l'en-tête `x-csrf-token`.
 
 ### Flux principal
 
