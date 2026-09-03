@@ -26,6 +26,29 @@
   flex: 0 0 auto;
 }
 
+.route-disruptions__loading {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 32px 12px;
+}
+
+.route-disruptions__loading span {
+  width: 30px;
+  height: 30px;
+  border: 3px solid
+    color-mix(in srgb, var(--color-warning) 22%, transparent);
+  border-top-color: var(--color-warning);
+  border-radius: 999px;
+  animation: route-disruptions-spin 0.8s linear infinite;
+}
+
+@keyframes route-disruptions-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .route-disruptions__group {
   display: grid;
   gap: 10px;
