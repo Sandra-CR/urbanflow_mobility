@@ -7,11 +7,18 @@ import { createCarbonRouter } from '../carbon/routes.js';
 
 process.env.JWT_SECRET = 'test-secret-with-enough-length-for-auth-tests';
 
+function bypassCsrf(req, res, next) {
+  next();
+}
+
 function createTestApp(query) {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-  app.use('/api/carbon', createCarbonRouter({ query }));
+  app.use(
+    '/api/carbon',
+    createCarbonRouter({ query, csrfProtection: bypassCsrf })
+  );
   return app;
 }
 

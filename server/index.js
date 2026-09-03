@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { fileURLToPath } from 'node:url';
 import { createAuthRouter } from './auth/routes.js';
 import { createCarbonRouter } from './carbon/routes.js';
@@ -29,16 +30,35 @@ const app = express();
  */
 const PORT = process.env.PORT || 3000;
 
-const clientOrigins = process.env.CLIENT_ORIGIN
-  ? process.env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim())
-  : true;
+export function getConfiguredClientOrigins(env = process.env) {
+  const configuredOrigins = String(env.CLIENT_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
-function isAllowedOrigin(origin) {
-  if (!origin || clientOrigins === true) {
+  if (configuredOrigins.length > 0) {
+    return configuredOrigins;
+  }
+
+  if (env.NODE_ENV === 'production') {
+    throw new Error('CLIENT_ORIGIN is required in production.');
+  }
+
+  return true;
+}
+
+const clientOrigins = getConfiguredClientOrigins();
+
+export function isAllowedOrigin(origin, allowedOrigins = clientOrigins) {
+  if (!origin) {
     return true;
   }
 
-  if (clientOrigins.includes(origin)) {
+  if (allowedOrigins === true) {
+    return true;
+  }
+
+  if (allowedOrigins.includes(origin)) {
     return true;
   }
 
@@ -115,6 +135,13 @@ function getDatabaseErrorResponse(error) {
   return null;
 }
 
+app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: 'cross-origin',
+    },
+  })
+);
 app.use(
   cors({
     origin(origin, callback) {

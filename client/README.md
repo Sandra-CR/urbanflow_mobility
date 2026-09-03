@@ -154,6 +154,8 @@ d'itinéraire.
 
 Les trajets terminés sont stockés dans la même base IndexedDB via `src/utils/completedJourneysDb.js`, dans le store `completed_journeys`. Si l'utilisateur est connecté, ils sont aussi synchronisés avec l'API `POST /api/carbon/completed-journeys` via `src/utils/carbonApi.js`. La lecture de la page `Mon carbone` utilise le serveur en priorité pour un compte connecté, puis fusionne les données locales afin de conserver les trajets enregistrés hors ligne.
 
+Les requêtes mutatrices envoyées aux API d'authentification, de favoris et de carbone utilisent une protection CSRF centralisée dans `src/utils/csrfApi.js`. Le client récupère un jeton via `GET /api/auth/csrf`, puis l'envoie dans l'en-tête `x-csrf-token`.
+
 Chaque entrée contient :
 
 - `type` : profil ou combinaison de modes du trajet.
