@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { fileURLToPath } from 'node:url';
 import { createAuthRouter } from './auth/routes.js';
 import { createCarbonRouter } from './carbon/routes.js';
@@ -134,6 +135,13 @@ function getDatabaseErrorResponse(error) {
   return null;
 }
 
+app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: 'cross-origin',
+    },
+  })
+);
 app.use(
   cors({
     origin(origin, callback) {
