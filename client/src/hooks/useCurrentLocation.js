@@ -1,17 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isValidCoordinatePair } from '../utils/geo';
-import { getPlaceFromCoordinates } from '../utils/idfmApi';
 
 const GEOLOCATION_WATCH_OPTIONS = {
   enableHighAccuracy: false,
-  maximumAge: 0,
+  maximumAge: 60000,
   timeout: 30000,
 };
 const GEOLOCATION_REFRESH_OPTIONS = {
   enableHighAccuracy: false,
-  maximumAge: 0,
+  maximumAge: 60000,
   timeout: 10000,
 };
+
+function scheduleAfterInitialRender(callback, timeout = 1800) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  if ('requestIdleCallback' in window) {
+    const idleId = window.requestIdleCallback(callback, { timeout });
+
+    return () => window.cancelIdleCallback(idleId);
+  }
+
+  const timeoutId = window.setTimeout(callback, timeout);
+
+  return () => window.clearTimeout(timeoutId);
+}
 
 export function useCurrentLocation({ onPositionChange } = {}) {
   const [userLocation, setUserLocation] = useState(null);
@@ -59,11 +74,7 @@ export function useCurrentLocation({ onPositionChange } = {}) {
       );
     };
 
-    const watchId = navigator.geolocation.watchPosition(
-      syncUserLocation,
-      () => {},
-      GEOLOCATION_WATCH_OPTIONS
-    );
+    let watchId = null;
 
     const handleVisibilityRefresh = () => {
       if (document.visibilityState === 'visible') {
@@ -71,12 +82,23 @@ export function useCurrentLocation({ onPositionChange } = {}) {
       }
     };
 
-    refreshCurrentPosition();
+    const cancelInitialGeolocation = scheduleAfterInitialRender(() => {
+      refreshCurrentPosition();
+      watchId = navigator.geolocation.watchPosition(
+        syncUserLocation,
+        () => {},
+        GEOLOCATION_WATCH_OPTIONS
+      );
+    });
+
     window.addEventListener('focus', refreshCurrentPosition);
     document.addEventListener('visibilitychange', handleVisibilityRefresh);
 
     return () => {
-      navigator.geolocation.clearWatch(watchId);
+      cancelInitialGeolocation();
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
       window.removeEventListener('focus', refreshCurrentPosition);
       document.removeEventListener('visibilitychange', handleVisibilityRefresh);
     };
@@ -90,35 +112,43 @@ export function useCurrentLocation({ onPositionChange } = {}) {
     let isMounted = true;
     const [lon, lat] = userLocation;
 
-    getPlaceFromCoordinates({ lon, lat })
-      .then((data) => {
-        if (!isMounted) {
-          return;
-        }
+    const cancelReverseGeocode = scheduleAfterInitialRender(() => {
+      import('../utils/idfmApi')
+        .then(({ getPlaceFromCoordinates }) =>
+          getPlaceFromCoordinates({ lon, lat })
+        )
+        .then((data) => {
+          if (!isMounted) {
+            return;
+          }
 
-        const resolvedPlace = data.place;
+          const resolvedPlace = data.place;
 
-        setUserLocationAddress({
-          coordinates: [lon, lat],
-          city: resolvedPlace?.city || null,
-          secondaryLabel:
-            resolvedPlace?.label || resolvedPlace?.name || 'Position actuelle',
+          setUserLocationAddress({
+            coordinates: [lon, lat],
+            city: resolvedPlace?.city || null,
+            secondaryLabel:
+              resolvedPlace?.label ||
+              resolvedPlace?.name ||
+              'Position actuelle',
+          });
+        })
+        .catch(() => {
+          if (!isMounted) {
+            return;
+          }
+
+          setUserLocationAddress({
+            coordinates: [lon, lat],
+            city: null,
+            secondaryLabel: 'Position actuelle',
+          });
         });
-      })
-      .catch(() => {
-        if (!isMounted) {
-          return;
-        }
-
-        setUserLocationAddress({
-          coordinates: [lon, lat],
-          city: null,
-          secondaryLabel: 'Position actuelle',
-        });
-      });
+    });
 
     return () => {
       isMounted = false;
+      cancelReverseGeocode();
     };
   }, [userLocation]);
 
