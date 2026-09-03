@@ -24,7 +24,7 @@ export function usePwaInstall() {
 
     function handleAppInstalled() {
       clearPwaInstallPrompt();
-      setCacheMessage('UrbanFlow est installÃ©e sur votre appareil.');
+      setCacheMessage('UrbanFlow est installée sur votre appareil.');
     }
 
     window.addEventListener('appinstalled', handleAppInstalled);
@@ -49,12 +49,12 @@ export function usePwaInstall() {
     const choiceResult = await promptEvent.userChoice;
 
     if (choiceResult.outcome === 'accepted') {
-      setCacheMessage("Installation de l'app lancÃ©e.");
+      setCacheMessage("Installation de l'app lancée.");
       clearPwaInstallPrompt();
       return;
     }
 
-    setCacheMessage("Installation de l'app annulÃ©e.");
+    setCacheMessage("Installation de l'app annulée.");
   }, [installPromptEvent]);
 
   return {

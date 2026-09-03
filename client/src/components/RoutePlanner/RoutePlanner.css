@@ -9,8 +9,7 @@
   min-width: 0;
   min-height: 0;
   overflow-x: hidden;
-  overflow-y: scroll;
-  scrollbar-gutter: stable;
+  overflow-y: auto;
   border-right: 1px solid
     color-mix(in srgb, var(--color-text-light) 18%, transparent);
   background: var(--color-background);
