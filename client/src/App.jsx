@@ -153,6 +153,8 @@ function App() {
   const [routePlannerResetKey, setRoutePlannerResetKey] = useState(0);
   const [journeys, setJourneys] = useState([]);
   const [disruptions, setDisruptions] = useState([]);
+  const [isLoadingDisruptions, setIsLoadingDisruptions] = useState(false);
+  const [hasLoadedDisruptions, setHasLoadedDisruptions] = useState(false);
   const [selectedJourney, setSelectedJourney] = useState(null);
   const [latestRoutePlaces, setLatestRoutePlaces] = useState(null);
   const [bikeStationPromptJourney, setBikeStationPromptJourney] =
@@ -173,6 +175,7 @@ function App() {
   const isRouteTrackingActiveRef = useRef(false);
   const selectedJourneyEndCoordinatesRef = useRef(null);
   const selectedJourneyRef = useRef(null);
+  const disruptionRequestIdRef = useRef(0);
   const savedCompletedJourneyKeyRef = useRef(null);
   const bikeStationModalRef = useRef(null);
   const trackingMessageModalRef = useRef(null);
@@ -265,14 +268,34 @@ function App() {
     return data.places || [];
   }, []);
 
-  const refreshDisruptions = useCallback(({ count = 30 } = {}) => {
+  const refreshDisruptions = useCallback(({ count = 200 } = {}) => {
+    const requestId = disruptionRequestIdRef.current + 1;
+    disruptionRequestIdRef.current = requestId;
+    setIsLoadingDisruptions(true);
+
     import('./utils/idfmApi')
       .then(({ getDisruptions }) => getDisruptions({ count }))
       .then((data) => {
+        if (disruptionRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setDisruptions(data.disruptions || []);
       })
       .catch(() => {
+        if (disruptionRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setDisruptions([]);
+      })
+      .finally(() => {
+        if (disruptionRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setHasLoadedDisruptions(true);
+        setIsLoadingDisruptions(false);
       });
   }, []);
 
@@ -653,10 +676,10 @@ function App() {
   }, []);
 
   const handleDisruptionsOpen = useCallback(() => {
-    if (disruptions.length === 0) {
+    if (!hasLoadedDisruptions && !isLoadingDisruptions) {
       refreshDisruptions();
     }
-  }, [disruptions.length, refreshDisruptions]);
+  }, [hasLoadedDisruptions, isLoadingDisruptions, refreshDisruptions]);
 
   useEffect(() => {
     const viewTitle = activeLegalPage
@@ -874,6 +897,7 @@ function App() {
                   key={routePlannerResetKey}
                   currentUser={currentUser}
                   disruptions={disruptions}
+                  hasLoadedDisruptions={hasLoadedDisruptions}
                   journeys={journeys}
                   selectedJourney={selectedJourney}
                   isRouteDetailsVisible={isRouteDetailsVisible}
@@ -882,6 +906,7 @@ function App() {
                   currentTrackedStepIndex={currentTrackedStepIndex}
                   trackedStepIndex={trackedStepIndex}
                   isLoading={isLoadingJourneys}
+                  isLoadingDisruptions={isLoadingDisruptions}
                   message={journeyMessage}
                   userLocation={userLocation}
                   onTrackedStepChange={setTrackedStepIndex}

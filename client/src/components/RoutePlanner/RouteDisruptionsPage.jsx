@@ -114,6 +114,7 @@ function RouteDisruptionDetails({ disruption }) {
 
 export default function RouteDisruptionsPage({
   disruptions,
+  isLoading = false,
   selectedDisruption,
   onBack,
   onSelect,
@@ -148,6 +149,15 @@ export default function RouteDisruptionsPage({
 
       {selectedDisruption ? (
         <RouteDisruptionDetails disruption={selectedDisruption} />
+      ) : isLoading ? (
+        <div
+          className="route-disruptions__loading"
+          role="status"
+          aria-live="polite"
+        >
+          <span aria-hidden="true" />
+          <p>Chargement des perturbations...</p>
+        </div>
       ) : disruptions.length > 0 ? (
         <>
           <RouteDisruptionGroup

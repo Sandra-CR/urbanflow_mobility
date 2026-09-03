@@ -640,9 +640,13 @@ function isWeekendOnlyMessage(message, now = new Date()) {
 
 function hasCurrentDateInExplicitMessageDates(message, now = new Date()) {
   const normalizedMessage = cleanDisruptionText(message);
+  const numericRangeSeparator = String.raw`\s*(?:-|au|a|\u00e0|jusqu['\u2019]au)\s*`;
   const numericRangeMatches = [
     ...normalizedMessage.matchAll(
-      /\b(\d{1,2})\/(\d{1,2})\s*-\s*(\d{1,2})\/(\d{1,2})\b/g
+      new RegExp(
+        String.raw`\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?${numericRangeSeparator}(?:\d{1,2}\/)?(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b`,
+        'gi'
+      )
     ),
   ];
   const dateMatches = [
