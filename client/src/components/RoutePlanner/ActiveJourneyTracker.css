@@ -89,7 +89,11 @@
   padding: 0;
   border: 1px solid var(--color-primary);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-background) 40%, var(--color-card));
+  background: color-mix(
+    in srgb,
+    var(--color-background) 40%,
+    var(--color-card)
+  );
   color: var(--color-primary);
   cursor: pointer;
 }
@@ -221,8 +225,10 @@
   background: var(--active-step-color);
 }
 
-.active-journey-tracker__stop[data-kind='start'] .active-journey-tracker__stop-dot,
-.active-journey-tracker__stop[data-kind='end'] .active-journey-tracker__stop-dot {
+.active-journey-tracker__stop[data-kind='start']
+  .active-journey-tracker__stop-dot,
+.active-journey-tracker__stop[data-kind='end']
+  .active-journey-tracker__stop-dot {
   width: 14px;
   height: 14px;
 }

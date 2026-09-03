@@ -1,11 +1,5 @@
 import { useState } from 'react';
-import {
-  CheckCircle,
-  Eye,
-  EyeClosed,
-  X,
-  XCircle,
-} from '@phosphor-icons/react';
+import { CheckCircle, Eye, EyeClosed, X, XCircle } from '@phosphor-icons/react';
 import DecorativePattern from '../DecorativePattern/DecorativePattern';
 import UrbanflowBrand from '../UrbanflowBrand/UrbanflowBrand';
 import './AuthPanel.css';

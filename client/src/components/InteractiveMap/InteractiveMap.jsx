@@ -1,64 +1,59 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { WifiSlash } from '@phosphor-icons/react';
 import * as maplibregl from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import { formatBikeCount, formatDockCount } from '../../utils/formatters';
 import { TILE_URLS } from '../../utils/offlineMapTiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './InteractiveMap.css';
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
-const LIGHT_STYLE = {
-  version: 8,
-  sources: {
-    cartoLight: {
-      type: 'raster',
-      tiles: [TILE_URLS.light],
-      tileSize: 256,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    },
-  },
-  layers: [
-    {
-      id: 'carto-light',
-      type: 'raster',
-      source: 'cartoLight',
-      minzoom: 0,
-      maxzoom: 20,
-    },
-  ],
-};
-
-const DARK_STYLE = {
-  version: 8,
-  sources: {
-    cartoDark: {
-      type: 'raster',
-      tiles: [TILE_URLS.dark],
-      tileSize: 256,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    },
-  },
-  layers: [
-    {
-      id: 'carto-dark',
-      type: 'raster',
-      source: 'cartoDark',
-      minzoom: 0,
-      maxzoom: 20,
-    },
-  ],
-};
-
 const ROUTE_SOURCE_ID = 'selected-route';
 const ROUTE_TRANSPORT_LAYER_ID = 'selected-route-transport-line';
 const ROUTE_WALK_LAYER_ID = 'selected-route-walk-line';
 const ROUTE_BIKE_LAYER_ID = 'selected-route-bike-line';
+const MAP_RESTORE_DELAYS_MS = [0, 80, 250, 700];
+const TILE_RELOAD_DEBOUNCE_MS = 900;
+const MAX_TILE_RELOAD_ATTEMPTS = 3;
+const CARTO_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-function getOnlineStyle(isDarkMode) {
-  return isDarkMode ? DARK_STYLE : LIGHT_STYLE;
+function withTileReloadToken(url, reloadToken = null) {
+  if (!reloadToken) {
+    return url;
+  }
+
+  const separator = url.includes('?') ? '&' : '?';
+
+  return `${url}${separator}urbanflow_tile_retry=${reloadToken}`;
+}
+
+function getOnlineStyle(isDarkMode, reloadToken = null) {
+  const theme = isDarkMode ? 'dark' : 'light';
+  const sourceId = isDarkMode ? 'cartoDark' : 'cartoLight';
+  const layerId = isDarkMode ? 'carto-dark' : 'carto-light';
+
+  return {
+    version: 8,
+    sources: {
+      [sourceId]: {
+        type: 'raster',
+        tiles: [withTileReloadToken(TILE_URLS[theme], reloadToken)],
+        tileSize: 256,
+        attribution: CARTO_ATTRIBUTION,
+      },
+    },
+    layers: [
+      {
+        id: layerId,
+        type: 'raster',
+        source: sourceId,
+        minzoom: 0,
+        maxzoom: 20,
+      },
+    ],
+  };
 }
 
 function collapseAttributionControl(map) {
@@ -78,20 +73,6 @@ function createStationMarker(station) {
   marker.title = station.name;
 
   return marker;
-}
-
-function formatBikeCount(count) {
-  const safeCount = Number(count);
-  const bikeCount = Number.isFinite(safeCount) ? safeCount : 0;
-
-  return `${bikeCount} ${bikeCount === 1 ? 'vélo' : 'vélos'}`;
-}
-
-function formatDockCount(count) {
-  const safeCount = Number(count);
-  const dockCount = Number.isFinite(safeCount) ? safeCount : 0;
-
-  return `${dockCount} ${dockCount === 1 ? 'place' : 'places'}`;
 }
 
 function createStationPopup(station) {
@@ -473,10 +454,99 @@ export default function InteractiveMap({
   const initialCenterRef = useRef(center);
   const initialZoomRef = useRef(zoom);
   const initialIsDarkModeRef = useRef(isDarkMode);
+  const latestIsDarkModeRef = useRef(isDarkMode);
+  const latestSelectedRouteRef = useRef(selectedRoute);
+  const latestUserLocationRef = useRef(userLocation);
+  const resizeTimeoutsRef = useRef([]);
+  const tileReloadTimeoutRef = useRef(null);
+  const tileReloadAttemptsRef = useRef(0);
   const lastUserLocationKeyRef = useRef(null);
   const lastFocusedSectionKeyRef = useRef(null);
   const styleKey = isDarkMode ? 'dark' : 'light';
   const mapStyle = useMemo(() => getOnlineStyle(isDarkMode), [isDarkMode]);
+
+  const clearRestoreTimeouts = useCallback(() => {
+    resizeTimeoutsRef.current.forEach((timeoutId) => {
+      window.clearTimeout(timeoutId);
+    });
+    resizeTimeoutsRef.current = [];
+  }, []);
+
+  const restoreMapAfterReveal = useCallback(() => {
+    const map = mapRef.current;
+
+    if (!map) {
+      return;
+    }
+
+    clearRestoreTimeouts();
+
+    resizeTimeoutsRef.current = MAP_RESTORE_DELAYS_MS.map((delay) =>
+      window.setTimeout(() => {
+        if (mapRef.current !== map) {
+          return;
+        }
+
+        map.resize();
+
+        const nextUserLocation = latestUserLocationRef.current;
+
+        if (!latestSelectedRouteRef.current && nextUserLocation) {
+          map.easeTo({
+            center: nextUserLocation,
+            zoom: Math.max(map.getZoom(), 15),
+            duration: delay === 0 ? 0 : 450,
+            essential: true,
+          });
+        }
+      }, delay)
+    );
+  }, [clearRestoreTimeouts]);
+
+  const reloadBaseTiles = useCallback(() => {
+    const map = mapRef.current;
+
+    if (
+      !map ||
+      typeof navigator === 'undefined' ||
+      !navigator.onLine ||
+      tileReloadAttemptsRef.current >= MAX_TILE_RELOAD_ATTEMPTS
+    ) {
+      return;
+    }
+
+    tileReloadAttemptsRef.current += 1;
+
+    const camera = {
+      center: map.getCenter(),
+      zoom: map.getZoom(),
+      bearing: map.getBearing(),
+      pitch: 0,
+    };
+
+    map.setStyle(
+      getOnlineStyle(latestIsDarkModeRef.current, Date.now().toString(36))
+    );
+    map.once('styledata', () => {
+      map.jumpTo(camera);
+      drawRouteWhenReady(map, latestSelectedRouteRef.current);
+      restoreMapAfterReveal();
+    });
+  }, [restoreMapAfterReveal]);
+
+  const scheduleTileReload = useCallback(() => {
+    window.clearTimeout(tileReloadTimeoutRef.current);
+    tileReloadTimeoutRef.current = window.setTimeout(
+      reloadBaseTiles,
+      TILE_RELOAD_DEBOUNCE_MS
+    );
+  }, [reloadBaseTiles]);
+
+  useEffect(() => {
+    latestIsDarkModeRef.current = isDarkMode;
+    latestSelectedRouteRef.current = selectedRoute;
+    latestUserLocationRef.current = userLocation;
+  }, [isDarkMode, selectedRoute, userLocation]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -528,10 +598,14 @@ export default function InteractiveMap({
     );
 
     map.once('idle', () => collapseAttributionControl(map));
+    map.once('idle', () => {
+      tileReloadAttemptsRef.current = 0;
+    });
     map.on('drag', () => collapseAttributionControl(map));
 
     map.on('error', (event) => {
       console.error('MapLibre error:', event.error);
+      scheduleTileReload();
     });
 
     // Garde la carte nette quand son parent change de taille.
@@ -541,8 +615,11 @@ export default function InteractiveMap({
     resizeObserver.observe(mapContainerRef.current);
 
     mapRef.current = map;
+    restoreMapAfterReveal();
 
     return () => {
+      window.clearTimeout(tileReloadTimeoutRef.current);
+      clearRestoreTimeouts();
       resizeObserver.disconnect();
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
@@ -554,7 +631,40 @@ export default function InteractiveMap({
       mapRef.current = null;
       activeStyleRef.current = null;
     };
-  }, []);
+  }, [clearRestoreTimeouts, restoreMapAfterReveal, scheduleTileReload]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const handleMapRestore = () => {
+      tileReloadAttemptsRef.current = 0;
+      restoreMapAfterReveal();
+
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        scheduleTileReload();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleMapRestore();
+      }
+    };
+
+    window.addEventListener('focus', handleMapRestore);
+    window.addEventListener('pageshow', handleMapRestore);
+    window.addEventListener('online', handleMapRestore);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleMapRestore);
+      window.removeEventListener('pageshow', handleMapRestore);
+      window.removeEventListener('online', handleMapRestore);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [restoreMapAfterReveal, scheduleTileReload]);
 
   useEffect(() => {
     const map = mapRef.current;

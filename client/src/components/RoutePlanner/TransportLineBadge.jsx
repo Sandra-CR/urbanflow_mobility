@@ -1,9 +1,4 @@
-function normalizeMode(mode = '') {
-  return String(mode || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
+import { normalizeMode } from '../../utils/text';
 
 export default function TransportLineBadge({ line = {} }) {
   const lineMode = normalizeMode(line.commercialMode || line.physicalMode);
