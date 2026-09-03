@@ -7,11 +7,18 @@ import { createFavoritesRouter } from '../favorites/routes.js';
 
 process.env.JWT_SECRET = 'test-secret-with-enough-length-for-auth-tests';
 
+function bypassCsrf(req, res, next) {
+  next();
+}
+
 function createTestApp(query) {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-  app.use('/api/favorites', createFavoritesRouter({ query }));
+  app.use(
+    '/api/favorites',
+    createFavoritesRouter({ query, csrfProtection: bypassCsrf })
+  );
   return app;
 }
 
@@ -101,7 +108,7 @@ test('liste les favoris de la categorie demandee', async () => {
   }
 });
 
-test('supprime un favori de l\'utilisateur connecte', async () => {
+test("supprime un favori de l'utilisateur connecte", async () => {
   const queries = [];
   const userId = 'user-1';
   const token = signAuthToken({
@@ -137,7 +144,7 @@ test('supprime un favori de l\'utilisateur connecte', async () => {
   }
 });
 
-test('remplace le domicile existant lors d\'un nouvel enregistrement', async () => {
+test("remplace le domicile existant lors d'un nouvel enregistrement", async () => {
   const queries = [];
   const userId = 'user-1';
   const token = signAuthToken({

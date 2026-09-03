@@ -1,12 +1,16 @@
+import { getCsrfHeaders } from './csrfApi';
+
 const API_BASE_URL =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:3000';
 
 async function requestAuth(path, options = {}) {
+  const csrfHeaders = await getCsrfHeaders(options.method);
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     credentials: 'include',
     headers: {
       'content-type': 'application/json',
+      ...csrfHeaders,
       ...options.headers,
     },
   });
