@@ -648,10 +648,7 @@ function hasCurrentDateInExplicitMessageDates(message, now = new Date()) {
   const dateMatches = [
     ...normalizedMessage.matchAll(/\b(\d{1,2})-(\d{1,2})\/(\d{1,2})\b/g),
     ...normalizedMessage
-      .replace(
-        /\b\d{1,2}\/\d{1,2}\s*-\s*\d{1,2}\/\d{1,2}\b/g,
-        ''
-      )
+      .replace(/\b\d{1,2}\/\d{1,2}\s*-\s*\d{1,2}\/\d{1,2}\b/g, '')
       .matchAll(/\b(\d{1,2})\/(\d{1,2})\b/g),
   ];
 
@@ -885,7 +882,9 @@ function normalizeTrafficReports(data, { now = new Date() } = {}) {
     });
   });
 
-  return sortDisruptions(groupDisruptionsByLine([...normalizedDisruptions.values()]));
+  return sortDisruptions(
+    groupDisruptionsByLine([...normalizedDisruptions.values()])
+  );
 }
 
 function getPlaceLines(embeddedObject) {
@@ -2185,13 +2184,7 @@ export async function fetchPlaceFromCoordinates(
  * @throws {Error} 502/504 si l'API IDF Mobilités échoue ou expire.
  */
 export async function fetchJourneys(
-  {
-    from,
-    to,
-    fromCoordinates,
-    toCoordinates,
-    wheelchairAccessible = false,
-  },
+  { from, to, fromCoordinates, toCoordinates, wheelchairAccessible = false },
   { fetchImpl = fetch, signal } = {}
 ) {
   const safeFrom = String(from || '').trim();

@@ -573,7 +573,13 @@ test('fetchDisruptions trie les interruptions puis perturbations hors bus', asyn
     assert.equal(requestedUrls[0].searchParams.get('until'), '20260827T100000');
     assert.deepEqual(
       result.disruptions.map((disruption) => disruption.id),
-      ['line:metro:1', 'line:rer:C', 'line:rer:B', 'line:rer:D', 'line:tram:T3A']
+      [
+        'line:metro:1',
+        'line:rer:C',
+        'line:rer:B',
+        'line:rer:D',
+        'line:tram:T3A',
+      ]
     );
     assert.deepEqual(
       result.disruptions.map((disruption) => disruption.type),
