@@ -38,8 +38,7 @@
   );
 }
 
-.map-test-page
-  :where(a, button, input, [role='button'], [tabindex]):focus-visible {
+.map-test-page :where(a, button, [role='button'], [tabindex]):focus-visible {
   outline: 3px solid color-mix(in srgb, var(--color-primary) 72%, transparent) !important;
   outline-offset: 3px !important;
 }
@@ -201,22 +200,18 @@
 .bike-station-modal {
   display: grid;
   gap: 18px;
+  max-height: calc(100svh - 48px);
+  overflow-y: auto;
   text-align: left;
 }
 
 .bike-station-modal-overlay[data-mode='stations'] {
-  place-items: start end;
-  pointer-events: none;
-  background: transparent;
-  backdrop-filter: none;
+  place-items: center;
 }
 
 .bike-station-modal-overlay[data-mode='stations'] .bike-station-modal {
-  width: min(360px, calc(100vw - 32px));
-  margin-top: 86px;
-  margin-right: 16px;
-  padding: 18px;
-  pointer-events: auto;
+  width: min(420px, calc(100vw - 48px));
+  padding: 20px;
 }
 
 .bike-station-modal p {
@@ -289,6 +284,30 @@
 .bike-station-modal__message {
   display: block;
   text-align: center;
+}
+
+@media (max-width: 640px) {
+  .route-tracking-modal.bike-station-modal-overlay {
+    padding: 0;
+  }
+
+  .bike-station-modal-overlay .bike-station-modal,
+  .bike-station-modal-overlay[data-mode='stations'] .bike-station-modal {
+    width: 100vw;
+    min-height: 100svh;
+    max-height: 100svh;
+    padding: 24px 18px;
+    border-radius: 0;
+    align-content: center;
+  }
+
+  .bike-station-modal-overlay[data-mode='stations'] .bike-station-modal {
+    align-content: start;
+  }
+
+  .bike-station-modal__actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 .map-workspace {

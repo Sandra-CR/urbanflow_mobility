@@ -32,7 +32,7 @@ export default function AppNavigation({
   onRoutesClick,
 }) {
   const accountLabel = currentUser ? 'Mon compte' : 'Connexion';
-  const navigationItems = [
+  const primaryNavigationItems = [
     {
       id: 'routes',
       label: 'Itinéraires',
@@ -57,14 +57,12 @@ export default function AppNavigation({
       Icon: Trophy,
       isActive: false,
     },
-    {
-      id: 'account',
-      label: accountLabel,
-      Icon: User,
-      isActive: isAuthPanelOpen,
-      onClick: onAccountClick,
-    },
   ];
+  const accountNavigationItem = {
+    label: accountLabel,
+    isActive: isAuthPanelOpen,
+    onClick: onAccountClick,
+  };
 
   return (
     <nav className="app-navigation" aria-label="Navigation principale">
@@ -82,9 +80,8 @@ export default function AppNavigation({
             alt=""
           />
         </button>
-        {navigationItems
-          .slice(0, 3)
-          .map(({ id, label, Icon, isActive, onClick }) => (
+        {primaryNavigationItems.map(
+          ({ id, label, Icon, isActive, onClick }) => (
             <button
               className="app-navigation__item"
               data-active={isActive}
@@ -97,14 +94,15 @@ export default function AppNavigation({
               <Icon weight="regular" aria-hidden="true" />
               <span>{label}</span>
             </button>
-          ))}
+          )
+        )}
       </div>
       <button
         className="app-navigation__item app-navigation__item--account"
-        data-active={navigationItems[3].isActive}
+        data-active={accountNavigationItem.isActive}
         type="button"
-        aria-current={navigationItems[3].isActive ? 'page' : undefined}
-        onClick={navigationItems[3].onClick}
+        aria-current={accountNavigationItem.isActive ? 'page' : undefined}
+        onClick={accountNavigationItem.onClick}
       >
         <User weight="regular" aria-hidden="true" />
         <span>{accountLabel}</span>

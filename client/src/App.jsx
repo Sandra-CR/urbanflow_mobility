@@ -13,6 +13,7 @@ import LegalFooter from './components/LegalFooter/LegalFooter';
 import MapActions from './components/MapActions/MapActions';
 import OfflineCacheToast from './components/OfflineCacheToast/OfflineCacheToast';
 import { useCurrentLocation } from './hooks/useCurrentLocation';
+import { useModalFocusTrap } from './hooks/useModalFocusTrap';
 import { useOfflineTileCache } from './hooks/useOfflineTileCache';
 import { usePwaInstall } from './hooks/usePwaInstall';
 import { useTheme } from './hooks/useTheme';
@@ -152,6 +153,8 @@ function App() {
   const selectedJourneyEndCoordinatesRef = useRef(null);
   const selectedJourneyRef = useRef(null);
   const savedCompletedJourneyKeyRef = useRef(null);
+  const bikeStationModalRef = useRef(null);
+  const trackingMessageModalRef = useRef(null);
 
   const saveCompletedJourneyOnce = useCallback(
     (journey) => {
@@ -175,6 +178,28 @@ function App() {
     },
     [currentUser]
   );
+
+  const handleBikeStationPromptClose = useCallback(() => {
+    setBikeStationPromptJourney(null);
+    setBikeStationChoices([]);
+    setBikeStationMessage('');
+    setIsLoadingBikeStations(false);
+  }, []);
+
+  const handleTrackingPopupClose = useCallback(() => {
+    setTrackingPopupMessage('');
+  }, []);
+
+  useModalFocusTrap({
+    isOpen: Boolean(bikeStationPromptJourney),
+    dialogRef: bikeStationModalRef,
+    onClose: handleBikeStationPromptClose,
+  });
+  useModalFocusTrap({
+    isOpen: Boolean(trackingPopupMessage),
+    dialogRef: trackingMessageModalRef,
+    onClose: handleTrackingPopupClose,
+  });
 
   const handleUserPositionChange = useCallback(
     (nextCoordinates) => {
@@ -901,10 +926,12 @@ function App() {
           role="presentation"
         >
           <div
+            ref={bikeStationModalRef}
             className="route-tracking-modal__dialog bike-station-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="bike-station-modal-title"
+            tabIndex={-1}
           >
             <p id="bike-station-modal-title">Avez-vous un vélo ?</p>
             {bikeStationChoices.length === 0 ? (
@@ -961,16 +988,18 @@ function App() {
       {trackingPopupMessage ? (
         <div className="route-tracking-modal" role="presentation">
           <div
+            ref={trackingMessageModalRef}
             className="route-tracking-modal__dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="route-tracking-modal-title"
+            tabIndex={-1}
           >
             <p id="route-tracking-modal-title">{trackingPopupMessage}</p>
             <button
               className="btn-primary route-tracking-modal__button"
               type="button"
-              onClick={() => setTrackingPopupMessage('')}
+              onClick={handleTrackingPopupClose}
             >
               J'ai compris
             </button>

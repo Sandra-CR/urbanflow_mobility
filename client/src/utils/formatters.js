@@ -2,7 +2,7 @@ export function formatBikeCount(count) {
   const safeCount = Number(count);
   const bikeCount = Number.isFinite(safeCount) ? safeCount : 0;
 
-  return `${bikeCount} ${bikeCount === 1 ? 'vÃ©lo' : 'vÃ©los'}`;
+  return `${bikeCount} ${bikeCount === 1 ? 'vélo' : 'vélos'}`;
 }
 
 export function formatDockCount(count) {
