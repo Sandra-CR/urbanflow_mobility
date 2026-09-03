@@ -46,15 +46,17 @@ export default function FavoritePlaceAddForm({
   return (
     <div className="route-favorite-add">
       {usesCustomName ? (
-        <label className="route-favorite-add__field" htmlFor={nameId}>
-          <span className="form-field-label sm">Nom</span>
-          <div className="route-favorite-add__input">
+        <label className="route-field" htmlFor={nameId}>
+          <div className="route-field__input">
+            <span className="route-field__tag">Nom</span>
             <input
               id={nameId}
               type="text"
               value={favoriteName}
+              placeholder="Nom du favori"
               maxLength={100}
               autoComplete="off"
+              aria-label="Nom"
               onChange={(event) => onFavoriteNameChange(event.target.value)}
             />
           </div>
@@ -69,7 +71,7 @@ export default function FavoritePlaceAddForm({
         excludedRecentPlace={null}
         syncKey={favoriteSearchSyncKey}
         syncedQuery={favoritePlace?.label || ''}
-        showInlineLabel={false}
+        showInlineLabel
         showRecentSearches={false}
         recentPlaces={[]}
         inputRef={null}
