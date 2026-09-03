@@ -2,17 +2,25 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import { createAuthRouter } from '../auth/routes.js';
+import { createAuthRateLimiter, createAuthRouter } from '../auth/routes.js';
+import { CSRF_COOKIE_NAME, requireCsrfProtection } from '../auth/csrf.js';
 import { getAuthCookieOptions, signAuthToken } from '../auth/jwt.js';
 import { validateStrongPassword } from '../auth/passwordPolicy.js';
 
 process.env.JWT_SECRET = 'test-secret-with-enough-length-for-auth-tests';
 
-function createTestApp(query) {
+function bypassCsrf(req, res, next) {
+  next();
+}
+
+function createTestApp(query, options = {}) {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-  app.use('/api/auth', createAuthRouter({ query }));
+  app.use(
+    '/api/auth',
+    createAuthRouter({ query, csrfProtection: bypassCsrf, ...options })
+  );
   return app;
 }
 
@@ -189,6 +197,148 @@ test('renvoie l utilisateur courant avec une session valide', async () => {
 
     assert.strictEqual(response.status, 200);
     assert.strictEqual(body.user.email, user.email);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("limite les tentatives d'authentification par adresse IP", async () => {
+  const app = createTestApp(
+    async (text) => {
+      if (text.includes('from users')) {
+        return {
+          rowCount: 0,
+          rows: [],
+        };
+      }
+
+      throw new Error(`Unexpected query: ${text}`);
+    },
+    {
+      authRateLimiter: createAuthRateLimiter({
+        windowMs: 60 * 1000,
+        max: 1,
+      }),
+    }
+  );
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const requestOptions = {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: 'user@example.com',
+        password: 'UrbanFlow!2026',
+      }),
+    };
+    const firstResponse = await fetch(
+      `${baseUrl}/api/auth/login`,
+      requestOptions
+    );
+    const secondResponse = await fetch(
+      `${baseUrl}/api/auth/login`,
+      requestOptions
+    );
+    const body = await secondResponse.json();
+
+    assert.strictEqual(firstResponse.status, 401);
+    assert.strictEqual(secondResponse.status, 429);
+    assert.match(body.error, /Trop de tentatives/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('fournit un jeton CSRF utilisable par le client', async () => {
+  const app = createTestApp(async () => {
+    throw new Error('Unexpected query while reading CSRF token');
+  });
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/csrf`);
+    const body = await response.json();
+    const cookie = response.headers.get('set-cookie');
+
+    assert.strictEqual(response.status, 200);
+    assert.match(body.csrfToken, /^[a-f0-9]{64}\.[a-f0-9]{64}$/);
+    assert.match(cookie, new RegExp(`${CSRF_COOKIE_NAME}=`));
+    assert.doesNotMatch(cookie, /HttpOnly/i);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('refuse une requete mutatrice sans jeton CSRF valide', async () => {
+  const app = createTestApp(
+    async () => {
+      throw new Error('Unexpected query without CSRF token');
+    },
+    {
+      csrfProtection: requireCsrfProtection,
+    }
+  );
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: 'user@example.com',
+        password: 'UrbanFlow!2026',
+      }),
+    });
+    const body = await response.json();
+
+    assert.strictEqual(response.status, 403);
+    assert.match(body.error, /CSRF/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('accepte une requete mutatrice avec un jeton CSRF valide', async () => {
+  const app = createTestApp(
+    async (text) => {
+      if (text.includes('from users')) {
+        return {
+          rowCount: 0,
+          rows: [],
+        };
+      }
+
+      throw new Error(`Unexpected query: ${text}`);
+    },
+    {
+      csrfProtection: requireCsrfProtection,
+    }
+  );
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const csrfResponse = await fetch(`${baseUrl}/api/auth/csrf`);
+    const { csrfToken } = await csrfResponse.json();
+    const csrfCookie = csrfResponse.headers.get('set-cookie').split(';')[0];
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: csrfCookie,
+        'x-csrf-token': csrfToken,
+      },
+      body: JSON.stringify({
+        email: 'user@example.com',
+        password: 'UrbanFlow!2026',
+      }),
+    });
+
+    assert.strictEqual(response.status, 401);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

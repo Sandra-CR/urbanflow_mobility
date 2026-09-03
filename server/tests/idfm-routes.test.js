@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import express from 'express';
-import { createIdfmRouter } from '../idfm/routes.js';
+import { createIdfmRateLimiter, createIdfmRouter } from '../idfm/routes.js';
 
 function listen(app) {
   return new Promise((resolve) => {
@@ -434,6 +434,38 @@ test('la route place-from-coordinates renvoie un lieu resolu', async () => {
     assert.equal(response.status, 200);
     assert.equal(body.place.label, '5 Avenue Anatole France');
     assert.deepEqual(body.place.coordinates, [2.3522, 48.8566]);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('limite les requetes vers les endpoints IDFM publics', async () => {
+  const app = express();
+
+  app.use(
+    '/api/idfm',
+    createIdfmRouter({
+      idfmRateLimiter: createIdfmRateLimiter({
+        windowMs: 60 * 1000,
+        max: 1,
+      }),
+      fetchDisruptions: async () => ({
+        disruptions: [],
+        pagination: null,
+      }),
+    })
+  );
+
+  const { server, baseUrl } = await listen(app);
+
+  try {
+    const firstResponse = await fetch(`${baseUrl}/api/idfm/disruptions`);
+    const secondResponse = await fetch(`${baseUrl}/api/idfm/disruptions`);
+    const body = await secondResponse.json();
+
+    assert.equal(firstResponse.status, 200);
+    assert.equal(secondResponse.status, 429);
+    assert.match(body.error, /Trop de requêtes/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

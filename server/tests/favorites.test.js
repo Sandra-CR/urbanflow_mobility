@@ -7,11 +7,18 @@ import { createFavoritesRouter } from '../favorites/routes.js';
 
 process.env.JWT_SECRET = 'test-secret-with-enough-length-for-auth-tests';
 
+function bypassCsrf(req, res, next) {
+  next();
+}
+
 function createTestApp(query) {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-  app.use('/api/favorites', createFavoritesRouter({ query }));
+  app.use(
+    '/api/favorites',
+    createFavoritesRouter({ query, csrfProtection: bypassCsrf })
+  );
   return app;
 }
 

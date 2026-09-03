@@ -1,6 +1,7 @@
 import express from 'express';
 import { query as defaultQuery } from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
+import { requireCsrfProtection } from '../auth/csrf.js';
 
 const FAVORITE_CATEGORIES = ['favorite', 'home', 'work'];
 const FAVORITE_CATEGORY_SET = new Set(FAVORITE_CATEGORIES);
@@ -75,9 +76,13 @@ function toFavoritePlace(row) {
  *
  * @param {object} [options] Dépendances injectables.
  * @param {Function} [options.query] Fonction SQL compatible avec `db.query`.
+ * @param {Function} [options.csrfProtection] Middleware de validation CSRF.
  * @returns {object} Routeur Express configuré.
  */
-export function createFavoritesRouter({ query = defaultQuery } = {}) {
+export function createFavoritesRouter({
+  query = defaultQuery,
+  csrfProtection = requireCsrfProtection,
+} = {}) {
   const router = express.Router();
 
   router.use(requireAuth);
@@ -115,7 +120,7 @@ export function createFavoritesRouter({ query = defaultQuery } = {}) {
     }
   });
 
-  router.post('/', async (req, res, next) => {
+  router.post('/', csrfProtection, async (req, res, next) => {
     const category = normalizeCategory(req.body?.category);
     const label = String(req.body?.label || '')
       .trim()
@@ -176,7 +181,7 @@ export function createFavoritesRouter({ query = defaultQuery } = {}) {
     }
   });
 
-  router.delete('/:favoriteId', async (req, res, next) => {
+  router.delete('/:favoriteId', csrfProtection, async (req, res, next) => {
     const favoriteId = String(req.params.favoriteId || '').trim();
 
     if (!favoriteId) {

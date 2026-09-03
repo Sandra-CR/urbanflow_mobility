@@ -33,6 +33,9 @@ paths:
       tags:
         - Auth
       summary: Créer un compte et ouvrir une session.
+      description: Requiert un jeton CSRF transmis dans l'en-tête `x-csrf-token`.
+      security:
+        - csrfHeader: []
       requestBody:
         required: true
         content:
@@ -59,6 +62,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/CsrfError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
   /api/auth/login:
@@ -66,6 +73,9 @@ paths:
       tags:
         - Auth
       summary: Ouvrir une session.
+      description: Requiert un jeton CSRF transmis dans l'en-tête `x-csrf-token`.
+      security:
+        - csrfHeader: []
       requestBody:
         required: true
         content:
@@ -88,6 +98,10 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CsrfError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/ServerError'
   /api/auth/logout:
@@ -95,6 +109,9 @@ paths:
       tags:
         - Auth
       summary: Fermer la session courante.
+      description: Requiert un jeton CSRF transmis dans l'en-tête `x-csrf-token`.
+      security:
+        - csrfHeader: []
       responses:
         '204':
           description: Session fermée.
@@ -103,6 +120,25 @@ paths:
               schema:
                 type: string
               description: Cookie `urbanflow_auth` vidé.
+        '403':
+          $ref: '#/components/responses/CsrfError'
+  /api/auth/csrf:
+    get:
+      tags:
+        - Auth
+      summary: Obtenir un jeton CSRF.
+      responses:
+        '200':
+          description: Jeton CSRF créé et posé dans le cookie `urbanflow_csrf`.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Cookie lisible `urbanflow_csrf`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfTokenResponse'
   /api/auth/me:
     get:
       tags:
@@ -124,13 +160,17 @@ paths:
       tags:
         - Auth
       summary: Supprimer le compte connecté.
+      description: Requiert un jeton CSRF transmis dans l'en-tête `x-csrf-token`.
       security:
         - cookieAuth: []
+          csrfHeader: []
       responses:
         '204':
           description: Compte supprimé et session fermée.
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CsrfError'
         '500':
           $ref: '#/components/responses/ServerError'
   /api/carbon/completed-journeys:
@@ -155,8 +195,10 @@ paths:
       tags:
         - Carbon
       summary: Enregistrer ou mettre à jour un trajet terminé.
+      description: Requiert un jeton CSRF transmis dans l'en-tête `x-csrf-token`.
       security:
         - cookieAuth: []
+          csrfHeader: []
       requestBody:
         required: true
         content:
@@ -174,6 +216,8 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CsrfError'
         '500':
           $ref: '#/components/responses/ServerError'
   /api/idfm/nearby-stations:
@@ -211,6 +255,8 @@ paths:
                 $ref: '#/components/schemas/NearbyStationsResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '503':
@@ -240,6 +286,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DisruptionsResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '503':
@@ -291,6 +339,8 @@ paths:
                 $ref: '#/components/schemas/BikeStationsResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '504':
@@ -323,6 +373,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlacesResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '503':
@@ -394,6 +446,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '503':
@@ -426,6 +480,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '502':
           $ref: '#/components/responses/IdfmUnavailable'
         '504':
@@ -436,6 +492,10 @@ components:
       type: apiKey
       in: cookie
       name: urbanflow_auth
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: x-csrf-token
   parameters:
     Lon:
       name: lon
@@ -464,6 +524,18 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Authentification requise ou session invalide.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    CsrfError:
+      description: Jeton CSRF absent ou invalide.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Trop de requêtes sur la fenêtre de limitation.
       content:
         application/json:
           schema:
@@ -549,6 +621,14 @@ components:
         createdAt:
           type: string
           format: date-time
+    CsrfTokenResponse:
+      type: object
+      required:
+        - csrfToken
+      properties:
+        csrfToken:
+          type: string
+          example: 8d51c4a4f4a52d73b0b88bda2d96834aa5f97b2d8d5f0c8f33ad94272adf9e2b.2f8d4f1d0fd0337eb31d2c7d9d8c7c4a6b729066391bb8f3c66a5bb1d31d8f21
     UserResponse:
       type: object
       required:
