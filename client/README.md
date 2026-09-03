@@ -33,6 +33,22 @@ Le client lit ses variables depuis `client/.env`. Copier `client/.env.example` v
 
 Chaque composant partagé vit dans son propre dossier sous `src/components`. Le fichier JSX et son CSS restent côte à côte, par exemple `src/components/RoutePlanner/RoutePlanner.jsx` et `src/components/RoutePlanner/RoutePlanner.css`.
 
+Les comportements transverses du client sont placés dans `src/hooks` lorsqu’ils orchestrent des API navigateur ou plusieurs états React. Les utilitaires purs sont placés dans `src/utils` afin d’éviter les duplications entre la carte, le planificateur et le suivi d’itinéraire.
+
+Hooks principaux :
+
+- `useTheme` : lecture et écriture du thème dans `localStorage`.
+- `usePwaInstall` : capture de l’événement d’installation PWA et messages associés.
+- `useOfflineTileCache` : préchargement des tuiles Carto autour de Paris.
+- `useCurrentLocation` : suivi de géolocalisation, rafraîchissement au focus et résolution de la position en lieu utilisable.
+
+Utilitaires partagés :
+
+- `text.js` : normalisation de libellés de modes de transport.
+- `geo.js` : validation de coordonnées, distances et projection plane locale.
+- `formatters.js` : formatage des distances et disponibilités de stations.
+- `journeyUtils.js` : extraction des coordonnées et sections suivables d’un trajet.
+
 ### Page 404
 
 La page `src/components/NotFoundPage/NotFoundPage.jsx` est affichée lorsque `App.jsx` détecte une URL inconnue au chargement ou lors d'une navigation navigateur. Les chemins explicitement reconnus sont centralisés dans `KNOWN_APP_PATHS`.
@@ -136,7 +152,9 @@ des itinéraires (`co2` par défaut, ou `time`) et
 `wheelchair`). La page `Mon compte` permet de modifier ces valeurs hors calcul
 d'itinéraire.
 
-Les trajets terminés sont stockés dans la même base IndexedDB via `src/utils/completedJourneysDb.js`, dans le store `completed_journeys`. Ils alimentent la page `Mon carbone` sans limite applicative de nombre de trajets enregistrés. Chaque entrée contient :
+Les trajets terminés sont stockés dans la même base IndexedDB via `src/utils/completedJourneysDb.js`, dans le store `completed_journeys`. Si l'utilisateur est connecté, ils sont aussi synchronisés avec l'API `POST /api/carbon/completed-journeys` via `src/utils/carbonApi.js`. La lecture de la page `Mon carbone` utilise le serveur en priorité pour un compte connecté, puis fusionne les données locales afin de conserver les trajets enregistrés hors ligne.
+
+Chaque entrée contient :
 
 - `type` : profil ou combinaison de modes du trajet.
 - `completedAt` : date ISO de fin du trajet.
@@ -152,7 +170,20 @@ La page `src/components/CarbonPage/CarbonPage.jsx` lit l'ensemble de ces entrée
 - moyenne de CO2 consommé par kilomètre ;
 - classement horizontal des types de transport préférés.
 
-Si IndexedDB est indisponible ou vide, la page reste accessible et affiche des états vides.
+Si IndexedDB ou l'API serveur est indisponible, la page reste accessible et utilise les données disponibles. Un utilisateur non connecté conserve uniquement un historique local au navigateur.
+
+## Performance
+
+Le client utilise le chargement différé avec `React.lazy` et `Suspense` depuis `src/App.jsx`. Les pages et surfaces les plus lourdes sont chargées dans des chunks séparés : carte MapLibre, planificateur d’itinéraire, page carbone avec Chart.js, compte, authentification, pages légales et page 404.
+
+Cette organisation réduit le bundle JavaScript initial et isole les dépendances coûteuses. Après modification d’un import important, vérifier la sortie de `npm run build --prefix client` et surveiller :
+
+- la taille du chunk `index-*.js`, qui correspond au socle initial ;
+- le chunk `InteractiveMap-*.js`, attendu comme le plus lourd à cause de MapLibre ;
+- le chunk `CarbonPage-*.js`, attendu à cause de Chart.js ;
+- la liste des fichiers précachés par la PWA.
+
+Un avertissement Vite peut rester présent pour `InteractiveMap` si le chunk dépasse `500 kB` minifié. Ce n’est pas bloquant tant que MapLibre reste isolé du bundle d’entrée.
 
 ## Icônes
 
@@ -240,6 +271,19 @@ Puis vérifier manuellement :
 - contraste lisible en thème clair et sombre ;
 - absence de scroll horizontal global sur mobile ;
 - lecture cohérente des pages principales avec un lecteur d'écran ou un outil d'audit d'accessibilité.
+
+## Recette frontend
+
+Tester au minimum les scénarios suivants avant une livraison :
+
+- écran principal : carte visible, panneau d’itinéraire utilisable, bouton de repli fonctionnel ;
+- recherche : suggestions affichées, sélection départ/arrivée, inversion des lieux, message clair si aucun itinéraire n’est trouvé ;
+- résultats : tri par CO2 et par temps, fiche de route, retour aux résultats ;
+- suivi : bouton `Go`, refus si l’utilisateur est trop loin du départ, écran de fin de trajet si la destination est atteinte ;
+- carbone : trajet terminé visible dans `Mon carbone`, puis toujours présent après reconnexion avec le même compte ;
+- favoris : ajout depuis un compte connecté, affichage dans les préférences, suppression depuis `Mon compte` ;
+- PWA : message d’installation, cache des tuiles, comportement acceptable hors ligne ;
+- accessibilité : navigation clavier complète, focus visible, intitulés des boutons à icône seule, respect de `prefers-reduced-motion`.
 
 ## Logos et assets de marque
 

@@ -1,3 +1,8 @@
+import {
+  getRemoteCompletedJourneys,
+  saveRemoteCompletedJourney,
+} from './carbonApi';
+
 const DB_NAME = 'urbanflow_mobility';
 const DB_VERSION = 3;
 const STORE_NAME = 'completed_journeys';
@@ -51,6 +56,35 @@ function getJourneyDistanceKm(journey) {
   );
 
   return sectionsDistanceKm > 0 ? sectionsDistanceKm : null;
+}
+
+function createCompletedJourneyRecord(journey) {
+  const carbonFootprint = journey?.carbonFootprint;
+  const totalCo2e = Number(carbonFootprint?.total_co2e);
+  const carSoloCo2e = Number(carbonFootprint?.car_solo_co2e);
+
+  if (!Number.isFinite(totalCo2e) || !Number.isFinite(carSoloCo2e)) {
+    return null;
+  }
+
+  const generatedId =
+    window.crypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const completedAt = new Date().toISOString();
+
+  return {
+    id: generatedId,
+    journeyId: journey?.id || null,
+    type: getJourneyType(journey),
+    completedAt,
+    distanceKm: getJourneyDistanceKm(journey),
+    carbonFootprint: {
+      total_co2e: totalCo2e,
+      car_solo_co2e: carSoloCo2e,
+      savings_vs_car_solo_co2e: carSoloCo2e - totalCo2e,
+      unit: carbonFootprint?.unit || 'gCO2e',
+    },
+  };
 }
 
 function openCompletedJourneysDb() {
@@ -114,37 +148,22 @@ function withCompletedJourneysStore(mode, callback) {
  * @param {object} journey Itinéraire normalisé selectionné par l'utilisateur.
  * @returns {Promise<void>}
  */
-export async function saveCompletedJourney(journey) {
-  const carbonFootprint = journey?.carbonFootprint;
-  const totalCo2e = Number(carbonFootprint?.total_co2e);
-  const carSoloCo2e = Number(carbonFootprint?.car_solo_co2e);
+export async function saveCompletedJourney(
+  journey,
+  { syncRemote = false } = {}
+) {
+  const record = createCompletedJourneyRecord(journey);
 
-  if (!Number.isFinite(totalCo2e) || !Number.isFinite(carSoloCo2e)) {
+  if (!record) {
     return;
   }
 
-  const completedAt = new Date().toISOString();
-  const distanceKm = getJourneyDistanceKm(journey);
-
-  const generatedId =
-    window.crypto?.randomUUID?.() ||
-    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-  await withCompletedJourneysStore('readwrite', (store) => {
-    store.put({
-      id: generatedId,
-      journeyId: journey?.id || null,
-      type: getJourneyType(journey),
-      completedAt,
-      distanceKm,
-      carbonFootprint: {
-        total_co2e: totalCo2e,
-        car_solo_co2e: carSoloCo2e,
-        savings_vs_car_solo_co2e: carSoloCo2e - totalCo2e,
-        unit: carbonFootprint?.unit || 'gCO2e',
-      },
-    });
-  });
+  await Promise.all([
+    withCompletedJourneysStore('readwrite', (store) => {
+      store.put(record);
+    }).catch(() => {}),
+    syncRemote ? saveRemoteCompletedJourney(record).catch(() => {}) : null,
+  ]);
 }
 
 /**
@@ -152,7 +171,7 @@ export async function saveCompletedJourney(journey) {
  *
  * @returns {Promise<CompletedJourneyRecord[]>}
  */
-export async function getCompletedJourneys() {
+async function getLocalCompletedJourneys() {
   return withCompletedJourneysStore('readonly', (store) => {
     const request = store.getAll();
 
@@ -171,4 +190,35 @@ export async function getCompletedJourneys() {
       request.onerror = () => reject(request.error);
     });
   }).catch(() => []);
+}
+
+function mergeCompletedJourneys(primaryJourneys, secondaryJourneys) {
+  const journeysById = new Map();
+
+  [...primaryJourneys, ...secondaryJourneys].forEach((journey) => {
+    if (journey?.id && !journeysById.has(journey.id)) {
+      journeysById.set(journey.id, journey);
+    }
+  });
+
+  return [...journeysById.values()].sort(
+    (firstJourney, secondJourney) =>
+      new Date(secondJourney.completedAt).getTime() -
+      new Date(firstJourney.completedAt).getTime()
+  );
+}
+
+export async function getCompletedJourneys({ syncRemote = false } = {}) {
+  const localJourneys = await getLocalCompletedJourneys();
+
+  if (!syncRemote) {
+    return localJourneys;
+  }
+
+  try {
+    const remoteJourneys = await getRemoteCompletedJourneys();
+    return mergeCompletedJourneys(remoteJourneys, localJourneys);
+  } catch {
+    return localJourneys;
+  }
 }
