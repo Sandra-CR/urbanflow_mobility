@@ -86,7 +86,7 @@ test('fetchJourneys utilise les coordonnees pour les transports quand elles exis
   }
 });
 
-test('fetchJourneys transmet le mode fauteuil roulant a Navitia', async () => {
+test('fetchJourneys transmet le mode PMR à Navitia', async () => {
   const previousApiKey = process.env.IDFM_API_KEY;
   process.env.IDFM_API_KEY = 'test-api-key';
   const journeyUrls = [];
