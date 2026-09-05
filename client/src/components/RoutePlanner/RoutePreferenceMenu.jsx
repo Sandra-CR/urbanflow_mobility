@@ -44,7 +44,7 @@ const favoritePreferenceConfig = {
   star: {
     category: 'favorite',
     titleLabel: 'Favoris',
-    emptyLabel: 'Aucun favori enregistre.',
+    emptyLabel: 'Aucun favori enregistré',
     loginLabel: 'vos favoris',
     Icon: Star,
     usesCustomName: true,
@@ -53,7 +53,7 @@ const favoritePreferenceConfig = {
   house: {
     category: 'home',
     titleLabel: 'Domicile',
-    emptyLabel: 'Aucun domicile enregistre.',
+    emptyLabel: 'Aucun domicile enregistré',
     loginLabel: 'votre domicile',
     Icon: House,
     defaultLabel: 'Domicile',
@@ -64,7 +64,7 @@ const favoritePreferenceConfig = {
   bag: {
     category: 'work',
     titleLabel: 'Travail',
-    emptyLabel: 'Aucun lieu de travail enregistre.',
+    emptyLabel: 'Aucun lieu de travail enregistré',
     loginLabel: 'votre lieu de travail',
     Icon: BagSimple,
     defaultLabel: 'Travail',

@@ -1211,6 +1211,7 @@ function getDominantLabel(profile) {
 export default function RoutePlanner({
   currentUser,
   disruptions = [],
+  hasLoadedDisruptions = false,
   journeys = [],
   selectedJourney,
   isRouteDetailsVisible,
@@ -1219,6 +1220,7 @@ export default function RoutePlanner({
   currentTrackedStepIndex = 0,
   trackedStepIndex = 0,
   isLoading,
+  isLoadingDisruptions = false,
   message,
   userLocation = null,
   userLocationPlace,
@@ -1564,6 +1566,7 @@ export default function RoutePlanner({
       >
         <RouteDisruptionsPage
           disruptions={sortedDisruptions}
+          isLoading={isLoadingDisruptions}
           selectedDisruption={selectedDisruption}
           onBack={handleDisruptionsBack}
           onSelect={setSelectedDisruption}
@@ -1591,7 +1594,11 @@ export default function RoutePlanner({
           <button
             className="route-disruptions-button"
             type="button"
-            aria-label={`Afficher les perturbations (${sortedDisruptions.length})`}
+            aria-label={
+              hasLoadedDisruptions
+                ? `Afficher les perturbations (${sortedDisruptions.length})`
+                : 'Afficher les perturbations'
+            }
             aria-expanded={isDisruptionsOpen}
             title="Afficher les perturbations"
             onClick={() => {
@@ -1600,7 +1607,9 @@ export default function RoutePlanner({
             }}
           >
             <Warning size={22} weight="fill" aria-hidden="true" />
-            <span>{sortedDisruptions.length}</span>
+            {hasLoadedDisruptions ? (
+              <span>{sortedDisruptions.length}</span>
+            ) : null}
           </button>
         </div>
 
@@ -1691,7 +1700,7 @@ export default function RoutePlanner({
               >
                 <option value={ROUTE_ACCESSIBILITY_MODES.standard}>Tous</option>
                 <option value={ROUTE_ACCESSIBILITY_MODES.wheelchair}>
-                  Fauteuil
+                  PMR
                 </option>
               </select>
             </div>

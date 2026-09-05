@@ -640,9 +640,13 @@ function isWeekendOnlyMessage(message, now = new Date()) {
 
 function hasCurrentDateInExplicitMessageDates(message, now = new Date()) {
   const normalizedMessage = cleanDisruptionText(message);
+  const numericRangeSeparator = String.raw`\s*(?:-|au|a|\u00e0|jusqu['\u2019]au)\s*`;
   const numericRangeMatches = [
     ...normalizedMessage.matchAll(
-      /\b(\d{1,2})\/(\d{1,2})\s*-\s*(\d{1,2})\/(\d{1,2})\b/g
+      new RegExp(
+        String.raw`\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?${numericRangeSeparator}(?:\d{1,2}\/)?(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b`,
+        'gi'
+      )
     ),
   ];
   const dateMatches = [
@@ -1012,7 +1016,7 @@ function createPlacesUrl({ query, count }, baseUrl) {
  *
  * Quand `wheelchairAccessible` est actif, le paramètre Navitia
  * `wheelchair=true` est ajouté afin de demander des parcours en transports
- * compatibles avec un accès fauteuil roulant.
+ * compatibles avec un accès PMR.
  *
  * @param {object} params Paramètres de requête Navitia.
  * @param {string} params.from Identifiant ou coordonnées du départ.
@@ -1022,7 +1026,7 @@ function createPlacesUrl({ query, count }, baseUrl) {
  * @param {string[]} [params.firstSectionModes=['walking']] Modes de rabattement.
  * @param {string[]} [params.lastSectionModes=['walking']] Modes de fin de parcours.
  * @param {number} params.count Nombre d'itinéraires demandés.
- * @param {boolean} [params.wheelchairAccessible=false] Demande les itinéraires accessibles fauteuil roulant.
+ * @param {boolean} [params.wheelchairAccessible=false] Demande les itinéraires accessibles PMR.
  * @param {string} baseUrl Base URL Navitia IDF Mobilités.
  * @returns {URL} URL Navitia prête à appeler.
  */
@@ -2173,7 +2177,7 @@ export async function fetchPlaceFromCoordinates(
  * @param {string} params.to Identifiant IDF Mobilités de l'arrivée.
  * @param {number[] | string[]} [params.fromCoordinates] Coordonnées `[longitude, latitude]` du départ.
  * @param {number[] | string[]} [params.toCoordinates] Coordonnées `[longitude, latitude]` de l'arrivée.
- * @param {boolean} [params.wheelchairAccessible=false] Ajoute `wheelchair=true` aux requêtes Navitia pour demander des transports accessibles fauteuil roulant.
+ * @param {boolean} [params.wheelchairAccessible=false] Ajoute `wheelchair=true` aux requêtes Navitia pour demander des transports accessibles PMR.
  * @param {object} [dependencies] Dépendances injectables.
  * @param {Function} [dependencies.fetchImpl] Implémentation compatible fetch.
  * @param {AbortSignal} [dependencies.signal] Signal d'annulation.

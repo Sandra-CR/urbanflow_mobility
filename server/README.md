@@ -104,7 +104,7 @@ Le contrat strict de l'API est décrit dans `server/openapi.yaml` au format Open
 `GET /api/idfm/journeys` accepte le paramètre optionnel
 `wheelchairAccessible=true`. Quand il est présent, le serveur transmet
 `wheelchair=true` à Navitia pour demander des itinéraires en transports
-compatibles avec un accès fauteuil roulant.
+compatibles avec un accès PMR.
 
 L'API est exposée sur `http://localhost:3000` par défaut. Les routes d'authentification utilisent un cookie httpOnly nommé `urbanflow_auth`.
 
@@ -172,7 +172,7 @@ Ce comportement évite qu'une indisponibilité Supabase bloque le calcul d'itin�
 
 La page client `Mon carbone` s'appuie sur ces valeurs carbone. Le serveur reste responsable du calcul par itinéraire, notamment `total_co2e`, `car_solo_co2e` et `savings_vs_car_solo_co2e`, avant que le client n'enregistre le trajet terminé localement et, si possible, dans `user_completed_journeys`.
 
-### Accessibilité fauteuil roulant
+### Accessibilité PMR
 
 La route `GET /api/idfm/journeys` peut recevoir
 `wheelchairAccessible=true`. Ce paramètre est volontairement nommé côté API

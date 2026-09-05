@@ -192,7 +192,7 @@ test('la route journeys expose les messages de service des itineraires', async (
   }
 });
 
-test('la route journeys transmet le mode fauteuil roulant', async () => {
+test('la route journeys transmet le mode PMR', async () => {
   const app = express();
   const journey = {
     id: 'journey-1',

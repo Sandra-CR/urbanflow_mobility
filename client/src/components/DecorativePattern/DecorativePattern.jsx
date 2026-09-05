@@ -52,12 +52,15 @@ const PATTERN_ICONS = [
  *
  * @returns {import('react').JSX.Element} Motif d'icones non interactif.
  */
-export default function DecorativePattern() {
+export default function DecorativePattern({
+  coverViewport = true,
+  minHeight = PATTERN_TILE_MIN_HEIGHT,
+}) {
   const patternRef = useRef(null);
   const [layout, setLayout] = useState({
-    height: PATTERN_TILE_MIN_HEIGHT,
+    height: minHeight,
     repeats: 1,
-    tileHeight: PATTERN_TILE_MIN_HEIGHT,
+    tileHeight: minHeight || PATTERN_TILE_MIN_HEIGHT,
   });
 
   useEffect(() => {
@@ -69,13 +72,30 @@ export default function DecorativePattern() {
       return undefined;
     }
 
+    const getContentHeight = () => {
+      return Array.from(containerElement.children).reduce(
+        (contentHeight, child) => {
+          if (child === patternElement) {
+            return contentHeight;
+          }
+
+          return Math.max(contentHeight, child.offsetTop + child.offsetHeight);
+        },
+        0
+      );
+    };
+
     const updatePatternLayout = () => {
       const viewportHeight =
         containerElement.clientHeight ||
         window.innerHeight ||
         PATTERN_TILE_MIN_HEIGHT;
-      const tileHeight = Math.max(viewportHeight, PATTERN_TILE_MIN_HEIGHT);
-      const height = Math.max(containerElement.scrollHeight, viewportHeight);
+      const contentHeight = getContentHeight();
+      const baseHeight = coverViewport
+        ? Math.max(contentHeight, viewportHeight)
+        : contentHeight;
+      const tileHeight = Math.max(minHeight, PATTERN_TILE_MIN_HEIGHT);
+      const height = Math.max(baseHeight, minHeight);
       const repeats = Math.max(1, Math.ceil(height / tileHeight));
 
       setLayout((currentLayout) => {
@@ -120,7 +140,7 @@ export default function DecorativePattern() {
       mutationObserver.disconnect();
       window.removeEventListener('resize', schedulePatternLayoutUpdate);
     };
-  }, []);
+  }, [coverViewport, minHeight]);
 
   return (
     <div

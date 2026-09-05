@@ -86,7 +86,7 @@ test('fetchJourneys utilise les coordonnees pour les transports quand elles exis
   }
 });
 
-test('fetchJourneys transmet le mode fauteuil roulant a Navitia', async () => {
+test('fetchJourneys transmet le mode PMR à Navitia', async () => {
   const previousApiKey = process.env.IDFM_API_KEY;
   process.env.IDFM_API_KEY = 'test-api-key';
   const journeyUrls = [];
@@ -482,6 +482,32 @@ test('fetchDisruptions trie les interruptions puis perturbations hors bus', asyn
             ],
           },
           {
+            id: 'rer-a-numeric-au-range',
+            status: 'active',
+            severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Travaux' },
+            messages: [
+              {
+                text: 'RER A : travaux du 25/08 au 12/09 entre Nanterre et Cergy',
+              },
+            ],
+            application_periods: [
+              { begin: '20260827T060000', end: '20260827T110000' },
+            ],
+            impacted_objects: [
+              {
+                pt_object: {
+                  embedded_type: 'line',
+                  line: {
+                    id: 'line:rer:A',
+                    code: 'A',
+                    name: 'RER A',
+                    commercial_mode: 'RER',
+                  },
+                },
+              },
+            ],
+          },
+          {
             id: 'tram-vague',
             status: 'active',
             severity: { effect: 'SIGNIFICANT_DELAYS', name: 'Retards' },
@@ -576,6 +602,7 @@ test('fetchDisruptions trie les interruptions puis perturbations hors bus', asyn
       [
         'line:metro:1',
         'line:rer:C',
+        'line:rer:A',
         'line:rer:B',
         'line:rer:D',
         'line:tram:T3A',
@@ -589,11 +616,16 @@ test('fetchDisruptions trie les interruptions puis perturbations hors bus', asyn
         'perturbation',
         'perturbation',
         'perturbation',
+        'perturbation',
       ]
     );
     assert.equal(result.disruptions[0].line.code, '1');
     assert.equal(result.disruptions[1].count, 3);
-    assert.equal(result.disruptions[4].message, 'Retards sur Bibliothèque');
+    assert.equal(
+      result.disruptions.find((disruption) => disruption.id === 'line:tram:T3A')
+        .message,
+      'Retards sur Bibliothèque'
+    );
     assert.equal(result.pagination.total_result, 12);
   } finally {
     if (previousApiKey) {

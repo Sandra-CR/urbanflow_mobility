@@ -31,6 +31,9 @@ import {
 import './App.css';
 
 const AccountPage = lazy(() => import('./components/AccountPage/AccountPage'));
+const AchievementsPage = lazy(
+  () => import('./components/AchievementsPage/AchievementsPage')
+);
 const AuthPanel = lazy(() => import('./components/AuthPanel/AuthPanel'));
 const CarbonPage = lazy(() => import('./components/CarbonPage/CarbonPage'));
 const InteractiveMap = lazy(
@@ -134,6 +137,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
   const [showAccountPage, setShowAccountPage] = useState(false);
+  const [showAchievementsPage, setShowAchievementsPage] = useState(false);
   const [showCarbonPage, setShowCarbonPage] = useState(false);
   const [activeLegalPage, setActiveLegalPage] = useState(null);
   const [isNotFoundPage, setIsNotFoundPage] = useState(() => {
@@ -153,6 +157,8 @@ function App() {
   const [routePlannerResetKey, setRoutePlannerResetKey] = useState(0);
   const [journeys, setJourneys] = useState([]);
   const [disruptions, setDisruptions] = useState([]);
+  const [isLoadingDisruptions, setIsLoadingDisruptions] = useState(false);
+  const [hasLoadedDisruptions, setHasLoadedDisruptions] = useState(false);
   const [selectedJourney, setSelectedJourney] = useState(null);
   const [latestRoutePlaces, setLatestRoutePlaces] = useState(null);
   const [bikeStationPromptJourney, setBikeStationPromptJourney] =
@@ -173,6 +179,7 @@ function App() {
   const isRouteTrackingActiveRef = useRef(false);
   const selectedJourneyEndCoordinatesRef = useRef(null);
   const selectedJourneyRef = useRef(null);
+  const disruptionRequestIdRef = useRef(0);
   const savedCompletedJourneyKeyRef = useRef(null);
   const bikeStationModalRef = useRef(null);
   const trackingMessageModalRef = useRef(null);
@@ -265,14 +272,34 @@ function App() {
     return data.places || [];
   }, []);
 
-  const refreshDisruptions = useCallback(({ count = 30 } = {}) => {
+  const refreshDisruptions = useCallback(({ count = 200 } = {}) => {
+    const requestId = disruptionRequestIdRef.current + 1;
+    disruptionRequestIdRef.current = requestId;
+    setIsLoadingDisruptions(true);
+
     import('./utils/idfmApi')
       .then(({ getDisruptions }) => getDisruptions({ count }))
       .then((data) => {
+        if (disruptionRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setDisruptions(data.disruptions || []);
       })
       .catch(() => {
+        if (disruptionRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setDisruptions([]);
+      })
+      .finally(() => {
+        if (disruptionRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setHasLoadedDisruptions(true);
+        setIsLoadingDisruptions(false);
       });
   }, []);
 
@@ -398,6 +425,7 @@ function App() {
     setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowAchievementsPage(false);
     setShowCarbonPage(false);
   }
 
@@ -408,6 +436,7 @@ function App() {
     setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowAchievementsPage(false);
     setShowCarbonPage(false);
   }
 
@@ -418,6 +447,7 @@ function App() {
     setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowAchievementsPage(false);
     setShowCarbonPage(false);
   }
 
@@ -428,6 +458,7 @@ function App() {
     setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowAchievementsPage(false);
     setShowCarbonPage(false);
   }
 
@@ -625,6 +656,7 @@ function App() {
     setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowAchievementsPage(false);
     setShowCarbonPage(false);
     setActiveLegalPage(null);
     setIsRoutePlannerCollapsed(false);
@@ -648,24 +680,37 @@ function App() {
     setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowAchievementsPage(false);
     setActiveLegalPage(null);
     setShowCarbonPage(true);
   }, []);
 
+  const handleAchievementsPageOpen = useCallback(() => {
+    replaceBrowserPath('/');
+    setIsNotFoundPage(false);
+    setShowAuthPanel(false);
+    setShowAccountPage(false);
+    setShowCarbonPage(false);
+    setActiveLegalPage(null);
+    setShowAchievementsPage(true);
+  }, []);
+
   const handleDisruptionsOpen = useCallback(() => {
-    if (disruptions.length === 0) {
+    if (!hasLoadedDisruptions && !isLoadingDisruptions) {
       refreshDisruptions();
     }
-  }, [disruptions.length, refreshDisruptions]);
+  }, [hasLoadedDisruptions, isLoadingDisruptions, refreshDisruptions]);
 
   useEffect(() => {
     const viewTitle = activeLegalPage
       ? LEGAL_PAGE_TITLES[activeLegalPage] || 'Informations légales'
       : showCarbonPage
         ? 'Mon carbone'
-        : showAccountPage && currentUser
-          ? 'Mon compte'
-          : 'Itinéraires';
+        : showAchievementsPage
+          ? 'Mes succès'
+          : showAccountPage && currentUser
+            ? 'Mon compte'
+            : 'Itinéraires';
 
     const resolvedViewTitle = isNotFoundPage ? 'Page introuvable' : viewTitle;
 
@@ -674,6 +719,7 @@ function App() {
     activeLegalPage,
     currentUser,
     isNotFoundPage,
+    showAchievementsPage,
     showAccountPage,
     showCarbonPage,
   ]);
@@ -683,6 +729,7 @@ function App() {
     setIsNotFoundPage(false);
     setShowAuthPanel(false);
     setShowAccountPage(false);
+    setShowAchievementsPage(false);
     setShowCarbonPage(false);
     setActiveLegalPage(pageId);
     setIsRoutePlannerCollapsed(false);
@@ -766,6 +813,7 @@ function App() {
       <AppNavigation
         currentUser={currentUser}
         isDarkMode={isDarkMode}
+        isAchievementsPageOpen={showAchievementsPage}
         isAuthPanelOpen={showAuthPanel || showAccountPage}
         isCarbonPageOpen={showCarbonPage}
         isLegalPageOpen={Boolean(activeLegalPage)}
@@ -776,14 +824,17 @@ function App() {
           if (currentUser) {
             setShowAuthPanel(false);
             setShowAccountPage(true);
+            setShowAchievementsPage(false);
             setShowCarbonPage(false);
             setActiveLegalPage(null);
           } else {
             setShowAuthPanel(true);
+            setShowAchievementsPage(false);
             setShowCarbonPage(false);
             setActiveLegalPage(null);
           }
         }}
+        onAchievementsClick={handleAchievementsPageOpen}
         onBrandClick={handleRoutesHome}
         onCarbonClick={handleCarbonPageOpen}
         onRoutesClick={handleRoutesHome}
@@ -797,6 +848,7 @@ function App() {
       />
 
       {!showAccountPage &&
+      !showAchievementsPage &&
       !showCarbonPage &&
       !activeLegalPage &&
       !isNotFoundPage ? (
@@ -822,6 +874,13 @@ function App() {
           />
         ) : showCarbonPage ? (
           <CarbonPage
+            currentUser={currentUser}
+            isDarkMode={isDarkMode}
+            onLegalLinkClick={handleLegalPageOpen}
+            onToggleDarkMode={handleToggleDarkMode}
+          />
+        ) : showAchievementsPage ? (
+          <AchievementsPage
             currentUser={currentUser}
             isDarkMode={isDarkMode}
             onLegalLinkClick={handleLegalPageOpen}
@@ -874,6 +933,7 @@ function App() {
                   key={routePlannerResetKey}
                   currentUser={currentUser}
                   disruptions={disruptions}
+                  hasLoadedDisruptions={hasLoadedDisruptions}
                   journeys={journeys}
                   selectedJourney={selectedJourney}
                   isRouteDetailsVisible={isRouteDetailsVisible}
@@ -882,6 +942,7 @@ function App() {
                   currentTrackedStepIndex={currentTrackedStepIndex}
                   trackedStepIndex={trackedStepIndex}
                   isLoading={isLoadingJourneys}
+                  isLoadingDisruptions={isLoadingDisruptions}
                   message={journeyMessage}
                   userLocation={userLocation}
                   onTrackedStepChange={setTrackedStepIndex}
