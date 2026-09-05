@@ -16,10 +16,7 @@ import {
 import { getCompletedJourneys } from '../../utils/completedJourneysDb';
 import DecorativePattern from '../DecorativePattern/DecorativePattern';
 import LegalFooter from '../LegalFooter/LegalFooter';
-import {
-  ACHIEVEMENT_CATEGORIES,
-  ACHIEVEMENT_LEVELS,
-} from './achievementsData';
+import { ACHIEVEMENT_CATEGORIES, ACHIEVEMENT_LEVELS } from './achievementsData';
 import './AchievementsPage.css';
 
 const CATEGORY_ICONS = {
@@ -103,7 +100,10 @@ function getTodayDateKey() {
 function getBestStreakDays(journeys) {
   const dayIndexes = [
     ...new Set(
-      journeys.map(getCompletedJourneyDateKey).filter(Boolean).map(getDateKeyDayIndex)
+      journeys
+        .map(getCompletedJourneyDateKey)
+        .filter(Boolean)
+        .map(getDateKeyDayIndex)
     ),
   ].sort((firstDay, secondDay) => firstDay - secondDay);
 
@@ -126,7 +126,10 @@ function getBestStreakDays(journeys) {
 
 function getCurrentStreakDays(journeys) {
   const completedDayIndexes = new Set(
-    journeys.map(getCompletedJourneyDateKey).filter(Boolean).map(getDateKeyDayIndex)
+    journeys
+      .map(getCompletedJourneyDateKey)
+      .filter(Boolean)
+      .map(getDateKeyDayIndex)
   );
   let currentDayIndex = getDateKeyDayIndex(getTodayDateKey());
   let currentStreakDays = 0;
@@ -215,7 +218,9 @@ function formatMetricValue(value, unit) {
   const roundedValue = Math.floor(numericValue);
   const unitLabels = COUNTABLE_UNITS[unit];
   const unitLabel =
-    roundedValue === 1 && unitLabels ? unitLabels.singular : unitLabels?.plural || unit;
+    roundedValue === 1 && unitLabels
+      ? unitLabels.singular
+      : unitLabels?.plural || unit;
 
   return `${roundedValue.toLocaleString('fr-FR')} ${unitLabel}`;
 }
@@ -331,8 +336,9 @@ export default function AchievementsPage({
       count: allAchievements.filter(
         (achievement) => achievement.level === level && achievement.unlocked
       ).length,
-      total: allAchievements.filter((achievement) => achievement.level === level)
-        .length,
+      total: allAchievements.filter(
+        (achievement) => achievement.level === level
+      ).length,
     };
   });
 
@@ -433,7 +439,11 @@ export default function AchievementsPage({
             <h2 id="achievements-list-title">Tous les succès</h2>
           </div>
 
-          <div className="achievements-filter" role="group" aria-label="Filtrer les succès">
+          <div
+            className="achievements-filter"
+            role="group"
+            aria-label="Filtrer les succès"
+          >
             {ACHIEVEMENT_FILTERS.map((filter) => {
               const count =
                 filter.id === 'unlocked'
