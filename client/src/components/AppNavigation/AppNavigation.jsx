@@ -23,11 +23,13 @@ import './AppNavigation.css';
 export default function AppNavigation({
   currentUser,
   isDarkMode,
+  isAchievementsPageOpen = false,
   isAuthPanelOpen,
   isCarbonPageOpen = false,
   isLegalPageOpen = false,
   isNotFoundPageOpen = false,
   onAccountClick,
+  onAchievementsClick,
   onBrandClick,
   onCarbonClick,
   onRoutesClick,
@@ -41,6 +43,7 @@ export default function AppNavigation({
       Icon: MapTrifold,
       isActive:
         !isAuthPanelOpen &&
+        !isAchievementsPageOpen &&
         !isCarbonPageOpen &&
         !isLegalPageOpen &&
         !isNotFoundPageOpen,
@@ -57,7 +60,8 @@ export default function AppNavigation({
       id: 'achievements',
       label: 'Mes succès',
       Icon: Trophy,
-      isActive: false,
+      isActive: isAchievementsPageOpen,
+      onClick: onAchievementsClick,
     },
   ];
   const accountNavigationItem = {

@@ -1700,7 +1700,7 @@ export default function RoutePlanner({
               >
                 <option value={ROUTE_ACCESSIBILITY_MODES.standard}>Tous</option>
                 <option value={ROUTE_ACCESSIBILITY_MODES.wheelchair}>
-                  Fauteuil
+                  PMR
                 </option>
               </select>
             </div>

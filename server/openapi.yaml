@@ -378,7 +378,7 @@ paths:
           schema:
             type: boolean
             default: false
-          description: Limite les itinéraires aux transports accessibles en fauteuil roulant quand la valeur vaut true.
+          description: Limite les itinéraires aux transports accessibles PMR quand la valeur vaut true.
       responses:
         '200':
           description: Itinéraires calculés.

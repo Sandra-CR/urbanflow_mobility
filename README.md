@@ -18,7 +18,7 @@ Le serveur centralise les accès externes et les règles métier partagées : au
 ### Flux principal
 
 1. L’utilisateur saisit un départ et une arrivée dans le planificateur.
-2. Le client appelle `GET /api/idfm/journeys` avec les lieux sélectionnés et, si nécessaire, l’option d’accessibilité fauteuil roulant.
+2. Le client appelle `GET /api/idfm/journeys` avec les lieux sélectionnés et, si nécessaire, l’option d’accessibilité PMR.
 3. Le serveur interroge IDF Mobilités, ajoute les trajets directs marche/vélo si besoin, calcule les émissions CO2 et renvoie des itinéraires normalisés.
 4. Le client affiche les résultats, la carte et les détails du trajet.
 5. Lorsqu’un trajet suivi est terminé, son bilan carbone est enregistré localement et synchronisé côté serveur pour les utilisateurs connectés.
@@ -121,7 +121,7 @@ Avant une démonstration ou une livraison, vérifier les parcours suivants :
 
 - ouvrir l’application sur `/` et confirmer que la carte, le panneau d’itinéraire et la navigation s’affichent ;
 - rechercher un itinéraire avec deux lieux valides, puis consulter la fiche détaillée ;
-- activer le mode fauteuil roulant et vérifier que le vélo est désactivé dans les résultats ;
+- activer le mode PMR et vérifier que le vélo est désactivé dans les résultats ;
 - sélectionner un trajet vélo, refuser d’avoir un vélo personnel, puis choisir une borne Vélib proposée ;
 - créer un compte, se reconnecter, ajouter un lieu favori et le supprimer ;
 - terminer un trajet suivi lorsque la géolocalisation le permet, puis ouvrir `Mon carbone` ;

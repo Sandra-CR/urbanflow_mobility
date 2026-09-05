@@ -39,7 +39,7 @@ panneaux.
   page `Mon compte`.
 - Les résultats gardent toujours l'ordre de groupes `A pied`, puis `A vélo`,
   puis transports. Le tri CO2/temps s'applique à l'intérieur de ces groupes.
-- En mode `Accès` fauteuil, le trajet marche reste disponible avec l'icône
+- En mode `Accès` PMR, le trajet marche reste disponible avec l'icône
   Phosphor `WheelchairMotion`, tandis que le trajet vélo est désactivé.
 - Le bouton perturbations ouvre une page interne qui remplace le contenu
   itinéraire. Un retour depuis le détail revient à la liste des perturbations ;
